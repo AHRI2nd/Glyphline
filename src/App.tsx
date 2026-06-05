@@ -9,7 +9,8 @@ import { NATIVE_EXT, type SubFormat } from "./types/subtitle";
 import { checkForUpdate } from "./utils/updateCheck";
 import { installAppMenu, type MenuHandlers } from "./menu/appMenu";
 import { Toolbar } from "./components/Toolbar/Toolbar";
-import { DockLayout, resetDockLayout } from "./components/Layout/DockLayout";
+import { DockLayout, resetDockLayout, openPluginPanel } from "./components/Layout/DockLayout";
+import { PluginManagerModal } from "./components/Plugins/PluginManagerModal";
 import { ConfirmModal, Backdrop } from "./components/Modals/ConfirmModal";
 import { ExportWarningModal } from "./components/Modals/ExportWarningModal";
 import { smiExportLoss } from "./formats/smi";
@@ -32,6 +33,7 @@ export default function App() {
   const [showShift, setShowShift] = useState(false);
   const [showStyles, setShowStyles] = useState(false);
   const [showTagEditor, setShowTagEditor] = useState(false);
+  const [showPluginManager, setShowPluginManager] = useState(false);
   const [pendingExport, setPendingExport] = useState<{ format: SubFormat; categories: LossCategory[] } | null>(null);
   const [updateVersion, setUpdateVersion] = useState<string | null>(null);
 
@@ -139,6 +141,7 @@ export default function App() {
     onHelp: () => setShowHelp(true),
     onResetLayout: () => resetDockLayout(),
     onToggleSpectrogram: () => useSettingsStore.getState().toggleSpectrogram(),
+    onPlugins: () => setShowPluginManager(true),
     onSetLang: (l) => useI18nStore.getState().setLang(l),
   };
 
@@ -168,6 +171,7 @@ export default function App() {
       onHelp: () => handlersRef.current.onHelp(),
       onResetLayout: () => handlersRef.current.onResetLayout(),
       onToggleSpectrogram: () => handlersRef.current.onToggleSpectrogram(),
+      onPlugins: () => handlersRef.current.onPlugins(),
       onSetLang: (l) => handlersRef.current.onSetLang(l),
     };
     installAppMenu(t, lang, stable).catch((e) => console.error("menu install failed", e));
@@ -235,6 +239,12 @@ export default function App() {
       {showShift && <ShiftModal onClose={() => setShowShift(false)} />}
       {showStyles && <StyleManagerModal onClose={() => setShowStyles(false)} />}
       {showTagEditor && <InlineTagEditorModal onClose={() => setShowTagEditor(false)} />}
+      {showPluginManager && (
+        <PluginManagerModal
+          onOpen={(plugin) => openPluginPanel(plugin)}
+          onClose={() => setShowPluginManager(false)}
+        />
+      )}
       {pendingExport && (
         <ExportWarningModal
           categories={pendingExport.categories}

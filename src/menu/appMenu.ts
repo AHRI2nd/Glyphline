@@ -37,6 +37,7 @@ export interface MenuHandlers {
   onHelp: () => void;
   onResetLayout: () => void;
   onToggleSpectrogram: () => void;
+  onPlugins: () => void;
   onSetLang: (lang: Lang) => void;
 }
 
@@ -127,6 +128,7 @@ export async function installAppMenu(t: Translations, lang: Lang, h: MenuHandler
     items: [
       await MenuItem.new({ text: t.resetLayout, action: h.onResetLayout }),
       await MenuItem.new({ text: t.spectrogram, action: h.onToggleSpectrogram }),
+      await MenuItem.new({ text: t.plugins, action: h.onPlugins }),
       await sep(),
       await Submenu.new({
         text: t.language,

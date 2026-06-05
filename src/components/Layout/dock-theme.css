@@ -54,3 +54,20 @@
 .flexlayout__tab_button--selected {
   box-shadow: inset 0 -2px 0 0 #6366f1;
 }
+
+/*
+ * The real drag fix lives in tauri.conf.json: "dragDropEnabled": false.
+ * Tauri's OS-level drag-drop (file-drop) handler otherwise intercepts the
+ * webview's HTML5 drag events, breaking flexlayout's tab drag. With it disabled,
+ * the webview behaves like a normal browser and flexlayout drag works as designed.
+ *
+ * Below is only cosmetic: stop the tab labels from being text-selected when you
+ * grab them. NOT applied to panel content — subtitle text stays selectable.
+ */
+.flexlayout__tabset_tabbar_outer,
+.flexlayout__tab_button,
+.flexlayout__tab_button_content {
+  user-select: none;
+  -webkit-user-select: none;
+}
+

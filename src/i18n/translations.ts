@@ -13,6 +13,12 @@ export interface Translations {
   panelWaveform: string;
   panelSubtitles: string;
   noMedia: string;
+  pluginManager: string;
+  pluginOpen: string;
+  pluginAdd: string;
+  pluginAddNew: string;
+  pluginName: string;
+  plugins: string;
   spectrogram: string;
   editTags: string;
   inlineTagEditor: string;
@@ -128,6 +134,12 @@ const ko: Translations = {
   panelWaveform: "파형",
   panelSubtitles: "자막",
   noMedia: "미디어를 열어주세요 (파일 ▸ 미디어 열기)",
+  pluginManager: "플러그인 관리",
+  pluginOpen: "열기",
+  pluginAdd: "추가",
+  pluginAddNew: "새 플러그인 추가 (URL)",
+  pluginName: "이름",
+  plugins: "플러그인",
   spectrogram: "스펙트로그램",
   editTags: "인라인 태그 편집…",
   inlineTagEditor: "인라인 태그 편집 (ASS)",
@@ -235,6 +247,12 @@ const en: Translations = {
   panelWaveform: "Waveform",
   panelSubtitles: "Subtitles",
   noMedia: "Open media first (File ▸ Open Media)",
+  pluginManager: "Plugin Manager",
+  pluginOpen: "Open",
+  pluginAdd: "Add",
+  pluginAddNew: "Add new plugin (URL)",
+  pluginName: "Name",
+  plugins: "Plugins",
   spectrogram: "Spectrogram",
   editTags: "Edit Inline Tags…",
   inlineTagEditor: "Inline Tag Editor (ASS)",
@@ -342,6 +360,12 @@ const ja: Translations = {
   panelWaveform: "波形",
   panelSubtitles: "字幕",
   noMedia: "メディアを開いてください（ファイル ▸ メディアを開く）",
+  pluginManager: "プラグイン管理",
+  pluginOpen: "開く",
+  pluginAdd: "追加",
+  pluginAddNew: "新しいプラグインを追加 (URL)",
+  pluginName: "名前",
+  plugins: "プラグイン",
   spectrogram: "スペクトログラム",
   editTags: "インラインタグ編集…",
   inlineTagEditor: "インラインタグ編集 (ASS)",
