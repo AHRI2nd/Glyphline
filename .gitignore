@@ -1,0 +1,38 @@
+# Dependencies
+node_modules
+
+# Source icon (generated into src-tauri/icons/ by tauri icon command)
+icon.png
+
+# Build outputs
+dist
+dist-ssr
+
+# Rust / Tauri build artifacts
+src-tauri/target
+src-tauri/gen/schemas
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode
+.idea
+*.suo
+*.sw?
+
+# Local env / secrets
+*.local
+.env
+.env.*
+
+# Claude Code project settings
+.claude
+CLAUDE.md
+SUBTITLE_EDITOR_REFERENCE.md

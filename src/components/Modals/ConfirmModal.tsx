@@ -1,0 +1,47 @@
+import { useEffect } from "react";
+import { useI18nStore } from "../../stores/useI18nStore";
+
+interface Props {
+  message: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+
+export function ConfirmModal({ message, onConfirm, onCancel }: Props) {
+  const { t } = useI18nStore();
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onCancel();
+      if (e.key === "Enter") onConfirm();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onConfirm, onCancel]);
+
+  return (
+    <Backdrop onClick={onCancel}>
+      <div className="w-[420px] rounded-xl border border-zinc-700 bg-zinc-900 p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <p className="text-sm text-zinc-200">{message}</p>
+        <div className="mt-5 flex justify-end gap-2">
+          <button className="rounded px-3 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800" onClick={onCancel}>
+            {t.cancel}
+          </button>
+          <button className="rounded bg-indigo-600 px-3 py-1.5 text-sm text-white hover:bg-indigo-500" onClick={onConfirm}>
+            {t.confirm}
+          </button>
+        </div>
+      </div>
+    </Backdrop>
+  );
+}
+
+export function Backdrop({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      onClick={onClick}
+    >
+      {children}
+    </div>
+  );
+}

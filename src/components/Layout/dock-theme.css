@@ -1,0 +1,56 @@
+/* Override flexlayout-react's dark theme to Glyphline's zinc/indigo palette.
+   Imported AFTER dark.css so these win. Variables documented in
+   node_modules/flexlayout-react/style/dark.css. */
+.flexlayout__layout {
+  /* base palette → zinc */
+  --color-text: #e4e4e7; /* zinc-200 */
+  --color-background: #09090b; /* zinc-950 (panel/tab content) */
+  --color-base: #09090b;
+  --color-1: #18181b; /* zinc-900 (tabset header bg) */
+  --color-2: #27272a; /* zinc-800 (splitter, borders) */
+  --color-3: #3f3f46; /* zinc-700 */
+  --color-4: #3f3f46; /* zinc-700 */
+  --color-5: #52525b; /* zinc-600 */
+  --color-6: #71717a; /* zinc-500 */
+
+  --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --splitter-size: 6px;
+  --splitter-active-size: 6px;
+
+  /* tabs */
+  --color-tabset-background: #18181b; /* zinc-900, matches the toolbar */
+  --color-tabset-background-selected: #18181b;
+  --color-tabset-divider-line: #27272a; /* zinc-800 */
+  --color-border-divider-line: #27272a;
+  --color-tab-content: #09090b;
+  --color-tab-selected: #ffffff;
+  --color-tab-selected-background: #09090b; /* merge selected tab into content */
+  --color-tab-unselected: #71717a; /* zinc-500 */
+  --color-tab-unselected-background: transparent;
+  --color-icon: #a1a1aa; /* zinc-400 */
+  --color-overflow: #a1a1aa;
+  --color-toolbar-button-hover: #27272a;
+
+  /* splitter → indigo on interaction */
+  --color-splitter: #18181b;
+  --color-splitter-hover: #6366f1; /* indigo-500 */
+  --color-splitter-drag: #6366f1;
+  --color-splitter-handle: #3f3f46;
+
+  /* drag/drop targets → indigo accent (the "magnetic snap" highlight) */
+  --color-drag-rect: #e4e4e7;
+  --color-drag-rect-border: #6366f1;
+  --color-drag-rect-background: rgba(99, 102, 241, 0.14);
+  --color-edge-marker: #6366f1;
+  --color-edge-icon: #e4e4e7;
+
+  /* popups (overflow menu) */
+  --color-popup-border: #3f3f46;
+  --color-popup-unselected-background: #18181b;
+  --color-popup-selected-background: #312e81; /* indigo-950-ish */
+}
+
+/* Selected tab gets a subtle indigo underline for a VSCode-like active marker. */
+.flexlayout__tab_button--selected {
+  box-shadow: inset 0 -2px 0 0 #6366f1;
+}
