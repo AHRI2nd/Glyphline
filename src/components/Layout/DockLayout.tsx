@@ -29,10 +29,13 @@ function defaultModel(names: { video: string; waveform: string; subtitles: strin
     },
     borders: [],
     layout: {
+      // NOTE: flexlayout has NO "column" node type — a nested "row" automatically
+      // switches to the perpendicular (vertical) orientation. So the left side is
+      // a nested row (video stacked over waveform), beside the subtitles tabset.
       type: "row",
       children: [
         {
-          type: "column",
+          type: "row",
           weight: 45,
           children: [
             { type: "tabset", weight: 60, children: [{ type: "tab", name: names.video, component: "video" }] },
