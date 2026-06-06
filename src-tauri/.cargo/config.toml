@@ -1,0 +1,3 @@
+# Apple Silicon Homebrew prefix — cargo build가 libmpv를 찾을 수 있도록 설정
+[env]
+PKG_CONFIG_PATH = "/opt/homebrew/lib/pkgconfig"

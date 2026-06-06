@@ -17,15 +17,13 @@
         "height": 800,
         "minWidth": 900,
         "minHeight": 600,
-        "dragDropEnabled": false
+        "dragDropEnabled": false,
+        "transparent": true
       }
     ],
+    "macOSPrivateApi": true,
     "security": {
-      "csp": null,
-      "assetProtocol": {
-        "enable": true,
-        "scope": ["$HOME/**"]
-      }
+      "csp": null
     }
   },
   "bundle": {

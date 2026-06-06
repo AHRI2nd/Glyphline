@@ -1,31 +1,60 @@
-import { useEffect, useRef } from "react";
-import { useMediaStore, bindVideoEl } from "../../stores/useMediaStore";
+import { useEffect, useRef, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { useMediaStore } from "../../stores/useMediaStore";
 import { useSubtitleStore } from "../../stores/useSubtitleStore";
 import { useI18nStore } from "../../stores/useI18nStore";
 import { useSettingsStore } from "../../stores/useSettingsStore";
 
 export function VideoPlayer() {
-  const ref = useRef<HTMLVideoElement>(null);
-  const mediaSrc = useMediaStore((s) => s.mediaSrc);
-  const mediaKind = useMediaStore((s) => s.mediaKind);
-  const mediaName = useMediaStore((s) => s.mediaName);
-  const currentTime = useMediaStore((s) => s.currentTime);
-  const setCurrentTime = useMediaStore((s) => s.setCurrentTime);
-  const setDuration = useMediaStore((s) => s.setDuration);
-  const setPlaying = useMediaStore((s) => s.setPlaying);
-  const isTranscoding = useMediaStore((s) => s.isTranscoding);
-  const transcodeError = useMediaStore((s) => s.transcodeError);
-  const ffmpegMissing = useMediaStore((s) => s.ffmpegMissing);
-  const openSettings = useSettingsStore((s) => s.openSettingsModal);
-  const cues = useSubtitleStore((s) => s.doc.cues);
+  const containerRef  = useRef<HTMLDivElement>(null);
+  const [mpvAvailable, setMpvAvailable] = useState<boolean>(true);
 
-  // Register the element as the global playback source.
+  const mediaPath   = useMediaStore((s) => s.mediaPath);
+  const mediaKind   = useMediaStore((s) => s.mediaKind);
+  const mediaName   = useMediaStore((s) => s.mediaName);
+  const currentTime = useMediaStore((s) => s.currentTime);
+  const error       = useMediaStore((s) => s.error);
+  const cues        = useSubtitleStore((s) => s.doc.cues);
+  const openSettings = useSettingsStore((s) => s.openSettingsModal);
+  const { t }       = useI18nStore();
+
+  const isAudio  = mediaKind === "audio";
+  const hasMedia = mediaPath != null;
+
+  // Check mpv availability once on mount
   useEffect(() => {
-    bindVideoEl(ref.current);
-    return () => bindVideoEl(null);
+    invoke<boolean>("check_mpv").then(setMpvAvailable).catch(() => setMpvAvailable(false));
   }, []);
 
-  // The cue visible at the current time → overlay + active-row highlight.
+  // ── Tell Rust where to position the native mpv NSView ──────────────────────
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const sendBounds = () => {
+      const r = el.getBoundingClientRect();
+      invoke("mpv_set_bounds", {
+        x: r.left,
+        y: r.top,
+        w: r.width,
+        h: r.height,
+        dpr: window.devicePixelRatio,
+        viewportH: window.innerHeight,
+      }).catch(() => {});
+    };
+
+    sendBounds();
+    const ro = new ResizeObserver(sendBounds);
+    ro.observe(el);
+    // Also update on window resize
+    window.addEventListener("resize", sendBounds);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", sendBounds);
+    };
+  }, []);
+
+  // ── Active cue → overlay + row highlight ──────────────────────────────────
   const active = cues.find((c) => currentTime >= c.start && currentTime < c.end) ?? null;
   const lastActiveId = useRef<string | null>(null);
   useEffect(() => {
@@ -35,68 +64,49 @@ export function VideoPlayer() {
     }
   }, [active?.id]);
 
-  const { t } = useI18nStore();
-  const isAudio = mediaKind === "audio";
-  const hasMedia = mediaSrc != null || isTranscoding;
-
   return (
-    <div className="relative flex h-full items-center justify-center bg-black">
-      {/* No media */}
-      {!hasMedia && !transcodeError && (
-        <div className="px-4 text-center text-xs text-zinc-600">{t.noMedia}</div>
-      )}
+    // bg-transparent: lets the native mpv NSView render through.
+    // The Tauri window has transparent:true, and this div has no background,
+    // so WKWebView is see-through here and mpv's NSView (beneath) is visible.
+    <div ref={containerRef} className="relative flex h-full items-center justify-center">
 
-      {/* FFmpeg transcoding in progress */}
-      {isTranscoding && (
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-7 w-7 animate-spin rounded-full border-2 border-zinc-700 border-t-indigo-400" />
-          <span className="text-xs text-zinc-400">변환 중…</span>
-        </div>
-      )}
-
-      {/* FFmpeg not installed */}
-      {ffmpegMissing && (
+      {/* mpv not installed */}
+      {!mpvAvailable && (
         <div className="flex max-w-xs flex-col items-center gap-3 rounded border border-amber-800 bg-amber-950/40 p-4 text-center">
-          <span className="text-sm text-amber-300">FFmpeg가 설치되어 있지 않아<br />이 형식을 재생할 수 없습니다.</span>
+          <span className="text-sm text-amber-300">
+            mpv가 설치되어 있지 않아<br />영상을 재생할 수 없습니다.
+          </span>
           <button
             onClick={openSettings}
-            className="rounded bg-indigo-600 px-3 py-1.5 text-xs text-white hover:bg-indigo-500 transition-colors"
+            className="rounded bg-indigo-600 px-3 py-1.5 text-xs text-white transition-colors hover:bg-indigo-500"
           >
-            설정에서 FFmpeg 설치
+            설정에서 mpv 설치
           </button>
         </div>
       )}
 
-      {/* Transcoding / playback error */}
-      {transcodeError && (
-        <div className="max-w-xs rounded border border-rose-800 bg-rose-950/50 p-4 text-xs text-rose-300 whitespace-pre-wrap">
-          {transcodeError}
+      {/* No media loaded */}
+      {mpvAvailable && !hasMedia && !error && (
+        <div className="px-4 text-center text-xs text-zinc-600">{t.noMedia}</div>
+      )}
+
+      {/* Error */}
+      {error && (
+        <div className="max-w-xs rounded border border-rose-800 bg-rose-950/80 p-4 text-xs text-rose-300 whitespace-pre-wrap">
+          {error}
         </div>
       )}
 
-      {/* Audio-only placeholder (show while media is ready, not while transcoding) */}
-      {isAudio && mediaSrc && !isTranscoding && (
+      {/* Audio-only placeholder */}
+      {isAudio && hasMedia && !error && (
         <div className="flex flex-col items-center gap-2 text-zinc-500">
           <span className="text-4xl">♪</span>
           <span className="max-w-[90%] truncate px-4 text-xs">{mediaName}</span>
         </div>
       )}
 
-      {/* The <video> element — always mounted so VideoPlayer can register it as
-          the playback source. Hidden for audio and when there is no src yet. */}
-      <video
-        ref={ref}
-        src={mediaSrc ?? undefined}
-        className={isAudio || !mediaSrc ? "hidden" : "max-h-full w-full"}
-        onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
-        onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
-        onSeeking={(e) => setCurrentTime(e.currentTarget.currentTime)}
-        onPlay={() => setPlaying(true)}
-        onPause={() => setPlaying(false)}
-      />
-
-      {/* Active cue overlay */}
-      {active && (
+      {/* Active subtitle overlay */}
+      {active && !isAudio && (
         <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center px-4">
           <span
             className="whitespace-pre-wrap rounded bg-black/60 px-3 py-1 text-center text-lg font-medium leading-snug text-white"

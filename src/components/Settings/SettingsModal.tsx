@@ -5,40 +5,30 @@ import { useI18nStore } from "../../stores/useI18nStore";
 import { useSettingsStore } from "../../stores/useSettingsStore";
 import { Backdrop } from "../Modals/ConfirmModal";
 
-interface FfmpegProgress {
-  stage: "downloading" | "extracting" | "done";
-  percent: number;
-  message: string;
-}
-
-function FfmpegSection() {
-  const [status, setStatus] = useState<"checking" | "found" | "missing">("checking");
-  const [ffmpegPath, setFfmpegPath] = useState<string | null>(null);
+function MpvSection() {
+  const [available, setAvailable] = useState<boolean | null>(null);
   const [installing, setInstalling] = useState(false);
-  const [progress, setProgress] = useState<FfmpegProgress | null>(null);
+  const [progress, setProgress] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const check = async () => {
-    setStatus("checking");
-    const path = await invoke<string | null>("check_ffmpeg");
-    if (path) { setStatus("found"); setFfmpegPath(path); }
-    else { setStatus("missing"); setFfmpegPath(null); }
-  };
-
-  useEffect(() => { void check(); }, []);
+  useEffect(() => {
+    invoke<boolean>("check_mpv").then(setAvailable).catch(() => setAvailable(false));
+  }, []);
 
   const install = async () => {
     setInstalling(true);
     setError(null);
-    setProgress(null);
+    setProgress("");
 
-    const unlisten = await listen<FfmpegProgress>("ffmpeg-progress", (e) => {
+    const unlisten = await listen<string>("mpv-install-progress", (e) => {
       setProgress(e.payload);
     });
 
     try {
-      await invoke("install_ffmpeg");
-      await check(); // re-verify
+      await invoke("install_mpv");
+      // Re-check after install
+      const ok = await invoke<boolean>("check_mpv");
+      setAvailable(ok);
     } catch (e) {
       setError(String(e));
     } finally {
@@ -49,33 +39,34 @@ function FfmpegSection() {
 
   return (
     <div className="mt-5 border-t border-zinc-800 pt-4">
-      <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">FFmpeg</div>
+      <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+        미디어 엔진 (mpv)
+      </div>
 
-      {status === "checking" && (
+      {available === null && (
         <p className="text-xs text-zinc-500">확인 중…</p>
       )}
 
-      {status === "found" && (
+      {available === true && (
         <div className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-emerald-500" />
-          <span className="text-xs text-zinc-300">설치됨</span>
-          {ffmpegPath && ffmpegPath !== "ffmpeg" && (
-            <span className="ml-1 truncate text-[10px] text-zinc-600">{ffmpegPath}</span>
-          )}
+          <span className="text-xs text-zinc-300">설치됨 — 모든 포맷 재생 가능</span>
         </div>
       )}
 
-      {status === "missing" && !installing && (
+      {available === false && !installing && (
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-amber-500" />
-            <span className="text-xs text-zinc-400">미설치 — MKV, AVI, WebM 등 재생 불가</span>
+            <span className="text-xs text-zinc-400">
+              mpv 미설치 — MKV, AVI, WebM 등 재생 불가
+            </span>
           </div>
           <button
             onClick={() => void install()}
-            className="self-start rounded bg-indigo-600 px-3 py-1.5 text-xs text-white hover:bg-indigo-500 transition-colors"
+            className="self-start rounded bg-indigo-600 px-3 py-1.5 text-xs text-white transition-colors hover:bg-indigo-500"
           >
-            FFmpeg 자동 설치 (LGPL)
+            Homebrew로 mpv 설치
           </button>
           {error && (
             <p className="whitespace-pre-wrap text-[11px] text-rose-400">{error}</p>
@@ -87,17 +78,16 @@ function FfmpegSection() {
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2">
             <div className="h-3 w-3 animate-spin rounded-full border border-zinc-600 border-t-indigo-400" />
-            <span className="text-xs text-zinc-400">{progress?.message ?? "준비 중…"}</span>
+            <span className="text-xs text-zinc-400">{progress || "준비 중…"}</span>
           </div>
-          {progress?.stage === "downloading" && progress.percent > 0 && (
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-800">
-              <div
-                className="h-full rounded-full bg-indigo-500 transition-all"
-                style={{ width: `${progress.percent}%` }}
-              />
-            </div>
-          )}
         </div>
+      )}
+
+      {available === false && !installing && (
+        <p className="mt-2 text-[11px] text-zinc-600">
+          수동 설치: <span className="font-mono">brew install mpv</span><br />
+          설치 후 앱을 재시작하세요.
+        </p>
       )}
     </div>
   );
@@ -141,7 +131,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           {t.autoCheckUpdate}
         </label>
 
-        <FfmpegSection />
+        <MpvSection />
 
         <div className="mt-6 flex justify-end">
           <button
