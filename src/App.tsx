@@ -27,7 +27,8 @@ export default function App() {
   const autoCheckUpdate = useSettingsStore((s) => s.autoCheckUpdate);
 
   const [showHelp, setShowHelp] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
+  const showSettings = useSettingsStore((s) => s.settingsModalOpen);
+  const setShowSettings = useSettingsStore((s) => s.closeSettingsModal);
   const [showNewConfirm, setShowNewConfirm] = useState(false);
   const [showRawEditor, setShowRawEditor] = useState(false);
   const [showShift, setShowShift] = useState(false);
@@ -106,7 +107,7 @@ export default function App() {
       multiple: false,
       filters: [{ name: "Media", extensions: MEDIA_EXTS }],
     });
-    if (typeof selected === "string") useMediaStore.getState().loadMedia(selected);
+    if (typeof selected === "string") await useMediaStore.getState().loadMedia(selected);
   };
 
   // ─── Native macOS menu bar ────────────────────────────────────────────────────
@@ -137,7 +138,7 @@ export default function App() {
     onStyles: () => setShowStyles(true),
     onEditTags: () => setShowTagEditor(true),
     onRawEdit: () => setShowRawEditor(true),
-    onSettings: () => setShowSettings(true),
+    onSettings: () => useSettingsStore.getState().openSettingsModal(),
     onHelp: () => setShowHelp(true),
     onResetLayout: () => resetDockLayout(),
     onToggleSpectrogram: () => useSettingsStore.getState().toggleSpectrogram(),
@@ -167,7 +168,7 @@ export default function App() {
       onStyles: () => handlersRef.current.onStyles(),
       onEditTags: () => handlersRef.current.onEditTags(),
       onRawEdit: () => handlersRef.current.onRawEdit(),
-      onSettings: () => handlersRef.current.onSettings(),
+      onSettings: () => handlersRef.current.onSettings(), // handled via store
       onHelp: () => handlersRef.current.onHelp(),
       onResetLayout: () => handlersRef.current.onResetLayout(),
       onToggleSpectrogram: () => handlersRef.current.onToggleSpectrogram(),
@@ -222,7 +223,7 @@ export default function App() {
 
       {/* modals (triggered from the native menu / toolbar) */}
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
-      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+      {showSettings && <SettingsModal onClose={setShowSettings} />}
       {showNewConfirm && (
         <ConfirmModal message={t.newFileConfirm} onConfirm={doNew} onCancel={() => setShowNewConfirm(false)} />
       )}
