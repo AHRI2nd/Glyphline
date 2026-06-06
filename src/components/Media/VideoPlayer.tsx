@@ -48,7 +48,7 @@ export function VideoPlayer() {
       <video
         ref={ref}
         src={mediaSrc ?? undefined}
-        className={isAudio ? "hidden" : "max-h-full w-full"}
+        className={isAudio || !hasMedia ? "hidden" : "max-h-full w-full"}
         onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
         onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
         onSeeking={(e) => setCurrentTime(e.currentTarget.currentTime)}
