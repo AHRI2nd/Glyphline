@@ -11,9 +11,8 @@ use tauri::{Emitter, Manager};
 
 type MpvHandle = *mut c_void;
 
-// mpv_format enum values we use
+// mpv_format enum values we use (wid is set via set_option_string, not set_property)
 const MPV_FORMAT_FLAG:   i32 = 3;
-const MPV_FORMAT_INT64:  i32 = 4;
 const MPV_FORMAT_DOUBLE: i32 = 5;
 
 /// Function pointers loaded from libmpv.dylib
@@ -110,13 +109,8 @@ fn cstr(s: &str) -> CString { CString::new(s).unwrap_or_default() }
 impl MpvInstance {
     fn set_str(&self, name: &str, val: &str) {
         let n = cstr(name); let v = cstr(val);
-        unsafe { (self.lib.fns.set_option_string)(self.handle, n.as_ptr(), v.as_ptr()) };
-    }
-
-    fn set_i64(&self, name: &str, val: i64) {
-        let n = cstr(name);
-        let mut v = val;
-        unsafe { (self.lib.fns.set_property)(self.handle, n.as_ptr(), MPV_FORMAT_INT64, &mut v as *mut _ as *mut c_void) };
+        let rc = unsafe { (self.lib.fns.set_option_string)(self.handle, n.as_ptr(), v.as_ptr()) };
+        if rc < 0 { eprintln!("[mpv] set_option_string({name}={val}) failed rc={rc}"); }
     }
 
     fn set_double(&self, name: &str, val: f64) {
@@ -158,126 +152,168 @@ impl MpvInstance {
 mod platform {
     use objc::runtime::Object;
     use objc::{class, msg_send, sel, sel_impl};
-    use std::sync::OnceLock;
+    use std::sync::atomic::{AtomicI64, Ordering};
 
+    // These structs are used as ARGUMENTS only — never as msg_send! return types.
+    // Returning NSRect/CGRect via objc 0.2 is unsafe (struct-return ABI mismatch on arm64).
     #[repr(C)] #[derive(Copy, Clone)] struct CGPoint { x: f64, y: f64 }
     #[repr(C)] #[derive(Copy, Clone)] struct CGSize  { width: f64, height: f64 }
     #[repr(C)] #[derive(Copy, Clone)] struct CGRect  { origin: CGPoint, size: CGSize }
 
-    static VIEW_PTR: OnceLock<i64> = OnceLock::new();
+    // The Tauri main window's NSWindow (the adoption parent).
+    static PARENT_WIN: AtomicI64 = AtomicI64::new(0);
+    // mpv's own NSWindow once adopted as a borderless child (0 = not yet adopted).
+    static MPV_WIN: AtomicI64 = AtomicI64::new(0);
 
-    pub unsafe fn create_video_view(wk_ns_view: *mut Object) -> i64 {
-        let ns_window: *mut Object  = msg_send![wk_ns_view, window];
-        let content_view: *mut Object = msg_send![ns_window, contentView];
-        let zero = CGRect { origin: CGPoint { x: 0.0, y: 0.0 }, size: CGSize { width: 1.0, height: 1.0 } };
-        let view: *mut Object = msg_send![class!(NSView), alloc];
-        let view: *mut Object = msg_send![view, initWithFrame: zero];
-        let _: () = msg_send![content_view, insertSubview: view atIndex: 0usize];
-        let ptr = view as i64;
-        VIEW_PTR.get_or_init(|| ptr);
-        ptr
+    /// Record the Tauri main window's NSWindow pointer from its WKWebView.
+    /// Must run on the main thread. Background: this mpv build (Homebrew 0.41,
+    /// Vulkan-only, no OpenGL) has NO gl-cocoa context, so `--wid` embedding is
+    /// impossible — the macvk backend always spawns its own NSWindow. Instead we
+    /// adopt that window as a borderless child (see adopt_and_position).
+    pub unsafe fn set_parent_window(wk_ns_view: *mut Object) {
+        let ns_window: *mut Object = msg_send![wk_ns_view, window];
+        if !ns_window.is_null() {
+            PARENT_WIN.store(ns_window as i64, Ordering::SeqCst);
+        }
     }
 
-    pub fn set_bounds(x: f64, y: f64, w: f64, h: f64, dpr: f64, viewport_h: f64) {
-        let ptr = match VIEW_PTR.get() { Some(p) => *p as *mut Object, None => return };
+    /// Find mpv's standalone NSWindow, adopt it as a borderless child of the
+    /// Tauri window, and position it over the video panel.
+    /// MUST run on the main thread (Cocoa window ops are main-thread-only).
+    /// `screen_x/screen_y_from_bottom/w/h` are NSWindow logical points
+    /// (screen coords, Y=0 at bottom-left of the primary screen).
+    pub unsafe fn adopt_and_position(screen_x: f64, screen_y_from_bottom: f64, w: f64, h: f64) {
+        let parent = PARENT_WIN.load(Ordering::SeqCst) as *mut Object;
+        if parent.is_null() { return; }
+
+        let mut mpv_win = MPV_WIN.load(Ordering::SeqCst) as *mut Object;
+
+        // ── Adopt once: locate mpv's window among the app's windows ────────────
+        if mpv_win.is_null() {
+            let nsapp: *mut Object = msg_send![class!(NSApplication), sharedApplication];
+            let windows: *mut Object = msg_send![nsapp, windows];
+            if windows.is_null() { return; }
+            let count: usize = msg_send![windows, count];
+            for i in 0..count {
+                let w_obj: *mut Object = msg_send![windows, objectAtIndex: i];
+                if w_obj.is_null() || w_obj == parent { continue; }
+                // Skip windows that are already children (e.g. our own adoptee).
+                let pw: *mut Object = msg_send![w_obj, parentWindow];
+                if !pw.is_null() { continue; }
+                // mpv's window is on-screen once force-window has created it.
+                let visible: bool = msg_send![w_obj, isVisible];
+                if !visible { continue; }
+                // Candidate = mpv's window (single-window Tauri app → unambiguous).
+                mpv_win = w_obj;
+                break;
+            }
+            if mpv_win.is_null() { return; } // not created yet — caller retries later
+
+            // Strip the title bar (NSWindowStyleMaskBorderless = 0) and attach as
+            // a child so it tracks the parent and orders above the panel area.
+            let _: () = msg_send![mpv_win, setStyleMask: 0usize];
+            let _: () = msg_send![parent, addChildWindow: mpv_win ordered: 1i64]; // Above
+            MPV_WIN.store(mpv_win as i64, Ordering::SeqCst);
+            eprintln!("[mpv] adopted mpv window {:p} as child of {:p}", mpv_win, parent);
+        }
+
+        // ── Position over the video panel every call ──────────────────────────
         let frame = CGRect {
-            origin: CGPoint { x: x * dpr, y: (viewport_h - y - h) * dpr },
-            size:   CGSize  { width: w * dpr, height: h * dpr },
+            origin: CGPoint { x: screen_x, y: screen_y_from_bottom },
+            size:   CGSize  { width: w, height: h },
         };
-        unsafe { let _: () = msg_send![ptr, setFrame: frame]; }
+        let _: () = msg_send![mpv_win, setFrame: frame display: 1u8];
     }
 }
 
 #[cfg(not(target_os = "macos"))]
 mod platform {
-    pub fn set_bounds(_x: f64, _y: f64, _w: f64, _h: f64, _dpr: f64, _vh: f64) {}
+    pub fn adopt_and_position(_x: f64, _y: f64, _w: f64, _h: f64) {}
 }
 
 // ─── Setup ────────────────────────────────────────────────────────────────────
+// Only loads libmpv. Full mpv initialisation (including NSView setup) is deferred
+// to the `mpv_init` command, which is called from VideoPlayer on mount — at that
+// point the NSWindow is guaranteed to exist and the WKWebView is visible.
 fn setup(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
-    eprintln!("[setup] 시작");
-    // Attempt to load libmpv. Non-fatal — app runs with video disabled if unavailable.
+    let _ = app; // unused on non-macOS too
     match try_load_mpv_lib() {
-        Err(e) => {
-            eprintln!("[mpv] 로드 실패: {e}");
-            eprintln!("[setup] mpv 없이 계속");
-            return Ok(()); // app continues without video
-        }
-        Ok(lib) => {
-            eprintln!("[mpv] 라이브러리 로드 성공");
-            MPV_LIB.set(lib).ok();
-        }
+        Err(e) => eprintln!("[mpv] libmpv 로드 실패: {e}"),
+        Ok(lib) => { MPV_LIB.set(lib).ok(); }
     }
+    Ok(())
+}
 
-    eprintln!("[setup] MPV_LIB.get() 시도");
-    let lib = MPV_LIB.get().unwrap();
-    eprintln!("[setup] mpv_create() 호출");
-    let handle = unsafe { (lib.fns.create)() };
-    if handle.is_null() {
-        eprintln!("[mpv] mpv_create() returned null");
-        return Ok(());
-    }
-    eprintln!("[setup] mpv handle 생성 완료: {:p}", handle);
+// ─── mpv_init — called once from VideoPlayer on mount ────────────────────────
+// Deferred from setup() so the WKWebView is attached to its NSWindow first.
+//
+// IMPORTANT: this Homebrew mpv 0.41 build is Vulkan-only (no OpenGL / no
+// gl-cocoa context), so `--wid` embedding is impossible — the macvk backend
+// always spawns its own NSWindow. We let it do so, then adopt that window as a
+// borderless child of the Tauri window (see platform::adopt_and_position, driven
+// by mpv_set_bounds). `border=no` + `auto-window-resize=no` keep mpv from drawing
+// a title bar or resizing itself to the video dimensions on file load.
+#[tauri::command]
+fn mpv_init(app: tauri::AppHandle) -> Result<(), String> {
+    // Idempotent — ignore if already initialised (dock re-mount, etc.)
+    if MPV_CTX.get().is_some() { return Ok(()); }
 
-    // Acquire NSView for mpv to render into
-    eprintln!("[setup] NSView 생성 시도");
-    let wid: i64 = {
-        #[cfg(target_os = "macos")]
-        {
+    let lib = MPV_LIB.get()
+        .ok_or("libmpv를 찾을 수 없습니다. 설정에서 mpv를 설치하세요.")?;
+
+    // ── Record the parent (Tauri) NSWindow on the main thread ─────────────────
+    #[cfg(target_os = "macos")]
+    {
+        let (tx, rx) = std::sync::mpsc::channel::<()>();
+        let app2 = app.clone();
+        app.run_on_main_thread(move || {
             use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-            if let Some(window) = app.get_webview_window("main") {
-                eprintln!("[setup] webview_window 획득");
+            if let Some(window) = app2.get_webview_window("main") {
                 if let Ok(h_raw) = window.window_handle() {
-                    eprintln!("[setup] window_handle 획득");
                     if let RawWindowHandle::AppKit(h) = h_raw.as_raw() {
-                        eprintln!("[setup] AppKit handle 획득, NSView 생성");
                         let wk_view = h.ns_view.as_ptr() as *mut objc::runtime::Object;
-                        let v = unsafe { platform::create_video_view(wk_view) };
-                        eprintln!("[setup] NSView 생성 완료: {v}");
-                        v
-                    } else { eprintln!("[setup] AppKit handle 아님"); 0 }
-                } else { eprintln!("[setup] window_handle 실패"); 0 }
-            } else { eprintln!("[setup] webview_window 없음"); 0 }
-        }
-        #[cfg(not(target_os = "macos"))]
-        { 0i64 }
-    };
-
-    eprintln!("[setup] wid = {wid}, MpvInstance 생성");
-    let inst = MpvInstance { lib, handle };
-    // Set wid BEFORE initialize
-    if wid != 0 {
-        eprintln!("[setup] set_i64 wid");
-        inst.set_i64("wid", wid);
+                        unsafe { platform::set_parent_window(wk_view) };
+                    }
+                }
+            }
+            let _ = tx.send(());
+        }).map_err(|e| format!("main thread dispatch 실패: {e:?}"))?;
+        let _ = rx.recv();
     }
-    eprintln!("[setup] set_str options");
+
+    // ── Create + initialise mpv ───────────────────────────────────────────────
+    let handle = unsafe { (lib.fns.create)() };
+    if handle.is_null() { return Err("mpv_create() returned null".to_string()); }
+
+    let inst = MpvInstance { lib, handle };
+
     inst.set_str("keep-open", "yes");
-    inst.set_str("idle", "yes");
+    inst.set_str("idle",      "yes");
     inst.set_str("input-default-bindings", "no");
-    inst.set_str("input-vo-keyboard", "no");
-    inst.set_str("osc", "no");
+    inst.set_str("input-vo-keyboard",      "no");
+    inst.set_str("osc",                    "no");
+    // Window adoption support: borderless mpv window, immediately created, and
+    // pinned to our size (don't let mpv resize itself to the video dimensions).
+    inst.set_str("border",             "no");
+    inst.set_str("force-window",       "yes");
+    inst.set_str("auto-window-resize", "no");
 
-    eprintln!("[setup] mpv_initialize() 호출");
     let rc = unsafe { (lib.fns.initialize)(handle) };
-    eprintln!("[setup] mpv_initialize() 반환: {rc}");
-    if rc < 0 { eprintln!("[mpv] mpv_initialize() failed: {rc}"); return Ok(()); }
+    if rc < 0 { return Err(format!("mpv_initialize() 실패: rc={rc}")); }
 
-    eprintln!("[setup] MPV_CTX 설정");
-    MPV_CTX.set(Mutex::new(inst)).ok();
+    MPV_CTX.set(Mutex::new(inst))
+        .map_err(|_| "MPV_CTX가 이미 초기화됨".to_string())?;
 
-    // Poll thread: forward time/pause state to the frontend every 80ms
-    eprintln!("[setup] 폴 스레드 시작");
-    let app_handle = app.handle().clone();
+    // Poll thread: forward playback state to the frontend every 80 ms
     std::thread::spawn(move || loop {
         std::thread::sleep(std::time::Duration::from_millis(80));
         let Some(m) = mpv_ctx() else { continue };
-        let Ok(g) = m.try_lock() else { continue };
-        if let Some(t) = g.get_double("time-pos") { let _ = app_handle.emit("mpv-time-pos", t); }
-        if let Some(d) = g.get_double("duration")  { if d > 0.0 { let _ = app_handle.emit("mpv-duration", d); } }
-        if let Some(p) = g.get_flag("pause")        { let _ = app_handle.emit("mpv-paused", p); }
+        let Ok(g)   = m.try_lock()  else { continue };
+        if let Some(t) = g.get_double("time-pos") { let _ = app.emit("mpv-time-pos", t); }
+        if let Some(d) = g.get_double("duration")  { if d > 0.0 { let _ = app.emit("mpv-duration", d); } }
+        if let Some(p) = g.get_flag("pause")        { let _ = app.emit("mpv-paused", p); }
     });
 
-    eprintln!("[setup] 완료 Ok(())");
     Ok(())
 }
 
@@ -379,6 +415,49 @@ async fn install_mpv(app: tauri::AppHandle) -> Result<(), String> {
     }
 }
 
+// ─── Waveform audio extraction ────────────────────────────────────────────────
+/// Decode the media's audio track to a small, mono, low-rate WAV in the temp dir
+/// and return its path. WaveSurfer can't decode a multi-hundred-MB video via
+/// WebAudio (it would download + decodeAudioData the whole file), so we let mpv
+/// downsample it first (≈1.5 s for a 22-min file → ~20 MB WAV). Cached per input.
+#[tauri::command]
+async fn extract_waveform_audio(path: String) -> Result<String, String> {
+    use std::hash::{Hash, Hasher};
+
+    let mpv_bin = ["/opt/homebrew/bin/mpv", "/usr/local/bin/mpv"]
+        .iter().find(|p| Path::new(p).exists())
+        .map(|s| s.to_string())
+        .ok_or("mpv 실행 파일을 찾을 수 없습니다.")?;
+
+    // Stable temp filename per (path, mtime) so re-opening reuses the cache.
+    let mtime = std::fs::metadata(&path).ok()
+        .and_then(|m| m.modified().ok())
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_secs()).unwrap_or(0);
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    path.hash(&mut hasher);
+    mtime.hash(&mut hasher);
+    let out = std::env::temp_dir().join(format!("glyphline_wave_{:x}.wav", hasher.finish()));
+    let out_str = out.to_string_lossy().to_string();
+    if out.exists() { return Ok(out_str); }
+
+    let out2 = out_str.clone();
+    let status = tokio::task::spawn_blocking(move || {
+        std::process::Command::new(&mpv_bin)
+            .args([
+                &path, "--no-config", "--vid=no",
+                &format!("--o={out2}"), "--of=wav", "--oac=pcm_s16le",
+                "--af=format=channels=1,aresample=8000",
+                "--msg-level=all=no",
+            ])
+            .status()
+    }).await.map_err(|e| format!("내부 오류: {e}"))?
+      .map_err(|e| format!("mpv 실행 실패: {e}"))?;
+
+    if status.success() && out.exists() { Ok(out_str) }
+    else { Err("오디오 추출 실패".to_string()) }
+}
+
 // ─── mpv playback commands ────────────────────────────────────────────────────
 macro_rules! with_mpv {
     ($body:expr) => {
@@ -421,8 +500,44 @@ fn mpv_stop() -> Result<(), String> {
     with_mpv!(|g: &MpvInstance| { g.command(&["stop"]); Ok(()) })
 }
 #[tauri::command]
-fn mpv_set_bounds(x: f64, y: f64, w: f64, h: f64, dpr: f64, viewport_h: f64) {
-    platform::set_bounds(x, y, w, h, dpr, viewport_h);
+fn mpv_set_bounds(
+    app: tauri::AppHandle,
+    x: f64, y: f64, w: f64, h: f64,
+    dpr: f64,
+    _viewport_h: f64,
+) {
+    // Convert CSS viewport coords → NSWindow screen points.
+    //
+    // CSS x/y/w/h are in logical pixels relative to viewport top-left (= window top-left).
+    // NSWindow frame is in screen points (logical pixels, Y=0 at bottom-left of primary screen).
+    //
+    // Tauri Window.position() → PhysicalPosition (physical px from screen top-left).
+    // Divide by dpr → logical pts.  Flip Y using primary screen height.
+    #[cfg(target_os = "macos")]
+    {
+        let win = match app.get_webview_window("main") { Some(w) => w, None => return };
+        let pos = match win.outer_position() { Ok(p) => p, Err(_) => return };
+        let screen_h_phys = app.primary_monitor()
+            .ok().flatten()
+            .map(|m| m.size().height as f64)
+            .unwrap_or(dpr * 900.0); // fallback: 900pt screen
+
+        // Convert parent window origin from physical px to logical pts
+        let parent_x  = pos.x as f64 / dpr;
+        let parent_top = pos.y as f64 / dpr; // distance from screen top in pts
+        let screen_h   = screen_h_phys / dpr;
+
+        // CSS (x, y) is relative to window top-left; NSWindow Y is from screen bottom.
+        let child_x = parent_x + x;
+        let child_y = screen_h - parent_top - y - h; // Y of bottom edge from screen bottom
+
+        // Adoption + setFrame are Cocoa ops → must run on the main thread.
+        let _ = app.run_on_main_thread(move || {
+            unsafe { platform::adopt_and_position(child_x, child_y, w, h) };
+        });
+    }
+    #[cfg(not(target_os = "macos"))]
+    { let _ = (app, x, y, w, h, dpr, _viewport_h); }
 }
 
 // ─── Entry point ─────────────────────────────────────────────────────────────
@@ -439,6 +554,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             read_text_file, write_text_file, read_binary_file,
             check_mpv, install_mpv,
+            extract_waveform_audio,
+            mpv_init,
             mpv_open, mpv_play_pause, mpv_set_pause,
             mpv_seek, mpv_skip, mpv_set_speed, mpv_stop,
             mpv_set_bounds,

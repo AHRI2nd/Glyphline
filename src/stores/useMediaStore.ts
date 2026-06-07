@@ -30,8 +30,14 @@ export function toMediaUrl(absolutePath: string): string {
 
 interface MediaState {
   mediaPath: string | null;
-  /** media:// URL for the current file — used by Wavesurfer for waveform rendering. */
+  /** media:// URL for the current file. */
   mediaSrc: string | null;
+  /**
+   * media:// URL of a small downsampled WAV (extracted by mpv) for Wavesurfer.
+   * Decoding the original multi-hundred-MB file via WebAudio is impractical, so
+   * the backend produces a mono 8 kHz WAV first. null until extraction finishes.
+   */
+  waveformSrc: string | null;
   /** Incremented when mediaSrc changes so Waveform can re-init. */
   elGeneration: number;
   mediaKind: MediaKind | null;
@@ -54,6 +60,7 @@ interface MediaState {
 export const useMediaStore = create<MediaState>((set, get) => ({
   mediaPath: null,
   mediaSrc: null,
+  waveformSrc: null,
   elGeneration: 0,
   mediaKind: null,
   mediaName: null,
@@ -68,6 +75,7 @@ export const useMediaStore = create<MediaState>((set, get) => ({
     set((s) => ({
       mediaPath: path,
       mediaSrc: src,
+      waveformSrc: null, // cleared until the downsampled WAV is ready
       elGeneration: s.elGeneration + 1,
       mediaKind: kindFromPath(path),
       mediaName: baseName(path),
@@ -78,12 +86,19 @@ export const useMediaStore = create<MediaState>((set, get) => ({
     } catch (e) {
       set({ error: String(e) });
     }
+    // Extract a small WAV for the waveform in the background (doesn't block playback).
+    invoke<string>("extract_waveform_audio", { path })
+      .then((wavPath) => {
+        // Ignore if the user already switched to another file.
+        if (get().mediaPath === path) set({ waveformSrc: toMediaUrl(wavPath) });
+      })
+      .catch((e) => console.warn("[waveform]", e));
   },
 
   closeMedia: () => {
     invoke("mpv_stop").catch(() => {});
     set({
-      mediaPath: null, mediaSrc: null, mediaKind: null, mediaName: null,
+      mediaPath: null, mediaSrc: null, waveformSrc: null, mediaKind: null, mediaName: null,
       currentTime: 0, duration: 0, isPlaying: false, error: null,
     });
   },

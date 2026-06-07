@@ -14,7 +14,7 @@ export function CueList() {
 
   if (!cues.length) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-2 text-zinc-500">
+      <div className="flex h-full flex-col items-center justify-center gap-2 bg-zinc-950 text-zinc-500">
         <p className="text-lg">{t.noCues}</p>
         <p className="text-sm">{t.emptyHint}</p>
       </div>
@@ -22,7 +22,7 @@ export function CueList() {
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col bg-zinc-950">
       {/* header */}
       <div className="flex shrink-0 border-b border-zinc-700 bg-zinc-900 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
         <div className="w-10 py-2 text-center">{t.cueNumber}</div>

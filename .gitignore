@@ -8,9 +8,14 @@ icon.png
 dist
 dist-ssr
 
+# TypeScript incremental build info (composite project → tsconfig.node.tsbuildinfo)
+*.tsbuildinfo
+
 # Rust / Tauri build artifacts
 src-tauri/target
 src-tauri/gen/schemas
+# Tauri bundles end up under target/, but ignore stray copies too
+*.dmg
 
 # Logs
 logs
@@ -19,6 +24,9 @@ npm-debug.log*
 
 # OS
 .DS_Store
+.AppleDouble
+.LSOverride
+._*
 Thumbs.db
 
 # Editor
@@ -32,7 +40,7 @@ Thumbs.db
 .env
 .env.*
 
-# Claude Code project settings
+# Claude Code project settings & local-only docs (not shared)
 .claude
 CLAUDE.md
 SUBTITLE_EDITOR_REFERENCE.md

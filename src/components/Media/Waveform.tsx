@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import WaveSurfer from "wavesurfer.js";
 import RegionsPlugin, { type Region } from "wavesurfer.js/dist/plugins/regions.esm.js";
 import SpectrogramPlugin from "wavesurfer.js/dist/plugins/spectrogram.esm.js";
-import { getVideoEl, useMediaStore } from "../../stores/useMediaStore";
+import { useMediaStore } from "../../stores/useMediaStore";
 import { useSubtitleStore } from "../../stores/useSubtitleStore";
 import { useSettingsStore } from "../../stores/useSettingsStore";
 import { useI18nStore } from "../../stores/useI18nStore";
@@ -10,9 +10,9 @@ import { useI18nStore } from "../../stores/useI18nStore";
 const NORMAL_COLOR = "rgba(99,102,241,0.18)";
 const ACTIVE_COLOR = "rgba(99,102,241,0.38)";
 
-// Waveform bound to the <video> element. Cues are rendered as draggable/resizable
-// regions: drag a region to move a cue, drag its edges to retime, and drag on
-// empty waveform to create a new cue. Playback stays a single source of truth.
+// Waveform driven by the media:// URL (independent audio decoder).
+// mpv handles actual playback — we keep WaveSurfer muted and sync its cursor
+// via mpv's time-pos events so the two stay in lockstep.
 export function Waveform() {
   const containerRef = useRef<HTMLDivElement>(null);
   const specContainerRef = useRef<HTMLDivElement>(null);
@@ -25,7 +25,7 @@ export function Waveform() {
   const toggleSpectrogram = useSettingsStore((s) => s.toggleSpectrogram);
 
   const mediaSrc = useMediaStore((s) => s.mediaSrc);
-  const elGeneration = useMediaStore((s) => s.elGeneration);
+  const waveformSrc = useMediaStore((s) => s.waveformSrc);
   const duration = useMediaStore((s) => s.duration);
   const currentTime = useMediaStore((s) => s.currentTime);
   const cues = useSubtitleStore((s) => s.doc.cues);
@@ -41,14 +41,16 @@ export function Waveform() {
   cuesRef.current = cues;
 
   // ── create / destroy ────────────────────────────────────────────────────────
+  // WaveSurfer loads the backend-extracted downsampled WAV (waveformSrc), not the
+  // original media — decoding a large video via WebAudio is impractical. Volume is
+  // muted; mpv is the sole audio/playback source and drives the cursor.
   useEffect(() => {
-    const el = getVideoEl();
-    if (!containerRef.current || !el || !mediaSrc) return;
+    if (!containerRef.current || !waveformSrc) return;
     setReady(false);
 
     const ws = WaveSurfer.create({
       container: containerRef.current,
-      media: el,
+      url: waveformSrc,
       height: 80,
       waveColor: "#52525b",
       progressColor: "#6366f1",
@@ -58,6 +60,9 @@ export function Waveform() {
     const regions = ws.registerPlugin(RegionsPlugin.create());
     wsRef.current = ws;
     regionsRef.current = regions;
+
+    // Mute WaveSurfer's internal decoder — mpv provides all audio.
+    ws.setVolume(0);
 
     // Drag on empty waveform → create a cue.
     regions.enableDragSelection({ color: NORMAL_COLOR });
@@ -69,7 +74,7 @@ export function Waveform() {
       region.remove();
       useSubtitleStore.getState().addCueAt(start, end);
     });
-    // Click a region → seek + select that cue.
+    // Click a region → seek mpv + select that cue.
     regions.on("region-clicked", (region: Region, e: MouseEvent) => {
       e.stopPropagation();
       useMediaStore.getState().seek(region.start);
@@ -85,8 +90,17 @@ export function Waveform() {
       specRef.current = null;
       setReady(false);
     };
-    // elGeneration: re-create when the bound <video> element changes (dock re-mount).
-  }, [mediaSrc, elGeneration]);
+  }, [waveformSrc]);
+
+  // ── keep WaveSurfer cursor in sync with mpv ───────────────────────────────
+  // currentTime updates every ~80 ms from Rust's mpv poll thread.
+  // ws.setTime() repositions the internal media element (no audio playback
+  // since volume=0) and redraws the cursor — lightweight enough for 80 ms ticks.
+  useEffect(() => {
+    const ws = wsRef.current;
+    if (!ws || !ready) return;
+    ws.setTime(currentTime);
+  }, [currentTime, ready]);
 
   // ── reconcile regions to match cue timing ─────────────────────────────────────
   useEffect(() => {

@@ -21,12 +21,20 @@ export function VideoPlayer() {
   const isAudio  = mediaKind === "audio";
   const hasMedia = mediaPath != null;
 
-  // Check mpv availability once on mount
+  // ── Initialise mpv (deferred from Rust setup so the NSWindow is ready) ─────
+  // mpv_init creates the child NSWindow and initialises the mpv handle with the
+  // correct wid.  Idempotent — safe to call on dock re-mount.
   useEffect(() => {
-    invoke<boolean>("check_mpv").then(setMpvAvailable).catch(() => setMpvAvailable(false));
+    invoke("mpv_init")
+      .then(() => setMpvAvailable(true))
+      .catch(() => setMpvAvailable(false));
   }, []);
 
-  // ── Tell Rust where to position the native mpv NSView ──────────────────────
+  // ── Tell Rust where to position / adopt the mpv window ─────────────────────
+  // mpv's NSWindow is created asynchronously after mpv_init, so the first few
+  // sendBounds calls drive the one-time adoption (Rust retries until it finds the
+  // window). We fire on mount, on resize, on media load, and on a short ramp of
+  // timers to catch the async window creation.
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -44,15 +52,19 @@ export function VideoPlayer() {
     };
 
     sendBounds();
+    // Retry ramp so adoption succeeds once mpv's window exists.
+    const timers = [150, 350, 600, 1000, 1600, 2400].map((ms) =>
+      window.setTimeout(sendBounds, ms),
+    );
     const ro = new ResizeObserver(sendBounds);
     ro.observe(el);
-    // Also update on window resize
     window.addEventListener("resize", sendBounds);
     return () => {
+      timers.forEach(clearTimeout);
       ro.disconnect();
       window.removeEventListener("resize", sendBounds);
     };
-  }, []);
+  }, [mediaPath]);
 
   // ── Active cue → overlay + row highlight ──────────────────────────────────
   const active = cues.find((c) => currentTime >= c.start && currentTime < c.end) ?? null;
