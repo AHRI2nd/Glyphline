@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useMediaStore } from "../../stores/useMediaStore";
 import { useSubtitleStore } from "../../stores/useSubtitleStore";
 import { useI18nStore } from "../../stores/useI18nStore";
 import { useSettingsStore } from "../../stores/useSettingsStore";
+import { serializeAss } from "../../formats/ass";
 
 export function VideoPlayer() {
   const containerRef  = useRef<HTMLDivElement>(null);
@@ -20,21 +21,24 @@ export function VideoPlayer() {
 
   const isAudio  = mediaKind === "audio";
   const hasMedia = mediaPath != null;
+  // The mpv window should cover the panel only when there's an actual video.
+  const showVideo = mpvAvailable && hasMedia && !isAudio && !error;
 
   // ── Initialise mpv (deferred from Rust setup so the NSWindow is ready) ─────
-  // mpv_init creates the child NSWindow and initialises the mpv handle with the
-  // correct wid.  Idempotent — safe to call on dock re-mount.
+  // mpv_init records the Tauri parent window and creates the mpv handle.
+  // Idempotent — safe to call again on dock re-mount.
   useEffect(() => {
     invoke("mpv_init")
       .then(() => setMpvAvailable(true))
       .catch(() => setMpvAvailable(false));
   }, []);
 
-  // ── Tell Rust where to position / adopt the mpv window ─────────────────────
-  // mpv's NSWindow is created asynchronously after mpv_init, so the first few
-  // sendBounds calls drive the one-time adoption (Rust retries until it finds the
-  // window). We fire on mount, on resize, on media load, and on a short ramp of
-  // timers to catch the async window creation.
+  // ── Position the video surface over the panel + repaint ────────────────────
+  // mpv_set_bounds moves/resizes our GL child window and repaints the current
+  // frame. We fire on mount, on media load, on a timer ramp (GL surface is set up
+  // asynchronously), and on panel resize. We do NOT track window MOVE: the child
+  // window is OS-attached to the parent and follows it automatically — handling
+  // move ourselves only fights the OS and caused the old jank.
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -52,13 +56,13 @@ export function VideoPlayer() {
     };
 
     sendBounds();
-    // Retry ramp so adoption succeeds once mpv's window exists.
     const timers = [150, 350, 600, 1000, 1600, 2400].map((ms) =>
       window.setTimeout(sendBounds, ms),
     );
     const ro = new ResizeObserver(sendBounds);
     ro.observe(el);
     window.addEventListener("resize", sendBounds);
+
     return () => {
       timers.forEach(clearTimeout);
       ro.disconnect();
@@ -66,7 +70,33 @@ export function VideoPlayer() {
     };
   }, [mediaPath]);
 
-  // ── Active cue → overlay + row highlight ──────────────────────────────────
+  // ── Show/hide the mpv window so React placeholders aren't covered ──────────
+  useEffect(() => {
+    invoke("mpv_set_window_visible", { visible: showVideo }).catch(() => {});
+    return () => {
+      // Hide on unmount (dock re-layout) so a stray black window can't linger.
+      invoke("mpv_set_window_visible", { visible: false }).catch(() => {});
+    };
+  }, [showVideo]);
+
+  // ── Push the editing doc to mpv's subtitle renderer ───────────────────────
+  // React can't draw on top of the native mpv window, so mpv renders the subs.
+  // We serialize the doc to ASS (lossless styling for ASS docs; default style for
+  // others) and reload it, debounced, on every cue-timing/text change.
+  const subSignature = useMemo(
+    () => cues.map((c) => `${c.id}:${c.start.toFixed(3)}:${c.end.toFixed(3)}:${c.text}`).join("\n"),
+    [cues],
+  );
+  useEffect(() => {
+    if (!showVideo) return;
+    const id = window.setTimeout(() => {
+      const ass = serializeAss(useSubtitleStore.getState().doc);
+      invoke("mpv_set_subs", { content: ass }).catch(() => {});
+    }, 300);
+    return () => clearTimeout(id);
+  }, [subSignature, showVideo, mediaPath]);
+
+  // ── Active cue → row highlight + waveform region (NOT a video overlay) ─────
   const active = cues.find((c) => currentTime >= c.start && currentTime < c.end) ?? null;
   const lastActiveId = useRef<string | null>(null);
   useEffect(() => {
@@ -77,9 +107,9 @@ export function VideoPlayer() {
   }, [active?.id]);
 
   return (
-    // bg-transparent: lets the native mpv NSView render through.
-    // The Tauri window has transparent:true, and this div has no background,
-    // so WKWebView is see-through here and mpv's NSView (beneath) is visible.
+    // The adopted mpv window floats above this panel and renders the video +
+    // subtitles. These children only show through the gaps (when no video is
+    // playing) — i.e. the placeholders below.
     <div ref={containerRef} className="relative flex h-full items-center justify-center">
 
       {/* mpv not installed */}
@@ -109,23 +139,11 @@ export function VideoPlayer() {
         </div>
       )}
 
-      {/* Audio-only placeholder */}
+      {/* Audio-only placeholder (mpv window is hidden for audio) */}
       {isAudio && hasMedia && !error && (
         <div className="flex flex-col items-center gap-2 text-zinc-500">
           <span className="text-4xl">♪</span>
           <span className="max-w-[90%] truncate px-4 text-xs">{mediaName}</span>
-        </div>
-      )}
-
-      {/* Active subtitle overlay */}
-      {active && !isAudio && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center px-4">
-          <span
-            className="whitespace-pre-wrap rounded bg-black/60 px-3 py-1 text-center text-lg font-medium leading-snug text-white"
-            style={{ textShadow: "0 1px 2px rgba(0,0,0,0.9)" }}
-          >
-            {active.text}
-          </span>
         </div>
       )}
     </div>

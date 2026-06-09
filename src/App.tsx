@@ -19,6 +19,7 @@ import { RawEditorModal } from "./components/Modals/RawEditorModal";
 import { HelpModal } from "./components/Modals/HelpModal";
 import { SettingsModal } from "./components/Settings/SettingsModal";
 import { StyleManagerModal } from "./components/Settings/StyleManagerModal";
+import { EmbeddedAssetsModal } from "./components/Settings/EmbeddedAssetsModal";
 import { InlineTagEditorModal } from "./components/Modals/InlineTagEditorModal";
 
 export default function App() {
@@ -33,7 +34,9 @@ export default function App() {
   const [showRawEditor, setShowRawEditor] = useState(false);
   const [showShift, setShowShift] = useState(false);
   const [showStyles, setShowStyles] = useState(false);
-  const [showTagEditor, setShowTagEditor] = useState(false);
+  const [showEmbedded, setShowEmbedded] = useState(false);
+  const showTagEditor = useSettingsStore((s) => s.tagEditorOpen);
+  const closeTagEditor = useSettingsStore((s) => s.closeTagEditor);
   const [showPluginManager, setShowPluginManager] = useState(false);
   const [pendingExport, setPendingExport] = useState<{ format: SubFormat; categories: LossCategory[] } | null>(null);
   const [updateVersion, setUpdateVersion] = useState<string | null>(null);
@@ -136,12 +139,14 @@ export default function App() {
     },
     onShift: () => setShowShift(true),
     onStyles: () => setShowStyles(true),
-    onEditTags: () => setShowTagEditor(true),
+    onEditTags: () => useSettingsStore.getState().openTagEditor(),
+    onEmbedded: () => setShowEmbedded(true),
     onRawEdit: () => setShowRawEditor(true),
     onSettings: () => useSettingsStore.getState().openSettingsModal(),
     onHelp: () => setShowHelp(true),
     onResetLayout: () => resetDockLayout(),
     onToggleSpectrogram: () => useSettingsStore.getState().toggleSpectrogram(),
+    onToggleTranslation: () => useSettingsStore.getState().toggleTranslation(),
     onPlugins: () => setShowPluginManager(true),
     onSetLang: (l) => useI18nStore.getState().setLang(l),
   };
@@ -167,11 +172,13 @@ export default function App() {
       onShift: () => handlersRef.current.onShift(),
       onStyles: () => handlersRef.current.onStyles(),
       onEditTags: () => handlersRef.current.onEditTags(),
+      onEmbedded: () => handlersRef.current.onEmbedded(),
       onRawEdit: () => handlersRef.current.onRawEdit(),
       onSettings: () => handlersRef.current.onSettings(), // handled via store
       onHelp: () => handlersRef.current.onHelp(),
       onResetLayout: () => handlersRef.current.onResetLayout(),
       onToggleSpectrogram: () => handlersRef.current.onToggleSpectrogram(),
+      onToggleTranslation: () => handlersRef.current.onToggleTranslation(),
       onPlugins: () => handlersRef.current.onPlugins(),
       onSetLang: (l) => handlersRef.current.onSetLang(l),
     };
@@ -239,7 +246,8 @@ export default function App() {
       )}
       {showShift && <ShiftModal onClose={() => setShowShift(false)} />}
       {showStyles && <StyleManagerModal onClose={() => setShowStyles(false)} />}
-      {showTagEditor && <InlineTagEditorModal onClose={() => setShowTagEditor(false)} />}
+      {showEmbedded && <EmbeddedAssetsModal onClose={() => setShowEmbedded(false)} />}
+      {showTagEditor && <InlineTagEditorModal onClose={closeTagEditor} />}
       {showPluginManager && (
         <PluginManagerModal
           onOpen={(plugin) => openPluginPanel(plugin)}

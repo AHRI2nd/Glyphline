@@ -36,6 +36,7 @@ export interface Cue {
   start: number; // seconds (internal time is always float seconds)
   end: number; // seconds (required)
   text: string; // may contain "\n" (line breaks preserved)
+  translation?: string; // parallel translation text — .glyph-only (external export uses `text`)
   tokens?: SyncToken[]; // word/char sync; when present, keep in sync with start/end
   assSpans?: AssSpan[]; // ASS inline override tags + text runs (lossless round-trip)
   style?: string; // ASS style name
@@ -63,10 +64,22 @@ export interface AssStyle {
   raw?: Record<string, string>; // unparsed style columns
 }
 
+/**
+ * A file embedded in an ASS script's [Fonts] or [Graphics] section. `data` is the
+ * raw UU-encoded payload lines (joined with "\n"), preserved verbatim for lossless
+ * round-trip; we never decode it on parse. See src/formats/ass.ts.
+ */
+export interface AssEmbedded {
+  name: string; // the `fontname:` / `filename:` value
+  data: string; // raw encoded data lines, verbatim
+}
+
 export interface SubtitleDocument {
   format: SubFormat; // original / last external format (export default hint)
   frameRate?: number; // reserved for timecode conversion (unused for now)
   styles?: AssStyle[]; // ASS/SSA only
+  fonts?: AssEmbedded[]; // ASS [Fonts] — embedded font files (lossless)
+  graphics?: AssEmbedded[]; // ASS [Graphics] — embedded images (lossless)
   cues: Cue[];
   meta: Record<string, string>; // VTT header / ASS [Script Info] / SMI <STYLE> etc.
 }

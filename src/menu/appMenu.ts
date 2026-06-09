@@ -32,11 +32,13 @@ export interface MenuHandlers {
   onShift: () => void;
   onStyles: () => void;
   onEditTags: () => void;
+  onEmbedded: () => void;
   onRawEdit: () => void;
   onSettings: () => void;
   onHelp: () => void;
   onResetLayout: () => void;
   onToggleSpectrogram: () => void;
+  onToggleTranslation: () => void;
   onPlugins: () => void;
   onSetLang: (lang: Lang) => void;
 }
@@ -106,6 +108,7 @@ export async function installAppMenu(t: Translations, lang: Lang, h: MenuHandler
       await MenuItem.new({ text: t.shiftTime, action: h.onShift }),
       await MenuItem.new({ text: t.styleManager, action: h.onStyles }),
       await MenuItem.new({ text: t.editTags, action: h.onEditTags }),
+      await MenuItem.new({ text: `${t.embeddedAssets}…`, action: h.onEmbedded }),
       await MenuItem.new({ text: t.rawEdit, action: h.onRawEdit }),
     ],
   });
@@ -128,6 +131,7 @@ export async function installAppMenu(t: Translations, lang: Lang, h: MenuHandler
     items: [
       await MenuItem.new({ text: t.resetLayout, action: h.onResetLayout }),
       await MenuItem.new({ text: t.spectrogram, action: h.onToggleSpectrogram }),
+      await MenuItem.new({ text: t.showTranslation, action: h.onToggleTranslation }),
       await MenuItem.new({ text: t.plugins, action: h.onPlugins }),
       await sep(),
       await Submenu.new({

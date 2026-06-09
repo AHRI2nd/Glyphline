@@ -4,6 +4,7 @@ import { formatDisplayTime, parseTimestampInput } from "../../utils/time";
 import { cps, cueDuration, evaluateCue, hasAnyIssue, type CueQuality } from "../../utils/quality";
 import { useI18nStore } from "../../stores/useI18nStore";
 import { useSubtitleStore } from "../../stores/useSubtitleStore";
+import { useSettingsStore } from "../../stores/useSettingsStore";
 import { useMediaStore } from "../../stores/useMediaStore";
 import { hasOverrideTags } from "../../formats/assTags";
 
@@ -14,11 +15,12 @@ interface Props {
   selected: boolean;
   active: boolean;
   styleNames: string[]; // when non-empty, show a per-cue style selector
+  showTranslation: boolean; // when true, show the parallel translation column
 }
 
 type EditField = "start" | "end" | null;
 
-export function CueRow({ cue, index, prev, selected, active, styleNames }: Props) {
+export function CueRow({ cue, index, prev, selected, active, styleNames, showTranslation }: Props) {
   const { t } = useI18nStore();
   const updateCue = useSubtitleStore((s) => s.updateCue);
   const toggleSelect = useSubtitleStore((s) => s.toggleSelect);
@@ -109,12 +111,16 @@ export function CueRow({ cue, index, prev, selected, active, styleNames }: Props
 
       <div className="relative flex-1 py-1 pr-2">
         {hasOverrideTags(cue.assSpans) && (
-          <span
-            className="absolute right-2 top-1 select-none rounded bg-fuchsia-900/60 px-1 text-[9px] font-semibold text-fuchsia-200"
-            title="ASS override tags preserved"
+          <button
+            onClick={() => {
+              useSubtitleStore.getState().setActiveCue(cue.id);
+              useSettingsStore.getState().openTagEditor();
+            }}
+            className="absolute right-2 top-1 z-10 select-none rounded bg-fuchsia-900/60 px-1 text-[9px] font-semibold text-fuchsia-200 transition-colors hover:bg-fuchsia-700/70"
+            title="ASS 인라인 태그 편집"
           >
             fx
-          </span>
+          </button>
         )}
         <textarea
           value={cue.text}
@@ -125,6 +131,20 @@ export function CueRow({ cue, index, prev, selected, active, styleNames }: Props
           className="w-full resize-none rounded bg-transparent px-2 py-1 text-zinc-100 outline-none focus:bg-zinc-950"
         />
       </div>
+
+      {showTranslation && (
+        <div className="flex-1 border-l border-zinc-800/60 py-1 pr-2">
+          <textarea
+            value={cue.translation ?? ""}
+            spellCheck={false}
+            rows={Math.max(1, (cue.translation ?? "").split("\n").length)}
+            placeholder={t.translationPlaceholder}
+            onChange={(e) => updateCue(cue.id, { translation: e.target.value || undefined })}
+            onClick={(e) => e.stopPropagation()}
+            className="w-full resize-none rounded bg-transparent px-2 py-1 text-zinc-200 outline-none placeholder:text-zinc-700 focus:bg-zinc-950"
+          />
+        </div>
+      )}
 
       <div className="flex w-6 shrink-0 items-center justify-center" title={issue ? issueText(q, t) : ""}>
         {issue && <span className="text-red-500">●</span>}

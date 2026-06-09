@@ -14,6 +14,7 @@
 import {
   newCueId,
   emptyDocument,
+  type AssEmbedded,
   type AssStyle,
   type Cue,
   type SubtitleDocument,
@@ -43,14 +44,42 @@ export function parseAss(raw: string): SubtitleDocument {
   let eventFormat = DEFAULT_EVENT_FORMAT;
   const scriptInfo: string[] = [];
   const otherSections: string[] = [];
+  const fonts: AssEmbedded[] = [];
+  const graphics: AssEmbedded[] = [];
+  // Tracks the embedded file currently being read in a [Fonts]/[Graphics] section.
+  let embed: { list: AssEmbedded[]; name: string; data: string[] } | null = null;
+  const flushEmbed = () => {
+    if (embed) { embed.list.push({ name: embed.name, data: embed.data.join("\n") }); embed = null; }
+  };
 
   for (const line of lines) {
     const trimmed = line.trim();
     const sectionMatch = trimmed.match(/^\[(.+)\]$/);
     if (sectionMatch) {
+      flushEmbed(); // a new section ends any open embedded file
       section = sectionMatch[1].toLowerCase();
-      if (section !== "script info" && !section.includes("styles") && section !== "events") {
+      // [Fonts]/[Graphics] are parsed structurally below; every other unknown
+      // section header is preserved verbatim in assExtra.
+      if (
+        section !== "script info" && !section.includes("styles") &&
+        section !== "events" && section !== "fonts" && section !== "graphics"
+      ) {
         otherSections.push(line);
+      }
+      continue;
+    }
+
+    // [Fonts]/[Graphics]: "fontname:"/"filename:" starts a file; following
+    // non-empty lines are its UU-encoded payload (kept verbatim, never decoded).
+    if (section === "fonts" || section === "graphics") {
+      const list = section === "fonts" ? fonts : graphics;
+      const key = section === "fonts" ? "fontname" : "filename";
+      const m = trimmed.match(new RegExp(`^${key}:\\s*(.+)$`, "i"));
+      if (m) {
+        flushEmbed();
+        embed = { list, name: m[1].trim(), data: [] };
+      } else if (embed && trimmed) {
+        embed.data.push(line);
       }
       continue;
     }
@@ -83,8 +112,12 @@ export function parseAss(raw: string): SubtitleDocument {
     }
   }
 
+  flushEmbed(); // close any embedded file open at EOF
+
   if (scriptInfo.length) doc.meta.assScriptInfo = scriptInfo.join("\n");
   if (otherSections.length) doc.meta.assExtra = otherSections.join("\n");
+  if (fonts.length) doc.fonts = fonts;
+  if (graphics.length) doc.graphics = graphics;
   doc.meta.assStyleFormat = styleFormat.join(", ");
   doc.meta.assEventFormat = eventFormat.join(", ");
   return doc;
@@ -103,6 +136,12 @@ export function serializeAss(doc: SubtitleDocument): string {
   parts.push(`Format: ${styleFormat.join(", ")}`);
   for (const st of styles) parts.push(`Style: ${serializeStyle(st, styleFormat)}`);
   parts.push("");
+
+  // Embedded files (conventionally placed before [Events]; libass accepts any
+  // position). Emitted verbatim for lossless round-trip.
+  emitEmbedded(parts, "[Fonts]", "fontname", doc.fonts);
+  emitEmbedded(parts, "[Graphics]", "filename", doc.graphics);
+
   parts.push("[Events]");
   parts.push(`Format: ${eventFormat.join(", ")}`);
   for (const cue of sortedCues(doc.cues)) {
@@ -110,6 +149,34 @@ export function serializeAss(doc: SubtitleDocument): string {
   }
   if (doc.meta.assExtra) parts.push(doc.meta.assExtra);
   return parts.join("\n") + "\n";
+}
+
+// ─── Embedded fonts / graphics ────────────────────────────────────────────────
+function emitEmbedded(
+  parts: string[],
+  header: string,
+  key: string,
+  files: AssEmbedded[] | undefined,
+) {
+  if (!files?.length) return;
+  parts.push(header);
+  for (const f of files) {
+    parts.push(`${key}: ${f.name}`);
+    if (f.data) parts.push(f.data);
+  }
+  parts.push("");
+}
+
+/**
+ * Decoded byte size of an ASS-embedded payload, computed from the encoded length
+ * without actually decoding (ASS uses a UU-encode variant: 4 encoded chars ↦ 3
+ * bytes; a trailing 2/3 chars ↦ 1/2 bytes). For display only.
+ */
+export function embeddedByteSize(data: string): number {
+  const chars = data.replace(/\s+/g, "").length;
+  const bytes = Math.floor(chars / 4) * 3;
+  const rem = chars % 4;
+  return bytes + (rem === 3 ? 2 : rem === 2 ? 1 : 0);
 }
 
 // ─── Styles ─────────────────────────────────────────────────────────────────

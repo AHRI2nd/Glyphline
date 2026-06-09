@@ -2,7 +2,7 @@
 // Run: npx tsx scripts/roundtrip-test.ts
 import { parseSrt, serializeSrt } from "../src/formats/srt";
 import { parseVtt, serializeVtt } from "../src/formats/vtt";
-import { parseAss, serializeAss } from "../src/formats/ass";
+import { parseAss, serializeAss, embeddedByteSize } from "../src/formats/ass";
 import { parseSmi, serializeSmi } from "../src/formats/smi";
 import { parseGlyph, serializeGlyph } from "../src/formats/glyph";
 
@@ -65,6 +65,47 @@ check("ASS: actor", assDoc.cues[1].actor === "Bob");
 const ass2 = parseAss(serializeAss(assDoc));
 check("ASS: round-trip cues", ass2.cues.length === 2);
 check("ASS: round-trip karaoke", (ass2.cues[0].tokens?.length ?? 0) === 3);
+
+// ── ASS embedded [Fonts]/[Graphics] (lossless preserve) ───────────────────────
+const embedAss = `[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Arial,48,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,2,0,2,10,10,10,1
+
+[Fonts]
+fontname: myfont_0.ttf
+!!!!encoded-line-one!!!!
+####encoded-line-two####
+fontname: other_1.otf
+ABCDEF
+
+[Graphics]
+filename: logo_0.png
+GFXDATA0123
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:01.00,0:00:03.00,Default,,0,0,0,,hi
+`;
+const embDoc = parseAss(embedAss);
+check("EMBED: 2 fonts parsed", embDoc.fonts?.length === 2, `got ${embDoc.fonts?.length}`);
+check("EMBED: font name", embDoc.fonts?.[0].name === "myfont_0.ttf", JSON.stringify(embDoc.fonts?.[0].name));
+check("EMBED: font data (2 lines)", embDoc.fonts?.[0].data === "!!!!encoded-line-one!!!!\n####encoded-line-two####", JSON.stringify(embDoc.fonts?.[0].data));
+check("EMBED: second font", embDoc.fonts?.[1].name === "other_1.otf" && embDoc.fonts?.[1].data === "ABCDEF");
+check("EMBED: 1 graphic parsed", embDoc.graphics?.length === 1 && embDoc.graphics?.[0].name === "logo_0.png");
+check("EMBED: cue still parsed", embDoc.cues.length === 1 && embDoc.cues[0].text === "hi");
+// header not leaked into assExtra
+check("EMBED: no header leak", !(embDoc.meta.assExtra ?? "").toLowerCase().includes("[fonts]"), embDoc.meta.assExtra);
+// serialize → reparse: identical fonts/graphics
+const embOut = serializeAss(embDoc);
+check("EMBED: serialize has [Fonts]", embOut.includes("[Fonts]") && embOut.includes("fontname: myfont_0.ttf"));
+check("EMBED: serialize has [Graphics]", embOut.includes("[Graphics]") && embOut.includes("filename: logo_0.png"));
+const emb2 = parseAss(embOut);
+check("EMBED: round-trip fonts", JSON.stringify(emb2.fonts) === JSON.stringify(embDoc.fonts));
+check("EMBED: round-trip graphics", JSON.stringify(emb2.graphics) === JSON.stringify(embDoc.graphics));
+// glyph keeps them too
+const embGlyph = parseGlyph(serializeGlyph(embDoc));
+check("EMBED: glyph preserves fonts", JSON.stringify(embGlyph.fonts) === JSON.stringify(embDoc.fonts));
+check("EMBED: byte size estimate", embeddedByteSize("ABCD") === 3 && embeddedByteSize("ABCDEF") === 4, String(embeddedByteSize("ABCDEF")));
 
 // ── ASS edit fidelity: inline tags kept when unedited, dropped when edited ────
 const assTagged = `[Events]
@@ -153,6 +194,11 @@ const glyphStr = serializeGlyph(vttDoc);
 const glyphDoc = parseGlyph(glyphStr);
 check("GLYPH: lossless cues", JSON.stringify(glyphDoc.cues) === JSON.stringify(vttDoc.cues));
 check("GLYPH: tokens preserved", (glyphDoc.cues[0].tokens?.length ?? 0) === 3);
+// translation field is .glyph-only and must survive
+const transDoc = parseSrt(srt);
+transDoc.cues[0].translation = "안녕 세계\n둘째 줄";
+const transGlyph = parseGlyph(serializeGlyph(transDoc));
+check("GLYPH: translation preserved", transGlyph.cues[0].translation === "안녕 세계\n둘째 줄", JSON.stringify(transGlyph.cues[0].translation));
 
 // ── Cross-format conversion: SRT -> ASS ───────────────────────────────────────
 const asAss = parseAss(serializeAss(srtDoc));

@@ -1,5 +1,6 @@
 import { useI18nStore } from "../../stores/useI18nStore";
 import { useSubtitleStore } from "../../stores/useSubtitleStore";
+import { useSettingsStore } from "../../stores/useSettingsStore";
 import { sortedCues } from "../../formats/srt";
 import { CueRow } from "./CueRow";
 
@@ -8,6 +9,7 @@ export function CueList() {
   const doc = useSubtitleStore((s) => s.doc);
   const selectedIds = useSubtitleStore((s) => s.selectedIds);
   const activeCueId = useSubtitleStore((s) => s.activeCueId);
+  const showTranslation = useSettingsStore((s) => s.showTranslation);
 
   const cues = sortedCues(doc.cues);
   const styleNames = (doc.styles ?? []).map((s) => s.name);
@@ -31,6 +33,7 @@ export function CueList() {
         <div className="w-20 py-2 text-center">{t.duration}</div>
         {styleNames.length > 0 && <div className="w-28 border-l border-zinc-800/60 py-2 pl-2">{t.cueStyle}</div>}
         <div className="flex-1 py-2 pl-2">{t.text}</div>
+        {showTranslation && <div className="flex-1 border-l border-zinc-800/60 py-2 pl-2">{t.translation}</div>}
         <div className="w-6" />
       </div>
       {/* rows */}
@@ -44,6 +47,7 @@ export function CueList() {
             selected={selectedIds.has(cue.id)}
             active={activeCueId === cue.id}
             styleNames={styleNames}
+            showTranslation={showTranslation}
           />
         ))}
       </div>

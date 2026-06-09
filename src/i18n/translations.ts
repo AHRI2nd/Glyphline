@@ -23,6 +23,17 @@ export interface Translations {
   editTags: string;
   inlineTagEditor: string;
   tagColor: string;
+  tagStructured: string;
+  tagRaw: string;
+  addTag: string;
+  noTags: string;
+  embeddedAssets: string;
+  embeddedFonts: string;
+  embeddedGraphics: string;
+  embeddedEmpty: string;
+  translation: string;
+  translationPlaceholder: string;
+  showTranslation: string;
   preview: string;
   noActiveCue: string;
   playPause: string;
@@ -144,6 +155,17 @@ const ko: Translations = {
   editTags: "인라인 태그 편집…",
   inlineTagEditor: "인라인 태그 편집 (ASS)",
   tagColor: "색상",
+  tagStructured: "구조",
+  tagRaw: "고급(raw)",
+  addTag: "태그 추가",
+  noTags: "태그 없음",
+  embeddedAssets: "내장 폰트/그래픽",
+  embeddedFonts: "폰트",
+  embeddedGraphics: "그래픽",
+  embeddedEmpty: "내장된 파일이 없습니다.",
+  translation: "번역",
+  translationPlaceholder: "번역 입력…",
+  showTranslation: "번역 열 표시",
   preview: "미리보기",
   noActiveCue: "선택된 자막이 없습니다. 먼저 자막을 선택하세요.",
   playPause: "재생 / 일시정지",
@@ -257,6 +279,17 @@ const en: Translations = {
   editTags: "Edit Inline Tags…",
   inlineTagEditor: "Inline Tag Editor (ASS)",
   tagColor: "Color",
+  tagStructured: "Structured",
+  tagRaw: "Raw",
+  addTag: "Add tag",
+  noTags: "No tags",
+  embeddedAssets: "Embedded Fonts/Graphics",
+  embeddedFonts: "Fonts",
+  embeddedGraphics: "Graphics",
+  embeddedEmpty: "No embedded files.",
+  translation: "Translation",
+  translationPlaceholder: "Enter translation…",
+  showTranslation: "Show Translation Column",
   preview: "Preview",
   noActiveCue: "No cue selected. Select a cue first.",
   playPause: "Play / Pause",
@@ -370,6 +403,17 @@ const ja: Translations = {
   editTags: "インラインタグ編集…",
   inlineTagEditor: "インラインタグ編集 (ASS)",
   tagColor: "色",
+  tagStructured: "構造",
+  tagRaw: "Raw",
+  addTag: "タグ追加",
+  noTags: "タグなし",
+  embeddedAssets: "埋め込みフォント/グラフィック",
+  embeddedFonts: "フォント",
+  embeddedGraphics: "グラフィック",
+  embeddedEmpty: "埋め込みファイルがありません。",
+  translation: "翻訳",
+  translationPlaceholder: "翻訳を入力…",
+  showTranslation: "翻訳列を表示",
   preview: "プレビュー",
   noActiveCue: "字幕が選択されていません。まず字幕を選択してください。",
   playPause: "再生 / 一時停止",
