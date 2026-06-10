@@ -82,6 +82,8 @@ function SeekBar({
   onSeek: (sec: number) => void;
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
+  const rafRef = useRef<number | null>(null);
+  const lastXRef = useRef<number>(0);
   const pct = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
 
   const seekToClientX = (clientX: number) => {
@@ -99,6 +101,21 @@ function SeekBar({
   };
   const onPointerMove = (e: React.PointerEvent) => {
     if (e.buttons !== 1) return; // only while dragging
+    lastXRef.current = e.clientX;
+    // RAF throttle: one invoke per animation frame max. Without this, dragging at
+    // high speed fires hundreds of mpv_seek calls/sec, flooding IPC and mpv.
+    if (rafRef.current != null) return;
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null;
+      seekToClientX(lastXRef.current);
+    });
+  };
+  const onPointerUp = (e: React.PointerEvent) => {
+    // Final seek at exact release position (cancels any pending RAF seek).
+    if (rafRef.current != null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
     seekToClientX(e.clientX);
   };
 
@@ -107,6 +124,7 @@ function SeekBar({
       ref={trackRef}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
       className="group relative h-3 w-full cursor-pointer select-none"
       title="탐색"
     >

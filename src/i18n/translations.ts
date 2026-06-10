@@ -34,6 +34,10 @@ export interface Translations {
   translation: string;
   translationPlaceholder: string;
   showTranslation: string;
+  zoomIn: string;
+  zoomOut: string;
+  zoomFit: string;
+  setFromPlayhead: string;
   preview: string;
   noActiveCue: string;
   playPause: string;
@@ -166,6 +170,10 @@ const ko: Translations = {
   translation: "번역",
   translationPlaceholder: "번역 입력…",
   showTranslation: "번역 열 표시",
+  zoomIn: "확대 (⌘+스크롤)",
+  zoomOut: "축소 (⌘+스크롤)",
+  zoomFit: "전체",
+  setFromPlayhead: "재생 위치로 설정",
   preview: "미리보기",
   noActiveCue: "선택된 자막이 없습니다. 먼저 자막을 선택하세요.",
   playPause: "재생 / 일시정지",
@@ -290,6 +298,10 @@ const en: Translations = {
   translation: "Translation",
   translationPlaceholder: "Enter translation…",
   showTranslation: "Show Translation Column",
+  zoomIn: "Zoom in (⌘+scroll)",
+  zoomOut: "Zoom out (⌘+scroll)",
+  zoomFit: "Fit",
+  setFromPlayhead: "Set to playhead",
   preview: "Preview",
   noActiveCue: "No cue selected. Select a cue first.",
   playPause: "Play / Pause",
@@ -414,6 +426,10 @@ const ja: Translations = {
   translation: "翻訳",
   translationPlaceholder: "翻訳を入力…",
   showTranslation: "翻訳列を表示",
+  zoomIn: "拡大 (⌘+スクロール)",
+  zoomOut: "縮小 (⌘+スクロール)",
+  zoomFit: "全体",
+  setFromPlayhead: "再生位置に設定",
   preview: "プレビュー",
   noActiveCue: "字幕が選択されていません。まず字幕を選択してください。",
   playPause: "再生 / 一時停止",

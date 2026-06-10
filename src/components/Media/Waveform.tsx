@@ -16,11 +16,14 @@ const ACTIVE_COLOR = "rgba(99,102,241,0.38)";
 export function Waveform() {
   const containerRef = useRef<HTMLDivElement>(null);
   const specContainerRef = useRef<HTMLDivElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WaveSurfer | null>(null);
   const regionsRef = useRef<RegionsPlugin | null>(null);
   const specRef = useRef<SpectrogramPlugin | null>(null);
   const buildingRef = useRef(false); // suppress region-created during programmatic adds
   const [ready, setReady] = useState(false);
+  // px-per-second zoom; null = fit the whole file to the container width.
+  const [pxPerSec, setPxPerSec] = useState<number | null>(null);
   const showSpectrogram = useSettingsStore((s) => s.showSpectrogram);
   const toggleSpectrogram = useSettingsStore((s) => s.toggleSpectrogram);
 
@@ -89,8 +92,49 @@ export function Waveform() {
       regionsRef.current = null;
       specRef.current = null;
       setReady(false);
+      setPxPerSec(null); // new media starts fitted to width
     };
   }, [waveformSrc]);
+
+  // ── zoom (Cmd/Ctrl+scroll, +/- buttons) ───────────────────────────────────
+  // Keep a ref so the wheel listener (registered once) always sees the current fn.
+  const zoomByRef = useRef<(factor: number) => void>(() => {});
+  const zoomTo = (next: number | null) => {
+    const ws = wsRef.current;
+    const el = containerRef.current;
+    if (!ws || !ready) return;
+    if (next == null) {
+      // fit: whole file spans the container width
+      if (el && duration > 0) ws.zoom(el.clientWidth / duration);
+      setPxPerSec(null);
+    } else {
+      const clamped = Math.min(2000, Math.max(1, next));
+      ws.zoom(clamped);
+      setPxPerSec(clamped);
+    }
+  };
+  const zoomBy = (factor: number) => {
+    const el = containerRef.current;
+    const base = pxPerSec ?? (el && duration > 0 ? el.clientWidth / duration : 50);
+    zoomTo(base * factor);
+  };
+  // Keep ref current so the wheel listener (stable, no dep array) always uses
+  // the latest zoomBy without being torn down and re-added on every render.
+  zoomByRef.current = zoomBy;
+
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    // Native listener with passive:false — Cmd/Ctrl+wheel must preventDefault to
+    // stop the page/system zoom gesture.
+    const onWheel = (e: WheelEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      e.preventDefault();
+      zoomByRef.current(e.deltaY < 0 ? 1.25 : 0.8);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []); // [] — attach once; zoomByRef provides always-current fn without re-registering
 
   // ── keep WaveSurfer cursor in sync with mpv ───────────────────────────────
   // currentTime updates every ~80 ms from Rust's mpv poll thread.
@@ -167,8 +211,32 @@ export function Waveform() {
   }
 
   return (
-    <div className="flex h-full w-full flex-col overflow-auto bg-zinc-900 px-2 py-2">
-      <div className="mb-1 flex items-center justify-end">
+    <div ref={wrapRef} className="flex h-full w-full flex-col overflow-auto bg-zinc-900 px-2 py-2">
+      <div className="mb-1 flex items-center justify-end gap-1">
+        <button
+          onClick={() => zoomBy(0.8)}
+          className="rounded bg-zinc-800 px-2 py-0.5 text-[10px] text-zinc-300 hover:bg-zinc-700"
+          title={t.zoomOut}
+        >
+          −
+        </button>
+        <button
+          onClick={() => zoomBy(1.25)}
+          className="rounded bg-zinc-800 px-2 py-0.5 text-[10px] text-zinc-300 hover:bg-zinc-700"
+          title={t.zoomIn}
+        >
+          ＋
+        </button>
+        <button
+          onClick={() => zoomTo(null)}
+          className={`rounded px-2 py-0.5 text-[10px] ${
+            pxPerSec == null ? "bg-indigo-600 text-white" : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
+          }`}
+          title={t.zoomFit}
+        >
+          ⟷ {t.zoomFit}
+        </button>
+        <span className="mx-1 h-3 w-px bg-zinc-700" />
         <button
           onClick={() => toggleSpectrogram()}
           className={`rounded px-2 py-0.5 text-[10px] ${

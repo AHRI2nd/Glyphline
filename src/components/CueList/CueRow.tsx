@@ -35,6 +35,7 @@ export function CueRow({ cue, index, prev, selected, active, styleNames, showTra
 
   const q = evaluateCue(cue, prev);
   const issue = hasAnyIssue(q);
+  const hasMedia = useMediaStore((s) => s.mediaSrc != null);
 
   const startEdit = (field: "start" | "end") => {
     setEditField(field);
@@ -46,11 +47,16 @@ export function CueRow({ cue, index, prev, selected, active, styleNames, showTra
     if (parsed != null) updateCue(cue.id, { [editField]: parsed } as Partial<Cue>);
     setEditField(null);
   };
+  // Stamp the current playhead time into start/end (read at click time).
+  const capture = (field: "start" | "end") => {
+    const tNow = useMediaStore.getState().currentTime;
+    updateCue(cue.id, { [field]: tNow } as Partial<Cue>);
+  };
 
   return (
     <div
       className={[
-        "flex items-stretch border-b border-zinc-800 text-sm",
+        "group flex items-stretch border-b border-zinc-800 text-sm",
         selected ? "bg-indigo-950/40" : active ? "bg-zinc-800/40" : "hover:bg-zinc-900/60",
       ].join(" ")}
       onClick={(e) => {
@@ -71,6 +77,8 @@ export function CueRow({ cue, index, prev, selected, active, styleNames, showTra
         onChange={setEditValue}
         onCommit={commitEdit}
         onCancel={() => setEditField(null)}
+        onCapture={hasMedia ? () => capture("start") : undefined}
+        captureTitle={t.setFromPlayhead}
       />
       <TimeCell
         editing={editField === "end"}
@@ -81,6 +89,8 @@ export function CueRow({ cue, index, prev, selected, active, styleNames, showTra
         onCommit={commitEdit}
         onCancel={() => setEditField(null)}
         danger={q.negativeDuration}
+        onCapture={hasMedia ? () => capture("end") : undefined}
+        captureTitle={t.setFromPlayhead}
       />
 
       <div className="flex w-20 shrink-0 flex-col items-center justify-center py-1 text-[10px] leading-tight">
@@ -110,18 +120,23 @@ export function CueRow({ cue, index, prev, selected, active, styleNames, showTra
       )}
 
       <div className="relative flex-1 py-1 pr-2">
-        {hasOverrideTags(cue.assSpans) && (
-          <button
-            onClick={() => {
-              useSubtitleStore.getState().setActiveCue(cue.id);
-              useSettingsStore.getState().openTagEditor();
-            }}
-            className="absolute right-2 top-1 z-10 select-none rounded bg-fuchsia-900/60 px-1 text-[9px] font-semibold text-fuchsia-200 transition-colors hover:bg-fuchsia-700/70"
-            title="ASS 인라인 태그 편집"
-          >
-            fx
-          </button>
-        )}
+        {/* Tag editor entry — always available so tags can be APPLIED to any cue;
+            dimmed + hover-revealed when the cue has no tags yet. */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            useSubtitleStore.getState().setActiveCue(cue.id);
+            useSettingsStore.getState().openTagEditor();
+          }}
+          className={`absolute right-2 top-1 z-10 select-none rounded px-1 text-[9px] font-semibold transition-all ${
+            hasOverrideTags(cue.assSpans)
+              ? "bg-fuchsia-900/60 text-fuchsia-200 hover:bg-fuchsia-700/70"
+              : "bg-zinc-800/80 text-zinc-500 opacity-0 hover:text-fuchsia-300 group-hover:opacity-100"
+          }`}
+          title={t.editTags}
+        >
+          fx
+        </button>
         <textarea
           value={cue.text}
           spellCheck={false}
@@ -171,11 +186,14 @@ interface TimeCellProps {
   onCommit: () => void;
   onCancel: () => void;
   danger?: boolean;
+  /** Stamp the current playhead time into this field (shown only with media). */
+  onCapture?: () => void;
+  captureTitle?: string;
 }
 
-function TimeCell({ editing, value, inputRef, onStart, onChange, onCommit, onCancel, danger }: TimeCellProps) {
+function TimeCell({ editing, value, inputRef, onStart, onChange, onCommit, onCancel, danger, onCapture, captureTitle }: TimeCellProps) {
   return (
-    <div className="flex w-24 shrink-0 items-center justify-center border-l border-zinc-800/60 py-1">
+    <div className="group/time relative flex w-24 shrink-0 items-center justify-center border-l border-zinc-800/60 py-1">
       {editing ? (
         <input
           ref={inputRef}
@@ -190,15 +208,29 @@ function TimeCell({ editing, value, inputRef, onStart, onChange, onCommit, onCan
           className="w-[88px] rounded bg-zinc-950 px-1 py-0.5 text-center font-mono text-xs text-indigo-200 outline-none"
         />
       ) : (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onStart();
-          }}
-          className={`font-mono text-xs ${danger ? "text-red-400" : "text-zinc-300"} hover:text-indigo-300`}
-        >
-          {value}
-        </button>
+        <>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onStart();
+            }}
+            className={`font-mono text-xs ${danger ? "text-red-400" : "text-zinc-300"} hover:text-indigo-300`}
+          >
+            {value}
+          </button>
+          {onCapture && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onCapture();
+              }}
+              title={captureTitle}
+              className="absolute right-0.5 top-1/2 -translate-y-1/2 rounded px-0.5 text-[10px] text-zinc-600 opacity-0 transition-opacity hover:text-indigo-300 group-hover/time:opacity-100"
+            >
+              ⌖
+            </button>
+          )}
+        </>
       )}
     </div>
   );

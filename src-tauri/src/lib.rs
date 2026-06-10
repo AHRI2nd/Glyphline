@@ -52,6 +52,7 @@ struct MpvFns {
     #[allow(dead_code)]
     render_free:         unsafe extern "C" fn(MpvRenderCtx),
     render_render:       unsafe extern "C" fn(MpvRenderCtx, *mut MpvRenderParam) -> c_int,
+    render_update:       unsafe extern "C" fn(MpvRenderCtx) -> u64,
     render_set_update_cb: unsafe extern "C" fn(MpvRenderCtx, unsafe extern "C" fn(*mut c_void), *mut c_void),
 }
 // MpvFns only stores function pointers (integers), safe to send across threads.
@@ -130,6 +131,7 @@ fn try_load_mpv_lib() -> Result<MpvLib, String> {
                     render_create:     sym!(b"mpv_render_context_create\0", unsafe extern "C" fn(*mut MpvRenderCtx, MpvHandle, *mut MpvRenderParam) -> c_int),
                     render_free:       sym!(b"mpv_render_context_free\0",   unsafe extern "C" fn(MpvRenderCtx)),
                     render_render:     sym!(b"mpv_render_context_render\0", unsafe extern "C" fn(MpvRenderCtx, *mut MpvRenderParam) -> c_int),
+                    render_update:     sym!(b"mpv_render_context_update\0", unsafe extern "C" fn(MpvRenderCtx) -> u64),
                     render_set_update_cb: sym!(b"mpv_render_context_set_update_callback\0", unsafe extern "C" fn(MpvRenderCtx, unsafe extern "C" fn(*mut c_void), *mut c_void)),
                 };
                 return Ok(MpvLib { _lib: lib, fns });
@@ -255,6 +257,20 @@ mod platform {
         let nil = std::ptr::null_mut::<Object>();
         if WANT_VISIBLE.load(Ordering::SeqCst) {
             let _: () = msg_send![child, orderFront: nil];
+            // CRITICAL: orderOut invalidates the GL drawable. Without re-attaching
+            // the view, every later render silently draws nowhere ("video never
+            // shows after the window was hidden once").
+            let ctx  = GL_CTX.load(Ordering::SeqCst)  as *mut Object;
+            let view = GL_VIEW.load(Ordering::SeqCst) as *mut Object;
+            if !ctx.is_null() && !view.is_null() {
+                let _: () = msg_send![ctx, setView: view];
+                let _: () = msg_send![ctx, update];
+                // Re-assert swap interval=0 after re-attaching the drawable.
+                // orderOut detaches the drawable, resetting the swap interval to
+                // the default (1 = vsync blocking). Must set it again each time.
+                let swap: c_int = 0;
+                let _: () = msg_send![ctx, setValues: (&swap as *const c_int) forParameter: 222isize];
+            }
         } else {
             let _: () = msg_send![child, orderOut: nil];
         }
@@ -315,6 +331,12 @@ mod platform {
 
         let _: () = msg_send![parent, addChildWindow: child ordered: 1i64]; // above
         let _: () = msg_send![ctx, setView: view];
+        // NSOpenGLCPSwapInterval=0 MUST be set AFTER setView: — Apple docs say the
+        // value is ignored before a drawable is attached to the context. If set
+        // before, the default (vsync=1) stays in effect: flushBuffer blocks ~16 ms
+        // per frame on the main thread, which freezes the UI during rapid seeking.
+        let swap: c_int = 0;
+        let _: () = msg_send![ctx, setValues: (&swap as *const c_int) forParameter: 222isize]; // NSOpenGLCPSwapInterval
 
         CHILD_WIN.store(child as i64, Ordering::SeqCst);
         GL_VIEW.store(view as i64, Ordering::SeqCst);
@@ -352,6 +374,10 @@ mod platform {
 static RENDER_CTX: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(0);
 #[cfg(target_os = "macos")]
 static APP_HANDLE: OnceLock<tauri::AppHandle> = OnceLock::new();
+// Coalesce update callbacks: mpv fires per frame; queueing one main-thread render
+// per callback floods the main loop and freezes the UI. One pending render max.
+#[cfg(target_os = "macos")]
+static RENDER_PENDING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 /// Render the current mpv frame into our GL surface. Main thread only.
 #[cfg(target_os = "macos")]
@@ -360,9 +386,14 @@ fn render_now() {
     let rc = RENDER_CTX.load(Ordering::SeqCst);
     if rc == 0 { return; }
     let Some(lib) = MPV_LIB.get() else { return };
+    let (w, h) = platform::fbo_size();
+    if w <= 0 || h <= 0 { return; } // no surface size yet — skip until set_frame
     unsafe {
         platform::make_current();
-        let (w, h) = platform::fbo_size();
+        // Ack pending updates (clears mpv's update state), then redraw. Rendering
+        // with no new frame just repaints the current one — exactly what we want
+        // for repaint-on-resize/visibility.
+        let _ = (lib.fns.render_update)(rc as MpvRenderCtx);
         let mut fbo  = MpvOpenglFbo { fbo: 0, w, h, internal_format: 0 };
         let mut flip: c_int = 1;
         let mut params = [
@@ -376,11 +407,18 @@ fn render_now() {
 }
 
 /// mpv → "new frame ready" (arbitrary thread). Hop to the main thread to render.
+/// Coalesced: if a render is already queued, this notification is folded into it.
 #[cfg(target_os = "macos")]
 unsafe extern "C" fn on_render_update(_ctx: *mut c_void) {
-    if let Some(app) = APP_HANDLE.get() {
-        let _ = app.run_on_main_thread(render_now);
-    }
+    use std::sync::atomic::Ordering;
+    if RENDER_PENDING.swap(true, Ordering::SeqCst) { return; }
+    let queued = APP_HANDLE.get().map(|app| {
+        app.run_on_main_thread(|| {
+            RENDER_PENDING.store(false, Ordering::SeqCst);
+            render_now();
+        }).is_ok()
+    }).unwrap_or(false);
+    if !queued { RENDER_PENDING.store(false, Ordering::SeqCst); }
 }
 
 // ─── Setup ────────────────────────────────────────────────────────────────────
@@ -696,7 +734,12 @@ fn mpv_set_subs(content: String) -> Result<(), String> {
 fn mpv_set_window_visible(app: tauri::AppHandle, visible: bool) {
     #[cfg(target_os = "macos")]
     {
-        let _ = app.run_on_main_thread(move || unsafe { platform::set_visible(visible) });
+        let _ = app.run_on_main_thread(move || {
+            unsafe { platform::set_visible(visible) };
+            // Repaint immediately after the drawable is re-attached, so the current
+            // frame shows without waiting for the next mpv update callback.
+            if visible { render_now(); }
+        });
     }
     #[cfg(not(target_os = "macos"))]
     { let _ = (app, visible); }
@@ -710,12 +753,26 @@ fn mpv_set_pause(pause: bool) -> Result<(), String> {
     with_mpv!(|g: &MpvInstance| { g.set_flag("pause", pause); Ok(()) })
 }
 #[tauri::command]
-fn mpv_seek(pos: f64) -> Result<(), String> {
-    with_mpv!(|g: &MpvInstance| { let s = pos.to_string(); g.command(&["seek", &s, "absolute"]); Ok(()) })
+async fn mpv_seek(pos: f64) -> Result<(), String> {
+    // spawn_blocking so mpv_command("seek") — which can take variable time for
+    // precise seeking — never blocks the main thread or the async runtime.
+    tokio::task::spawn_blocking(move || {
+        with_mpv!(|g: &MpvInstance| {
+            let s = pos.to_string();
+            g.command(&["seek", &s, "absolute"]);
+            Ok(())
+        })
+    }).await.map_err(|e| e.to_string())?
 }
 #[tauri::command]
-fn mpv_skip(delta: f64) -> Result<(), String> {
-    with_mpv!(|g: &MpvInstance| { let s = delta.to_string(); g.command(&["seek", &s, "relative"]); Ok(()) })
+async fn mpv_skip(delta: f64) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        with_mpv!(|g: &MpvInstance| {
+            let s = delta.to_string();
+            g.command(&["seek", &s, "relative"]);
+            Ok(())
+        })
+    }).await.map_err(|e| e.to_string())?
 }
 #[tauri::command]
 fn mpv_set_speed(speed: f64) -> Result<(), String> {
