@@ -22,11 +22,30 @@ import { StyleManagerModal } from "./components/Settings/StyleManagerModal";
 import { EmbeddedAssetsModal } from "./components/Settings/EmbeddedAssetsModal";
 import { InlineTagEditorModal } from "./components/Modals/InlineTagEditorModal";
 import { FindReplaceModal } from "./components/Modals/FindReplaceModal";
+import { BatchCleanupModal } from "./components/Modals/BatchCleanupModal";
+import { PointSyncModal } from "./components/Modals/PointSyncModal";
+import { ChangeSpeedModal } from "./components/Modals/ChangeSpeedModal";
+import { StatisticsModal } from "./components/Modals/StatisticsModal";
+import { CloseConfirmModal, RecoveryModal } from "./components/Modals/SafetyModals";
+import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
+import { serializeGlyph, parseGlyph } from "./formats/glyph";
+
+/** Crash-recovery autosave payload (JSON, written to the OS temp dir). */
+interface AutosaveData {
+  savedAt: number;
+  filePath: string | null;
+  fileName: string | null;
+  glyph: string;
+}
 
 export default function App() {
   const { t, lang } = useI18nStore();
   const { uiScale } = useSettingsStore();
   const autoCheckUpdate = useSettingsStore((s) => s.autoCheckUpdate);
+  const recentFiles = useSettingsStore((s) => s.recentFiles);
+  const recentKey = recentFiles.join("|");
 
   const [showHelp, setShowHelp] = useState(false);
   const showSettings = useSettingsStore((s) => s.settingsModalOpen);
@@ -35,6 +54,10 @@ export default function App() {
   const [showRawEditor, setShowRawEditor] = useState(false);
   const [showShift, setShowShift] = useState(false);
   const [showFindReplace, setShowFindReplace] = useState(false);
+  const [showBatchCleanup, setShowBatchCleanup] = useState(false);
+  const [showPointSync, setShowPointSync] = useState(false);
+  const [showChangeSpeed, setShowChangeSpeed] = useState(false);
+  const [showStatistics, setShowStatistics] = useState(false);
   const [showStyles, setShowStyles] = useState(false);
   const [showEmbedded, setShowEmbedded] = useState(false);
   const showTagEditor = useSettingsStore((s) => s.tagEditorOpen);
@@ -42,29 +65,39 @@ export default function App() {
   const [showPluginManager, setShowPluginManager] = useState(false);
   const [pendingExport, setPendingExport] = useState<{ format: SubFormat; categories: LossCategory[] } | null>(null);
   const [updateVersion, setUpdateVersion] = useState<string | null>(null);
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const [recovery, setRecovery] = useState<AutosaveData | null>(null);
 
   // ─── File actions ───────────────────────────────────────────────────────────
+  const openSubtitlePath = async (path: string) => {
+    try {
+      await useSubtitleStore.getState().openPath(path);
+      useSettingsStore.getState().addRecentFile(path);
+    } catch (e) {
+      alert((e as Error).message);
+    }
+  };
+
   const doOpen = async () => {
     const selected = await open({
       multiple: false,
       filters: [{ name: "Subtitles", extensions: openExtensions() }],
     });
-    if (typeof selected === "string") {
-      try {
-        await useSubtitleStore.getState().openPath(selected);
-      } catch (e) {
-        alert((e as Error).message);
-      }
-    }
+    if (typeof selected === "string") await openSubtitlePath(selected);
   };
 
-  const doSaveNative = async () => {
+  /** Save-as dialog + write. Returns true when actually saved (false = cancelled). */
+  const doSaveNative = async (): Promise<boolean> => {
     const base = (useSubtitleStore.getState().fileName ?? "untitled").replace(/\.[^.]+$/, "");
     const path = await save({
       defaultPath: `${base}.${NATIVE_EXT}`,
       filters: [{ name: "Glyphline Project", extensions: [NATIVE_EXT] }],
     });
-    if (path) await useSubtitleStore.getState().saveNativePath(path);
+    if (!path) return false;
+    await useSubtitleStore.getState().saveNativePath(path);
+    useSettingsStore.getState().addRecentFile(path);
+    clearAutosave(); // saved = nothing left to recover
+    return true;
   };
 
   // Run the file dialog + write. Assumes any loss was already confirmed.
@@ -77,6 +110,19 @@ export default function App() {
         filters: [{ name: adapter.label, extensions: adapter.extensions }],
       });
       if (path) await useSubtitleStore.getState().exportPath(path, format);
+    })();
+  };
+
+  // Export the translation column (fallback: original text) as the body.
+  const doExportTranslation = (format: SubFormat) => {
+    void (async () => {
+      const adapter = adapterForFormat(format);
+      const base = (useSubtitleStore.getState().fileName ?? "untitled").replace(/\.[^.]+$/, "");
+      const path = await save({
+        defaultPath: `${base}.translated.${adapter.extensions[0]}`,
+        filters: [{ name: adapter.label, extensions: adapter.extensions }],
+      });
+      if (path) await useSubtitleStore.getState().exportPath(path, format, "translation");
     })();
   };
 
@@ -121,10 +167,13 @@ export default function App() {
   handlersRef.current = {
     onNew: () => setShowNewConfirm(true),
     onOpen: () => void doOpen(),
+    onOpenRecent: (path) => void openSubtitlePath(path),
+    onClearRecent: () => useSettingsStore.getState().clearRecentFiles(),
     onOpenMedia: () => void doOpenMedia(),
     onCloseMedia: () => useMediaStore.getState().closeMedia(),
     onSave: () => void doSaveNative(),
     onExport: doExport,
+    onExportTranslation: doExportTranslation,
     onTogglePlay: () => useMediaStore.getState().togglePlay(),
     onSkip: (d) => useMediaStore.getState().skip(d),
     onUndo: () => useSubtitleStore.getState().undo(),
@@ -141,8 +190,10 @@ export default function App() {
       s.deleteCues([...s.selectedIds]);
     },
     onShift: () => setShowShift(true),
-    onFixOverlaps: () => useSubtitleStore.getState().fixOverlaps(),
-    onRemoveEmpty: () => useSubtitleStore.getState().removeEmptyCues(),
+    onPointSync: () => setShowPointSync(true),
+    onChangeSpeed: () => setShowChangeSpeed(true),
+    onBatchCleanup: () => setShowBatchCleanup(true),
+    onStatistics: () => setShowStatistics(true),
     onStyles: () => setShowStyles(true),
     onEditTags: () => useSettingsStore.getState().openTagEditor(),
     onEmbedded: () => setShowEmbedded(true),
@@ -161,10 +212,13 @@ export default function App() {
     const stable: MenuHandlers = {
       onNew: () => handlersRef.current.onNew(),
       onOpen: () => handlersRef.current.onOpen(),
+      onOpenRecent: (p) => handlersRef.current.onOpenRecent(p),
+      onClearRecent: () => handlersRef.current.onClearRecent(),
       onOpenMedia: () => handlersRef.current.onOpenMedia(),
       onCloseMedia: () => handlersRef.current.onCloseMedia(),
       onSave: () => handlersRef.current.onSave(),
       onExport: (f) => handlersRef.current.onExport(f),
+      onExportTranslation: (f) => handlersRef.current.onExportTranslation(f),
       onTogglePlay: () => handlersRef.current.onTogglePlay(),
       onSkip: (d) => handlersRef.current.onSkip(d),
       onUndo: () => handlersRef.current.onUndo(),
@@ -175,8 +229,10 @@ export default function App() {
       onMerge: () => handlersRef.current.onMerge(),
       onDelete: () => handlersRef.current.onDelete(),
       onShift: () => handlersRef.current.onShift(),
-      onFixOverlaps: () => handlersRef.current.onFixOverlaps(),
-      onRemoveEmpty: () => handlersRef.current.onRemoveEmpty(),
+      onPointSync: () => handlersRef.current.onPointSync(),
+      onChangeSpeed: () => handlersRef.current.onChangeSpeed(),
+      onBatchCleanup: () => handlersRef.current.onBatchCleanup(),
+      onStatistics: () => handlersRef.current.onStatistics(),
       onStyles: () => handlersRef.current.onStyles(),
       onEditTags: () => handlersRef.current.onEditTags(),
       onEmbedded: () => handlersRef.current.onEmbedded(),
@@ -188,8 +244,9 @@ export default function App() {
       onPlugins: () => handlersRef.current.onPlugins(),
       onSetLang: (l) => handlersRef.current.onSetLang(l),
     };
-    installAppMenu(t, lang, stable).catch((e) => console.error("menu install failed", e));
-  }, [lang, t]);
+    installAppMenu(t, lang, recentFiles, stable).catch((e) => console.error("menu install failed", e));
+    // recentKey: rebuild when the recent-files list changes (native menu is static).
+  }, [lang, t, recentKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Hide the opaque mpv video window while any modal is open ─────────────────
   // The mpv surface is a native child window drawn above the web view; a modal
@@ -197,11 +254,101 @@ export default function App() {
   const setOverlayOpen = useSettingsStore((s) => s.setOverlayOpen);
   const anyModalOpen =
     showHelp || showSettings || showNewConfirm || showRawEditor || showShift ||
-    showFindReplace || showStyles || showEmbedded || showTagEditor ||
-    showPluginManager || pendingExport != null;
+    showFindReplace || showBatchCleanup || showPointSync || showChangeSpeed ||
+    showStatistics || showStyles || showEmbedded || showTagEditor ||
+    showPluginManager || pendingExport != null || showCloseConfirm || recovery != null;
   useEffect(() => {
     setOverlayOpen(anyModalOpen);
   }, [anyModalOpen, setOverlayOpen]);
+
+  // ─── Crash-recovery autosave ──────────────────────────────────────────────────
+  // Every 30 s, if the document is dirty and non-trivial, snapshot it (lossless
+  // .glyph JSON) to a fixed temp path. On startup, offer to restore it. The file
+  // is deleted on manual save, on explicit discard, and on "close without saving".
+  const autosavePathRef = useRef<string | null>(null);
+  const clearAutosave = () => {
+    const p = autosavePathRef.current;
+    if (p) invoke("remove_file", { path: p }).catch(() => {});
+  };
+
+  useEffect(() => {
+    let timer: number | undefined;
+    void (async () => {
+      try {
+        autosavePathRef.current = await invoke<string>("autosave_path");
+        // Startup: offer recovery if a previous session left an autosave behind.
+        const raw = await invoke<string>("read_text_file", { path: autosavePathRef.current }).catch(() => null);
+        if (raw) {
+          const data = JSON.parse(raw) as AutosaveData;
+          if (typeof data.glyph === "string" && data.glyph.length > 0) setRecovery(data);
+        }
+      } catch {
+        /* no autosave — normal first start */
+      }
+      timer = window.setInterval(() => {
+        const s = useSubtitleStore.getState();
+        const p = autosavePathRef.current;
+        if (!p || !s.isDirty || s.doc.cues.length === 0) return;
+        const data: AutosaveData = {
+          savedAt: Date.now(),
+          filePath: s.filePath,
+          fileName: s.fileName,
+          glyph: serializeGlyph(s.doc),
+        };
+        invoke("write_text_file", { path: p, content: JSON.stringify(data) }).catch(() => {});
+      }, 30_000);
+    })();
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const restoreRecovery = () => {
+    if (!recovery) return;
+    try {
+      const doc = parseGlyph(recovery.glyph);
+      useSubtitleStore.getState().restoreDoc(doc, recovery.filePath, recovery.fileName);
+    } catch (e) {
+      alert((e as Error).message);
+    }
+    clearAutosave();
+    setRecovery(null);
+  };
+  const discardRecovery = () => {
+    clearAutosave();
+    setRecovery(null);
+  };
+
+  // ─── Unsaved-changes guard on window close ────────────────────────────────────
+  useEffect(() => {
+    const unlistenP = getCurrentWindow().onCloseRequested((e) => {
+      if (useSubtitleStore.getState().isDirty) {
+        e.preventDefault();
+        setShowCloseConfirm(true);
+      }
+    });
+    return () => {
+      unlistenP.then((un) => un()).catch(() => {});
+    };
+  }, []);
+
+  const forceClose = () => getCurrentWindow().destroy(); // bypasses onCloseRequested
+
+  // ─── Drag & drop: open subtitle / media files dropped onto the window ─────────
+  useEffect(() => {
+    const unlistenP = getCurrentWebview().onDragDropEvent((e) => {
+      if (e.payload.type !== "drop") return;
+      const subtitleExts = new Set(openExtensions());
+      const mediaExts = new Set(MEDIA_EXTS);
+      for (const path of e.payload.paths) {
+        const ext = path.slice(path.lastIndexOf(".") + 1).toLowerCase();
+        if (subtitleExts.has(ext)) void openSubtitlePath(path);
+        else if (mediaExts.has(ext)) void useMediaStore.getState().loadMedia(path);
+      }
+    });
+    return () => {
+      unlistenP.then((un) => un()).catch(() => {});
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ─── Update check on launch ───────────────────────────────────────────────────
   useEffect(() => {
@@ -264,6 +411,31 @@ export default function App() {
       )}
       {showShift && <ShiftModal onClose={() => setShowShift(false)} />}
       {showFindReplace && <FindReplaceModal onClose={() => setShowFindReplace(false)} />}
+      {showBatchCleanup && <BatchCleanupModal onClose={() => setShowBatchCleanup(false)} />}
+      {showPointSync && <PointSyncModal onClose={() => setShowPointSync(false)} />}
+      {showChangeSpeed && <ChangeSpeedModal onClose={() => setShowChangeSpeed(false)} />}
+      {showStatistics && <StatisticsModal onClose={() => setShowStatistics(false)} />}
+      {showCloseConfirm && (
+        <CloseConfirmModal
+          onSaveAndClose={() => {
+            setShowCloseConfirm(false);
+            void doSaveNative().then((saved) => { if (saved) forceClose(); });
+          }}
+          onDiscard={() => {
+            clearAutosave(); // user explicitly discarded — don't offer recovery next start
+            forceClose();
+          }}
+          onCancel={() => setShowCloseConfirm(false)}
+        />
+      )}
+      {recovery && (
+        <RecoveryModal
+          fileName={recovery.fileName}
+          savedAt={recovery.savedAt}
+          onRestore={restoreRecovery}
+          onDiscard={discardRecovery}
+        />
+      )}
       {showStyles && <StyleManagerModal onClose={() => setShowStyles(false)} />}
       {showEmbedded && <EmbeddedAssetsModal onClose={() => setShowEmbedded(false)} />}
       {showTagEditor && <InlineTagEditorModal onClose={closeTagEditor} />}

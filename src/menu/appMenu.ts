@@ -17,10 +17,13 @@ import type { SubFormat } from "../types/subtitle";
 export interface MenuHandlers {
   onNew: () => void;
   onOpen: () => void;
+  onOpenRecent: (path: string) => void;
+  onClearRecent: () => void;
   onOpenMedia: () => void;
   onCloseMedia: () => void;
   onSave: () => void;
   onExport: (format: SubFormat) => void;
+  onExportTranslation: (format: SubFormat) => void;
   onTogglePlay: () => void;
   onSkip: (delta: number) => void;
   onUndo: () => void;
@@ -31,8 +34,10 @@ export interface MenuHandlers {
   onMerge: () => void;
   onDelete: () => void;
   onShift: () => void;
-  onFixOverlaps: () => void;
-  onRemoveEmpty: () => void;
+  onPointSync: () => void;
+  onChangeSpeed: () => void;
+  onBatchCleanup: () => void;
+  onStatistics: () => void;
   onStyles: () => void;
   onEditTags: () => void;
   onEmbedded: () => void;
@@ -46,8 +51,29 @@ export interface MenuHandlers {
 }
 
 /** Build the app menu and install it as the macOS menu bar. */
-export async function installAppMenu(t: Translations, lang: Lang, h: MenuHandlers): Promise<void> {
+export async function installAppMenu(
+  t: Translations,
+  lang: Lang,
+  recentFiles: string[],
+  h: MenuHandlers,
+): Promise<void> {
   const sep = () => PredefinedMenuItem.new({ item: "Separator" });
+
+  // File ▸ Recent Files — one item per path (basename shown, full path opens).
+  const recentItems = await Promise.all(
+    recentFiles.map((path) =>
+      MenuItem.new({
+        text: path.split(/[\\/]/).pop() ?? path,
+        action: () => h.onOpenRecent(path),
+      }),
+    ),
+  );
+  const recentMenu = await Submenu.new({
+    text: t.recentFilesMenu,
+    items: recentFiles.length
+      ? [...recentItems, await sep(), await MenuItem.new({ text: t.clearRecentFiles, action: h.onClearRecent })]
+      : [await MenuItem.new({ text: t.noRecentFiles, enabled: false, action: () => {} })],
+  });
 
   const appMenu = await Submenu.new({
     text: t.appName,
@@ -69,6 +95,7 @@ export async function installAppMenu(t: Translations, lang: Lang, h: MenuHandler
     items: [
       await MenuItem.new({ text: t.newFile, accelerator: "CmdOrCtrl+N", action: h.onNew }),
       await MenuItem.new({ text: `${t.open}…`, accelerator: "CmdOrCtrl+O", action: h.onOpen }),
+      recentMenu,
       await MenuItem.new({ text: t.openMedia, accelerator: "CmdOrCtrl+Shift+O", action: h.onOpenMedia }),
       await MenuItem.new({ text: t.closeMedia, action: h.onCloseMedia }),
       await sep(),
@@ -80,6 +107,15 @@ export async function installAppMenu(t: Translations, lang: Lang, h: MenuHandler
           await MenuItem.new({ text: "WebVTT (.vtt)", action: () => h.onExport("vtt") }),
           await MenuItem.new({ text: "ASS/SSA (.ass)", action: () => h.onExport("ass") }),
           await MenuItem.new({ text: "SAMI (.smi)", action: () => h.onExport("smi") }),
+        ],
+      }),
+      await Submenu.new({
+        text: t.exportTranslationAs,
+        items: [
+          await MenuItem.new({ text: "SubRip (.srt)", action: () => h.onExportTranslation("srt") }),
+          await MenuItem.new({ text: "WebVTT (.vtt)", action: () => h.onExportTranslation("vtt") }),
+          await MenuItem.new({ text: "ASS/SSA (.ass)", action: () => h.onExportTranslation("ass") }),
+          await MenuItem.new({ text: "SAMI (.smi)", action: () => h.onExportTranslation("smi") }),
         ],
       }),
     ],
@@ -110,8 +146,10 @@ export async function installAppMenu(t: Translations, lang: Lang, h: MenuHandler
       await MenuItem.new({ text: t.deleteCue, action: h.onDelete }),
       await sep(),
       await MenuItem.new({ text: t.shiftTime, action: h.onShift }),
-      await MenuItem.new({ text: t.fixOverlaps, action: h.onFixOverlaps }),
-      await MenuItem.new({ text: t.removeEmptyCues, action: h.onRemoveEmpty }),
+      await MenuItem.new({ text: t.pointSync, action: h.onPointSync }),
+      await MenuItem.new({ text: t.changeSpeed, action: h.onChangeSpeed }),
+      await MenuItem.new({ text: t.batchCleanup, action: h.onBatchCleanup }),
+      await MenuItem.new({ text: `${t.statistics}…`, action: h.onStatistics }),
       await sep(),
       await MenuItem.new({ text: t.styleManager, action: h.onStyles }),
       await MenuItem.new({ text: t.editTags, action: h.onEditTags }),

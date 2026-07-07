@@ -35,8 +35,15 @@ interface SubtitleState {
   newDocument: () => void;
   openPath: (path: string) => Promise<void>;
   loadFromRaw: (raw: string, format: SubFormat) => void;
+  /** Restore a document from the crash-recovery autosave (stays dirty until saved). */
+  restoreDoc: (doc: SubtitleDocument, filePath: string | null, fileName: string | null) => void;
   saveNativePath: (path: string) => Promise<void>;
-  exportPath: (path: string, format: SubFormat) => Promise<void>;
+  /**
+   * Write the doc in an external format. `source: "translation"` exports the
+   * translation column as the body text (cues without one fall back to the
+   * original); ASS spans/tokens are dropped there — they align to the original.
+   */
+  exportPath: (path: string, format: SubFormat, source?: "text" | "translation") => Promise<void>;
   serializeCurrent: () => string;
 
   // selection
@@ -50,8 +57,28 @@ interface SubtitleState {
   batchUpdateCues: (edits: Array<{ id: string; patch: Partial<Omit<Cue, "id">> }>) => void;
   /** Clamp each cue's end to the next cue's start (sorted order). Returns #fixed. */
   fixOverlaps: () => number;
+  /** Shrink cue ends so every cue is followed by at least `gapSec` of silence. Returns #changed. */
+  applyMinGap: (gapSec: number) => number;
+  /** Stretch/shrink each cue's end to sit within [minSec, maxSec] (never past the next cue). Returns #changed. */
+  applyDurationLimits: (minSec: number, maxSec: number) => number;
   /** Delete cues whose text (and translation) is blank. Returns #removed. */
   removeEmptyCues: () => number;
+  /** Transform cue text casing (all cues, or only the current selection). Returns #changed. */
+  changeCase: (mode: "upper" | "lower" | "sentence" | "title", scope: "all" | "selected") => number;
+  /** Strip bracket/parenthesis annotations, e.g. "(door slams)", "[music]". Returns #changed. */
+  removeHearingImpaired: () => number;
+  /**
+   * Two-point linear sync: remaps every cue/token timestamp so that `srcA`→`dstA`
+   * and `srcB`→`dstB`, linearly interpolating (and extrapolating) everything else.
+   * Returns false if the two source points coincide (undefined transform).
+   */
+  applyPointSync: (srcA: number, dstA: number, srcB: number, dstB: number) => boolean;
+  /** Multiply every timestamp by `factor` (framerate conversion etc.). Returns false for factor ≤ 0. */
+  changeSpeed: (factor: number) => boolean;
+  /** Merge adjacent cues showing the same text with a small gap between them. Returns #cues removed. */
+  mergeSameText: () => number;
+  /** Merge cues sharing identical start+end (stacked lines) into one, joining text. Returns #cues removed. */
+  mergeSameTimecodes: () => number;
   addCue: () => void;
   addCueAt: (start: number, end: number) => void;
   insertCueAfter: (id: string) => void;
@@ -77,6 +104,50 @@ function baseName(path: string): string {
   return path.split(/[\\/]/).pop() ?? path;
 }
 
+/** Text transform for changeCase. Sentence/title casing is line-aware. */
+function casingTransform(mode: "upper" | "lower" | "sentence" | "title"): (s: string) => string {
+  switch (mode) {
+    case "upper":
+      return (s) => s.toUpperCase();
+    case "lower":
+      return (s) => s.toLowerCase();
+    case "sentence":
+      // Capitalize the first letter of each line; lowercase the rest.
+      return (s) =>
+        s
+          .split("\n")
+          .map((line) => {
+            const lower = line.toLowerCase();
+            const i = lower.search(/\p{L}/u);
+            return i === -1 ? line : lower.slice(0, i) + lower[i].toUpperCase() + lower.slice(i + 1);
+          })
+          .join("\n");
+    case "title":
+      // Capitalize the first letter of every word.
+      return (s) => s.toLowerCase().replace(/\p{L}+/gu, (w) => w[0].toUpperCase() + w.slice(1));
+  }
+}
+
+/**
+ * Remove hearing-impaired annotations: bracketed/parenthesized runs like
+ * "[music]", "(door slams)", "♪ lyrics ♪", and leading "NAME:" speaker labels.
+ * Cleans up leftover whitespace and drops lines that become empty.
+ */
+function stripHearingImpaired(text: string): string {
+  return text
+    .split("\n")
+    .map((line) =>
+      line
+        .replace(/\[[^\]]*\]|\([^)]*\)|（[^）]*）|【[^】]*】/g, "") // bracketed SFX
+        .replace(/♪[^♪]*♪|♪.*$/g, "") // music lines
+        .replace(/^\s*[-–—]?\s*[\p{Lu}][\p{Lu} .'-]{1,20}:\s*/u, "") // "NAME: "
+        .replace(/\s{2,}/g, " ")
+        .trim(),
+    )
+    .filter((line) => line !== "")
+    .join("\n");
+}
+
 function uniqueStyleName(styles: AssStyle[], base: string): string {
   const names = new Set(styles.map((s) => s.name));
   if (!names.has(base)) return base;
@@ -99,6 +170,29 @@ export const useSubtitleStore = create<SubtitleState>((set, get) => {
   /** Replace cues with a fresh array (keeps doc-level fields). */
   function withCues(cues: Cue[]): SubtitleDocument {
     return { ...get().doc, cues };
+  }
+
+  /**
+   * Shared by fixOverlaps (gapSec=0) and applyMinGap: shrink each cue's end so
+   * it's followed by at least `gapSec` before the next cue starts (sorted order).
+   * Returns the number of cues changed.
+   */
+  function applyGapClamps(gapSec: number): number {
+    const sorted = sortedCues(get().doc.cues);
+    const clamps = new Map<string, number>();
+    for (let i = 0; i < sorted.length - 1; i++) {
+      const cur = sorted[i];
+      const next = sorted[i + 1];
+      if (next.start - cur.end < gapSec) {
+        clamps.set(cur.id, Math.max(cur.start + 0.001, next.start - gapSec));
+      }
+    }
+    if (!clamps.size) return 0;
+    pushHistory();
+    set({
+      doc: withCues(get().doc.cues.map((c) => (clamps.has(c.id) ? { ...c, end: clamps.get(c.id)! } : c))),
+    });
+    return clamps.size;
   }
 
   return {
@@ -147,14 +241,38 @@ export const useSubtitleStore = create<SubtitleState>((set, get) => {
       set({ doc, activeCueId: doc.cues[0]?.id ?? null, selectedIds: new Set() });
     },
 
+    restoreDoc: (doc, filePath, fileName) =>
+      set({
+        doc,
+        filePath,
+        fileName,
+        isDirty: true, // recovered content is unsaved by definition
+        activeCueId: doc.cues[0]?.id ?? null,
+        selectedIds: new Set(),
+        _history: [],
+        _future: [],
+      }),
+
     saveNativePath: async (path) => {
       const content = serializeGlyph(get().doc);
       await invoke("write_text_file", { path, content });
       set({ filePath: path, fileName: baseName(path), isDirty: false });
     },
 
-    exportPath: async (path, format) => {
-      const content = adapterForFormat(format).serialize(get().doc);
+    exportPath: async (path, format, source = "text") => {
+      let doc = get().doc;
+      if (source === "translation") {
+        doc = {
+          ...doc,
+          cues: doc.cues.map((c) => ({
+            ...c,
+            text: c.translation?.trim() ? c.translation : c.text,
+            assSpans: undefined, // spans/tokens describe the ORIGINAL text
+            tokens: undefined,
+          })),
+        };
+      }
+      const content = adapterForFormat(format).serialize(doc);
       await invoke("write_text_file", { path, content });
     },
 
@@ -195,25 +313,34 @@ export const useSubtitleStore = create<SubtitleState>((set, get) => {
       });
     },
 
-    fixOverlaps: () => {
+    fixOverlaps: () => applyGapClamps(0),
+    applyMinGap: (gapSec) => applyGapClamps(gapSec),
+
+    applyDurationLimits: (minSec, maxSec) => {
       const sorted = sortedCues(get().doc.cues);
-      // end > next.start → clamp end (keep ≥1 ms duration so the cue stays valid).
-      const clamps = new Map<string, number>();
-      for (let i = 0; i < sorted.length - 1; i++) {
-        const cur = sorted[i];
+      const patches = new Map<string, number>(); // id -> new end
+      for (let i = 0; i < sorted.length; i++) {
+        const cue = sorted[i];
         const next = sorted[i + 1];
-        if (cur.end > next.start) {
-          clamps.set(cur.id, Math.max(next.start, cur.start + 0.001));
+        let end = cue.end;
+        const dur = end - cue.start;
+        if (dur > maxSec) {
+          end = cue.start + maxSec;
+        } else if (dur < minSec) {
+          // Extend toward minSec, but never past (nearly) the next cue's start.
+          const cap = next ? Math.max(cue.start + 0.001, next.start - 0.001) : Infinity;
+          end = Math.min(cue.start + minSec, cap);
         }
+        if (end !== cue.end) patches.set(cue.id, end);
       }
-      if (!clamps.size) return 0;
+      if (!patches.size) return 0;
       pushHistory();
       set({
         doc: withCues(
-          get().doc.cues.map((c) => (clamps.has(c.id) ? { ...c, end: clamps.get(c.id)! } : c)),
+          get().doc.cues.map((c) => (patches.has(c.id) ? { ...c, end: patches.get(c.id)! } : c)),
         ),
       });
-      return clamps.size;
+      return patches.size;
     },
 
     removeEmptyCues: () => {
@@ -229,6 +356,143 @@ export const useSubtitleStore = create<SubtitleState>((set, get) => {
         activeCueId: s.activeCueId && idSet.has(s.activeCueId) ? null : s.activeCueId,
       }));
       return empty.length;
+    },
+
+    changeCase: (mode, scope) => {
+      const { selectedIds, doc } = get();
+      const targets =
+        scope === "selected" ? doc.cues.filter((c) => selectedIds.has(c.id)) : doc.cues;
+      if (!targets.length) return 0;
+      const transform = casingTransform(mode);
+      const idSet = new Set(targets.map((c) => c.id));
+      const changed = targets.filter((c) => transform(c.text) !== c.text).length;
+      if (!changed) return 0;
+      pushHistory();
+      set({
+        doc: withCues(doc.cues.map((c) => (idSet.has(c.id) ? { ...c, text: transform(c.text) } : c))),
+      });
+      return changed;
+    },
+
+    removeHearingImpaired: () => {
+      const { doc } = get();
+      const patches = new Map<string, string>();
+      for (const cue of doc.cues) {
+        const next = stripHearingImpaired(cue.text);
+        if (next !== cue.text) patches.set(cue.id, next);
+      }
+      if (!patches.size) return 0;
+      pushHistory();
+      set({
+        doc: withCues(doc.cues.map((c) => (patches.has(c.id) ? { ...c, text: patches.get(c.id)! } : c))),
+      });
+      return patches.size;
+    },
+
+    applyPointSync: (srcA, dstA, srcB, dstB) => {
+      if (srcB === srcA) return false;
+      const scale = (dstB - dstA) / (srcB - srcA);
+      const remap = (t: number) => dstA + (t - srcA) * scale;
+      pushHistory();
+      set({
+        doc: withCues(
+          get().doc.cues.map((c) => ({
+            ...c,
+            start: Math.max(0, remap(c.start)),
+            end: Math.max(0, remap(c.end)),
+            tokens: c.tokens?.map((tk) => ({
+              ...tk,
+              start: Math.max(0, remap(tk.start)),
+              end: Math.max(0, remap(tk.end)),
+            })),
+          })),
+        ),
+      });
+      return true;
+    },
+
+    changeSpeed: (factor) => {
+      if (!(factor > 0)) return false;
+      pushHistory();
+      const scale = (t: number) => t * factor;
+      set({
+        doc: withCues(
+          get().doc.cues.map((c) => ({
+            ...c,
+            start: scale(c.start),
+            end: scale(c.end),
+            tokens: c.tokens?.map((tk) => ({ ...tk, start: scale(tk.start), end: scale(tk.end) })),
+          })),
+        ),
+      });
+      return true;
+    },
+
+    mergeSameText: () => {
+      // Same trimmed text AND nearly contiguous (≤250 ms gap, Subtitle Edit's
+      // default) — a repeat minutes later is intentional and must NOT merge.
+      const MAX_GAP = 0.25;
+      const sorted = sortedCues(get().doc.cues);
+      const removed = new Set<string>();
+      const extend = new Map<string, number>(); // survivor id -> new end
+      let survivor: Cue | null = null;
+      for (const cue of sorted) {
+        if (
+          survivor &&
+          cue.text.trim() === survivor.text.trim() &&
+          cue.start - (extend.get(survivor.id) ?? survivor.end) <= MAX_GAP
+        ) {
+          removed.add(cue.id);
+          extend.set(survivor.id, Math.max(extend.get(survivor.id) ?? survivor.end, cue.end));
+        } else {
+          survivor = cue;
+        }
+      }
+      if (!removed.size) return 0;
+      pushHistory();
+      set((s) => ({
+        doc: withCues(
+          s.doc.cues
+            .filter((c) => !removed.has(c.id))
+            .map((c) => (extend.has(c.id) ? { ...c, end: extend.get(c.id)! } : c)),
+        ),
+        selectedIds: new Set([...s.selectedIds].filter((id) => !removed.has(id))),
+        activeCueId: s.activeCueId && removed.has(s.activeCueId) ? null : s.activeCueId,
+      }));
+      return removed.size;
+    },
+
+    mergeSameTimecodes: () => {
+      // Identical start+end (±1 ms): stacked lines → one cue, texts joined.
+      const EPS = 0.001;
+      const sorted = sortedCues(get().doc.cues);
+      const removed = new Set<string>();
+      const joined = new Map<string, string>(); // survivor id -> combined text
+      let survivor: Cue | null = null;
+      for (const cue of sorted) {
+        if (
+          survivor &&
+          Math.abs(cue.start - survivor.start) <= EPS &&
+          Math.abs(cue.end - survivor.end) <= EPS
+        ) {
+          removed.add(cue.id);
+          joined.set(survivor.id, `${joined.get(survivor.id) ?? survivor.text}\n${cue.text}`);
+        } else {
+          survivor = cue;
+        }
+      }
+      if (!removed.size) return 0;
+      pushHistory();
+      set((s) => ({
+        doc: withCues(
+          s.doc.cues
+            .filter((c) => !removed.has(c.id))
+            .map((c) => (joined.has(c.id) ? { ...c, text: joined.get(c.id)! } : c)),
+        ),
+        selectedIds: new Set([...s.selectedIds].filter((id) => !removed.has(id))),
+        activeCueId: s.activeCueId && removed.has(s.activeCueId) ? null : s.activeCueId,
+      }));
+      return removed.size;
     },
 
     addCue: () => {

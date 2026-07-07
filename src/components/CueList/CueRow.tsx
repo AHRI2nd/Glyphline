@@ -16,11 +16,12 @@ interface Props {
   active: boolean;
   styleNames: string[]; // when non-empty, show a per-cue style selector
   showTranslation: boolean; // when true, show the parallel translation column
+  onContextMenu?: (e: React.MouseEvent) => void; // right-click → CueList context menu
 }
 
 type EditField = "start" | "end" | null;
 
-export function CueRow({ cue, index, prev, selected, active, styleNames, showTranslation }: Props) {
+export function CueRow({ cue, index, prev, selected, active, styleNames, showTranslation, onContextMenu }: Props) {
   const { t } = useI18nStore();
   const updateCue = useSubtitleStore((s) => s.updateCue);
   const toggleSelect = useSubtitleStore((s) => s.toggleSelect);
@@ -71,6 +72,7 @@ export function CueRow({ cue, index, prev, selected, active, styleNames, showTra
         // Jump the video playhead to this cue when media is loaded.
         if (useMediaStore.getState().mediaSrc) useMediaStore.getState().seek(cue.start);
       }}
+      onContextMenu={onContextMenu}
     >
       <div className="flex w-10 shrink-0 items-center justify-center py-2 text-xs text-zinc-500">
         {index + 1}

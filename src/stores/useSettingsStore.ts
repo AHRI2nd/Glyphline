@@ -6,9 +6,12 @@ interface SettingsState {
   autoCheckUpdate: boolean;
   uiScale: number; // 0.7 .. 1.3
   showTranslation: boolean; // dual original/translation editing column
+  recentFiles: string[]; // most-recent-first subtitle paths (max 8)
   setAutoCheckUpdate: (v: boolean) => void;
   setUiScale: (v: number) => void;
   toggleTranslation: () => void;
+  addRecentFile: (path: string) => void;
+  clearRecentFiles: () => void;
 
   // ── Ephemeral (not persisted) ─────────────────────────────────────────────
   // Used by VideoPlayer / any component to request the Settings modal to open.
@@ -35,9 +38,13 @@ export const useSettingsStore = create<SettingsState>()(
       autoCheckUpdate: true,
       uiScale: 1.0,
       showTranslation: false,
+      recentFiles: [],
       setAutoCheckUpdate: (autoCheckUpdate) => set({ autoCheckUpdate }),
       setUiScale: (uiScale) => set({ uiScale }),
       toggleTranslation: () => set((s) => ({ showTranslation: !s.showTranslation })),
+      addRecentFile: (path) =>
+        set((s) => ({ recentFiles: [path, ...s.recentFiles.filter((p) => p !== path)].slice(0, 8) })),
+      clearRecentFiles: () => set({ recentFiles: [] }),
 
       settingsModalOpen: false,
       openSettingsModal: () => set({ settingsModalOpen: true }),
@@ -57,6 +64,7 @@ export const useSettingsStore = create<SettingsState>()(
         autoCheckUpdate: s.autoCheckUpdate,
         uiScale: s.uiScale,
         showTranslation: s.showTranslation,
+        recentFiles: s.recentFiles,
       }),
     },
   ),

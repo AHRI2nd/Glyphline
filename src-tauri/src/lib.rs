@@ -643,12 +643,66 @@ fn serve_media(req: tauri::http::Request<Vec<u8>>, resp: tauri::UriSchemeRespond
 }
 
 // ─── File I/O ────────────────────────────────────────────────────────────────
+/// Decode subtitle file bytes to String with legacy-encoding support.
+/// Korean subtitle files (especially .smi) are very often CP949/EUC-KR, and
+/// Japanese ones Shift_JIS — strict UTF-8 reading (`read_to_string`) rejects
+/// them outright. Order: BOM → valid UTF-8 → chardetng detection (Firefox's
+/// detector: handles EUC-KR, Shift_JIS, EUC-JP, windows-125x, …).
+fn decode_text(bytes: &[u8]) -> String {
+    if let Some((enc, _bom_len)) = encoding_rs::Encoding::for_bom(bytes) {
+        return enc.decode(bytes).0.into_owned(); // decode() strips the BOM
+    }
+    if let Ok(s) = std::str::from_utf8(bytes) {
+        return s.to_owned();
+    }
+    // Subtitle files can't run scripts, so ISO-2022-JP detection is safe to allow.
+    // UTF-8 was already ruled out above, so deny it as a guess.
+    let mut det = chardetng::EncodingDetector::new(chardetng::Iso2022JpDetection::Allow);
+    det.feed(bytes, true);
+    let enc = det.guess(None, chardetng::Utf8Detection::Deny);
+    enc.decode(bytes).0.into_owned()
+}
+
 #[tauri::command]
-async fn read_text_file(path: String) -> Result<String, String> { std::fs::read_to_string(&path).map_err(|e| e.to_string()) }
+async fn read_text_file(path: String) -> Result<String, String> {
+    let bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
+    Ok(decode_text(&bytes))
+}
+
+#[cfg(test)]
+mod decode_tests {
+    use super::decode_text;
+
+    #[test]
+    fn utf8_passthrough() {
+        assert_eq!(decode_text("안녕 <b>자막</b>".as_bytes()), "안녕 <b>자막</b>");
+    }
+    #[test]
+    fn utf8_bom_stripped() {
+        let mut b = vec![0xEF, 0xBB, 0xBF];
+        b.extend_from_slice("hello".as_bytes());
+        assert_eq!(decode_text(&b), "hello");
+    }
+    #[test]
+    fn cp949_detected() {
+        let (bytes, _, _) = encoding_rs::EUC_KR.encode("<SAMI>안녕하세요, 자막 테스트입니다.</SAMI>");
+        assert_eq!(decode_text(&bytes), "<SAMI>안녕하세요, 자막 테스트입니다.</SAMI>");
+    }
+    #[test]
+    fn shift_jis_detected() {
+        let (bytes, _, _) = encoding_rs::SHIFT_JIS.encode("字幕のテストです。よろしくお願いします。");
+        assert_eq!(decode_text(&bytes), "字幕のテストです。よろしくお願いします。");
+    }
+}
 #[tauri::command]
 async fn write_text_file(path: String, content: String) -> Result<(), String> { std::fs::write(&path, content).map_err(|e| e.to_string()) }
 #[tauri::command]
 async fn read_binary_file(path: String) -> Result<Vec<u8>, String> { std::fs::read(&path).map_err(|e| e.to_string()) }
+#[tauri::command]
+async fn remove_file(path: String) -> Result<(), String> { std::fs::remove_file(&path).map_err(|e| e.to_string()) }
+/// Stable per-user autosave path in the OS temp dir (crash recovery).
+#[tauri::command]
+fn autosave_path() -> String { std::env::temp_dir().join("glyphline_autosave.json").to_string_lossy().to_string() }
 
 // ─── mpv availability ────────────────────────────────────────────────────────
 #[tauri::command]
@@ -900,7 +954,7 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
-            read_text_file, write_text_file, read_binary_file,
+            read_text_file, write_text_file, read_binary_file, remove_file, autosave_path,
             check_mpv, install_mpv,
             extract_waveform_audio,
             mpv_init,

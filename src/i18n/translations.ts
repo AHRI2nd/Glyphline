@@ -73,6 +73,68 @@ export interface Translations {
   shiftTime: string;
   fixOverlaps: string;
   removeEmptyCues: string;
+  // batch cleanup
+  batchCleanup: string;
+  minGap: string;
+  durationLimits: string;
+  secondsSuffix: string;
+  changeCase: string;
+  caseUpper: string;
+  caseLower: string;
+  caseSentence: string;
+  caseTitle: string;
+  scopeAll: string;
+  scopeSelected: string;
+  removeHearingImpaired: string;
+  removeHearingImpairedHint: string;
+  // point sync
+  pointSync: string;
+  pointSyncHint: string;
+  pointA: string;
+  pointB: string;
+  pointSrcTime: string;
+  pointDstTime: string;
+  useActiveCue: string;
+  usePlayhead: string;
+  pointSyncInvalidTime: string;
+  pointSyncSamePoints: string;
+  // change speed
+  changeSpeed: string;
+  changeSpeedHint: string;
+  customFactor: string;
+  changeSpeedInvalid: string;
+  // merge duplicates
+  mergeSameText: string;
+  mergeSameTextHint: string;
+  mergeSameTimecodes: string;
+  mergeSameTimecodesHint: string;
+  // statistics
+  statistics: string;
+  statCueCount: string;
+  statSpan: string;
+  statShownTime: string;
+  statChars: string;
+  statWords: string;
+  statLines: string;
+  statAvgCps: string;
+  statMaxCps: string;
+  statDurRange: string;
+  statOverlaps: string;
+  // data safety
+  closeUnsavedMessage: string;
+  closeWithoutSaving: string;
+  saveAndClose: string;
+  recoveryTitle: string;
+  recoveryMessage: string;
+  recoveryUntitled: string;
+  recoveryDiscard: string;
+  recoveryRestore: string;
+  recentFilesMenu: string;
+  clearRecentFiles: string;
+  noRecentFiles: string;
+  exportTranslationAs: string;
+  ctxPlayHere: string;
+  ctxInsertAfter: string;
   noCues: string;
   emptyHint: string;
   // find & replace
@@ -116,6 +178,9 @@ export interface Translations {
   scOpen: string;
   scNew: string;
   scNavCues: string;
+  scTimingIn: string;
+  scTimingOut: string;
+  scTimingChain: string;
   // styles
   styles: string;
   styleManager: string;
@@ -221,6 +286,62 @@ const ko: Translations = {
   shiftTime: "시간 이동",
   fixOverlaps: "겹침 자동 수정",
   removeEmptyCues: "빈 자막 삭제",
+  batchCleanup: "일괄 정리…",
+  minGap: "최소 간격 보장",
+  durationLimits: "표시 시간 제한 적용",
+  secondsSuffix: "초",
+  changeCase: "대소문자 변환",
+  caseUpper: "대문자",
+  caseLower: "소문자",
+  caseSentence: "문장체",
+  caseTitle: "제목체",
+  scopeAll: "전체",
+  scopeSelected: "선택한 자막만",
+  removeHearingImpaired: "청각장애인용 텍스트 제거",
+  removeHearingImpairedHint: "[효과음], (웃음), ♪ 가사 ♪, 화자 이름: 등을 제거합니다.",
+  pointSync: "포인트 동기화…",
+  pointSyncHint: "두 지점의 현재 시간 → 올바른 시간을 지정하면 전체 자막을 선형으로 재타이밍합니다. 일정한 오프셋과 점진적 밀림(프레임레이트 불일치) 모두 수정됩니다.",
+  pointA: "지점 A",
+  pointB: "지점 B",
+  pointSrcTime: "현재 시간",
+  pointDstTime: "목표 시간",
+  useActiveCue: "활성 자막",
+  usePlayhead: "재생 위치",
+  pointSyncInvalidTime: "시간 형식이 잘못되었습니다.",
+  pointSyncSamePoints: "두 지점의 현재 시간이 같아 변환을 계산할 수 없습니다.",
+  changeSpeed: "배속 변경…",
+  changeSpeedHint: "모든 타임스탬프에 배율을 곱합니다. 프레임레이트가 다른 영상(예: 23.976↔25fps)에 맞출 때 사용하세요.",
+  customFactor: "직접 입력",
+  changeSpeedInvalid: "0보다 큰 배율을 입력하세요.",
+  mergeSameText: "동일 텍스트 병합",
+  mergeSameTextHint: "같은 텍스트가 이어서 반복되면(간격 0.25초 이하) 하나로 합칩니다.",
+  mergeSameTimecodes: "동일 타임코드 병합",
+  mergeSameTimecodesHint: "시작·종료가 같은 자막들을 한 자막으로 합칩니다(줄바꿈으로 연결).",
+  statistics: "통계",
+  statCueCount: "자막 수",
+  statSpan: "전체 구간",
+  statShownTime: "총 표시 시간",
+  statChars: "글자 수",
+  statWords: "단어 수",
+  statLines: "줄 수",
+  statAvgCps: "평균 CPS",
+  statMaxCps: "최대 CPS",
+  statDurRange: "표시 시간 범위",
+  statOverlaps: "겹침",
+  closeUnsavedMessage: "저장하지 않은 변경 사항이 있습니다. 저장하지 않고 종료하면 변경 내용이 사라집니다.",
+  closeWithoutSaving: "저장 안 함",
+  saveAndClose: "저장 후 종료",
+  recoveryTitle: "복구 가능한 작업이 있습니다",
+  recoveryMessage: "이전 세션이 저장되지 않은 채 종료되었습니다. 자동 저장된 내용을 복구할까요?",
+  recoveryUntitled: "제목 없음",
+  recoveryDiscard: "무시하고 삭제",
+  recoveryRestore: "복구",
+  recentFilesMenu: "최근 파일",
+  clearRecentFiles: "목록 지우기",
+  noRecentFiles: "최근 파일 없음",
+  exportTranslationAs: "번역 내보내기",
+  ctxPlayHere: "여기서 재생",
+  ctxInsertAfter: "아래에 자막 삽입",
   noCues: "자막이 없습니다",
   emptyHint: "파일을 열거나 자막을 추가하세요.",
   findReplace: "찾기/바꾸기…",
@@ -259,6 +380,9 @@ const ko: Translations = {
   scOpen: "열기",
   scNew: "새 파일",
   scNavCues: "이전/다음 자막 이동",
+  scTimingIn: "재생 위치 → 활성 자막 시작 (실시간 타이밍)",
+  scTimingOut: "재생 위치 → 종료 후 다음 자막으로",
+  scTimingChain: "종료 + 다음 자막 시작을 같은 시각으로",
   styles: "스타일",
   styleManager: "스타일 매니저",
   addStyle: "스타일 추가",
@@ -362,6 +486,62 @@ const en: Translations = {
   shiftTime: "Shift time",
   fixOverlaps: "Fix Overlaps",
   removeEmptyCues: "Remove Empty Cues",
+  batchCleanup: "Batch Cleanup…",
+  minGap: "Apply Minimum Gap",
+  durationLimits: "Apply Duration Limits",
+  secondsSuffix: "s",
+  changeCase: "Change Casing",
+  caseUpper: "UPPERCASE",
+  caseLower: "lowercase",
+  caseSentence: "Sentence case",
+  caseTitle: "Title Case",
+  scopeAll: "All cues",
+  scopeSelected: "Selected only",
+  removeHearingImpaired: "Remove Text for Hearing Impaired",
+  removeHearingImpairedHint: "Removes [SFX], (laughs), ♪ lyrics ♪, speaker NAME: labels, etc.",
+  pointSync: "Point Sync…",
+  pointSyncHint: "Give the current → correct time of two anchor points; all cues are retimed linearly. Fixes both constant offsets and progressive drift (framerate mismatch).",
+  pointA: "Point A",
+  pointB: "Point B",
+  pointSrcTime: "Current time",
+  pointDstTime: "Target time",
+  useActiveCue: "Active cue",
+  usePlayhead: "Playhead",
+  pointSyncInvalidTime: "Invalid time format.",
+  pointSyncSamePoints: "The two source times are identical — cannot compute a transform.",
+  changeSpeed: "Change Speed…",
+  changeSpeedHint: "Multiplies every timestamp by a ratio. Use to match videos with a different framerate (e.g. 23.976↔25 fps).",
+  customFactor: "Custom",
+  changeSpeedInvalid: "Enter a factor greater than 0.",
+  mergeSameText: "Merge Same Text",
+  mergeSameTextHint: "Merges consecutive cues repeating the same text (gap ≤ 0.25 s).",
+  mergeSameTimecodes: "Merge Same Timecodes",
+  mergeSameTimecodesHint: "Merges cues sharing identical start/end into one (texts joined by line break).",
+  statistics: "Statistics",
+  statCueCount: "Cues",
+  statSpan: "Total span",
+  statShownTime: "Total display time",
+  statChars: "Characters",
+  statWords: "Words",
+  statLines: "Lines",
+  statAvgCps: "Average CPS",
+  statMaxCps: "Max CPS",
+  statDurRange: "Duration range",
+  statOverlaps: "Overlaps",
+  closeUnsavedMessage: "You have unsaved changes. If you close without saving, they will be lost.",
+  closeWithoutSaving: "Don't Save",
+  saveAndClose: "Save & Close",
+  recoveryTitle: "Recoverable work found",
+  recoveryMessage: "The previous session ended with unsaved changes. Restore the autosaved content?",
+  recoveryUntitled: "Untitled",
+  recoveryDiscard: "Discard",
+  recoveryRestore: "Restore",
+  recentFilesMenu: "Recent Files",
+  clearRecentFiles: "Clear List",
+  noRecentFiles: "No recent files",
+  exportTranslationAs: "Export Translation As",
+  ctxPlayHere: "Play from Here",
+  ctxInsertAfter: "Insert Cue Below",
   noCues: "No cues",
   emptyHint: "Open a file or add a cue to begin.",
   findReplace: "Find & Replace…",
@@ -400,6 +580,9 @@ const en: Translations = {
   scOpen: "Open",
   scNew: "New file",
   scNavCues: "Previous/next cue",
+  scTimingIn: "Playhead → active cue start (live timing)",
+  scTimingOut: "Playhead → end, then next cue",
+  scTimingChain: "End + start next cue at the same time",
   styles: "Styles",
   styleManager: "Style Manager",
   addStyle: "Add style",
@@ -503,6 +686,62 @@ const ja: Translations = {
   shiftTime: "時間シフト",
   fixOverlaps: "重なりを自動修正",
   removeEmptyCues: "空の字幕を削除",
+  batchCleanup: "一括クリーンアップ…",
+  minGap: "最小間隔を適用",
+  durationLimits: "表示時間の制限を適用",
+  secondsSuffix: "秒",
+  changeCase: "大文字/小文字変換",
+  caseUpper: "大文字",
+  caseLower: "小文字",
+  caseSentence: "文頭のみ大文字",
+  caseTitle: "タイトルケース",
+  scopeAll: "すべて",
+  scopeSelected: "選択した字幕のみ",
+  removeHearingImpaired: "聴覚障害者向けテキストを削除",
+  removeHearingImpairedHint: "[効果音]、(笑)、♪ 歌詞 ♪、話者名: などを削除します。",
+  pointSync: "ポイント同期…",
+  pointSyncHint: "2つの基準点の現在時間 → 正しい時間を指定すると、全字幕を線形に再タイミングします。一定のずれと進行性のずれ（フレームレート不一致）の両方を修正できます。",
+  pointA: "ポイント A",
+  pointB: "ポイント B",
+  pointSrcTime: "現在時間",
+  pointDstTime: "目標時間",
+  useActiveCue: "アクティブ字幕",
+  usePlayhead: "再生位置",
+  pointSyncInvalidTime: "時間の形式が正しくありません。",
+  pointSyncSamePoints: "2つの基準点の現在時間が同じため、変換を計算できません。",
+  changeSpeed: "速度変更…",
+  changeSpeedHint: "すべてのタイムスタンプに倍率を掛けます。フレームレートが異なる映像（例: 23.976↔25fps）に合わせる時に使います。",
+  customFactor: "カスタム",
+  changeSpeedInvalid: "0より大きい倍率を入力してください。",
+  mergeSameText: "同一テキストを結合",
+  mergeSameTextHint: "同じテキストが連続する場合（間隔0.25秒以下）、1つに結合します。",
+  mergeSameTimecodes: "同一タイムコードを結合",
+  mergeSameTimecodesHint: "開始・終了が同じ字幕を1つに結合します（改行で連結）。",
+  statistics: "統計",
+  statCueCount: "字幕数",
+  statSpan: "全体区間",
+  statShownTime: "総表示時間",
+  statChars: "文字数",
+  statWords: "単語数",
+  statLines: "行数",
+  statAvgCps: "平均CPS",
+  statMaxCps: "最大CPS",
+  statDurRange: "表示時間の範囲",
+  statOverlaps: "重なり",
+  closeUnsavedMessage: "保存されていない変更があります。保存せずに終了すると変更内容は失われます。",
+  closeWithoutSaving: "保存しない",
+  saveAndClose: "保存して終了",
+  recoveryTitle: "復元可能な作業があります",
+  recoveryMessage: "前回のセッションが保存されないまま終了しました。自動保存された内容を復元しますか？",
+  recoveryUntitled: "無題",
+  recoveryDiscard: "破棄",
+  recoveryRestore: "復元",
+  recentFilesMenu: "最近使ったファイル",
+  clearRecentFiles: "リストをクリア",
+  noRecentFiles: "最近のファイルなし",
+  exportTranslationAs: "翻訳をエクスポート",
+  ctxPlayHere: "ここから再生",
+  ctxInsertAfter: "下に字幕を挿入",
   noCues: "字幕がありません",
   emptyHint: "ファイルを開くか、字幕を追加してください。",
   findReplace: "検索・置換…",
@@ -541,6 +780,9 @@ const ja: Translations = {
   scOpen: "開く",
   scNew: "新規ファイル",
   scNavCues: "前/次の字幕へ移動",
+  scTimingIn: "再生位置 → アクティブ字幕の開始（ライブタイミング）",
+  scTimingOut: "再生位置 → 終了して次の字幕へ",
+  scTimingChain: "終了＋次の字幕の開始を同時刻に",
   styles: "スタイル",
   styleManager: "スタイルマネージャ",
   addStyle: "スタイル追加",
