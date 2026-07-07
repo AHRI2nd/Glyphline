@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useMediaStore } from "../../stores/useMediaStore";
 import { useSubtitleStore } from "../../stores/useSubtitleStore";
 import { useI18nStore } from "../../stores/useI18nStore";
@@ -17,12 +18,20 @@ export function VideoPlayer() {
   const error       = useMediaStore((s) => s.error);
   const cues        = useSubtitleStore((s) => s.doc.cues);
   const openSettings = useSettingsStore((s) => s.openSettingsModal);
+  const overlayOpen  = useSettingsStore((s) => s.overlayOpen);
   const { t }       = useI18nStore();
+
+  // False when the video panel is collapsed/hidden — e.g. another dock tabset is
+  // maximized, or the panel is mid-drag. The opaque mpv window must hide then, or
+  // it floats over whatever replaced the panel.
+  const [panelVisible, setPanelVisible] = useState(true);
 
   const isAudio  = mediaKind === "audio";
   const hasMedia = mediaPath != null;
-  // The mpv window should cover the panel only when there's an actual video.
-  const showVideo = mpvAvailable && hasMedia && !isAudio && !error;
+  // The mpv window should cover the panel only when there's an actual video, the
+  // panel is actually on-screen, AND no modal is open (the opaque native window
+  // would occlude an overlapping modal).
+  const showVideo = mpvAvailable && hasMedia && !isAudio && !error && !overlayOpen && panelVisible;
 
   // ── Initialise mpv (deferred from Rust setup so the NSWindow is ready) ─────
   // mpv_init records the Tauri parent window and creates the mpv handle.
@@ -45,6 +54,11 @@ export function VideoPlayer() {
 
     const sendBounds = () => {
       const r = el.getBoundingClientRect();
+      // Degenerate rect = panel hidden (another tabset maximized) or mid-layout.
+      // Don't position the opaque window over whatever is there; hide it instead.
+      const visible = r.width > 1 && r.height > 1 && r.bottom > 0 && r.right > 0;
+      setPanelVisible(visible);
+      if (!visible) return;
       invoke("mpv_set_bounds", {
         x: r.left,
         y: r.top,
@@ -63,10 +77,26 @@ export function VideoPlayer() {
     ro.observe(el);
     window.addEventListener("resize", sendBounds);
 
+    // Resync ONCE after a native window move settles (debounced). The OS moves the
+    // child window during the drag (child-window relationship), so we don't touch
+    // it mid-drag — but a post-move resync recovers from any desync and recomputes
+    // coordinates when the window lands on a monitor with a different scale factor.
+    let moveTimer: number | undefined;
+    let unlistenMoved: (() => void) | undefined;
+    getCurrentWindow()
+      .onMoved(() => {
+        window.clearTimeout(moveTimer);
+        moveTimer = window.setTimeout(sendBounds, 150);
+      })
+      .then((un) => { unlistenMoved = un; })
+      .catch(() => {});
+
     return () => {
       timers.forEach(clearTimeout);
       ro.disconnect();
       window.removeEventListener("resize", sendBounds);
+      window.clearTimeout(moveTimer);
+      unlistenMoved?.();
     };
   }, [mediaPath]);
 

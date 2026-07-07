@@ -5,12 +5,9 @@ interface SettingsState {
   // ── Persisted ─────────────────────────────────────────────────────────────
   autoCheckUpdate: boolean;
   uiScale: number; // 0.7 .. 1.3
-  showSpectrogram: boolean;
   showTranslation: boolean; // dual original/translation editing column
   setAutoCheckUpdate: (v: boolean) => void;
   setUiScale: (v: number) => void;
-  setShowSpectrogram: (v: boolean) => void;
-  toggleSpectrogram: () => void;
   toggleTranslation: () => void;
 
   // ── Ephemeral (not persisted) ─────────────────────────────────────────────
@@ -23,6 +20,13 @@ interface SettingsState {
   tagEditorOpen: boolean;
   openTagEditor: () => void;
   closeTagEditor: () => void;
+
+  // True while any modal/overlay is open. The mpv video window is an opaque
+  // native child window drawn ABOVE the web view, so it would occlude any modal
+  // that overlaps the video panel. VideoPlayer hides the mpv window while this
+  // is set so modals are visible.
+  overlayOpen: boolean;
+  setOverlayOpen: (v: boolean) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -30,12 +34,9 @@ export const useSettingsStore = create<SettingsState>()(
     (set) => ({
       autoCheckUpdate: true,
       uiScale: 1.0,
-      showSpectrogram: false,
       showTranslation: false,
       setAutoCheckUpdate: (autoCheckUpdate) => set({ autoCheckUpdate }),
       setUiScale: (uiScale) => set({ uiScale }),
-      setShowSpectrogram: (showSpectrogram) => set({ showSpectrogram }),
-      toggleSpectrogram: () => set((s) => ({ showSpectrogram: !s.showSpectrogram })),
       toggleTranslation: () => set((s) => ({ showTranslation: !s.showTranslation })),
 
       settingsModalOpen: false,
@@ -45,6 +46,9 @@ export const useSettingsStore = create<SettingsState>()(
       tagEditorOpen: false,
       openTagEditor: () => set({ tagEditorOpen: true }),
       closeTagEditor: () => set({ tagEditorOpen: false }),
+
+      overlayOpen: false,
+      setOverlayOpen: (overlayOpen) => set({ overlayOpen }),
     }),
     {
       name: "glyphline-settings",
@@ -52,7 +56,6 @@ export const useSettingsStore = create<SettingsState>()(
       partialize: (s) => ({
         autoCheckUpdate: s.autoCheckUpdate,
         uiScale: s.uiScale,
-        showSpectrogram: s.showSpectrogram,
         showTranslation: s.showTranslation,
       }),
     },

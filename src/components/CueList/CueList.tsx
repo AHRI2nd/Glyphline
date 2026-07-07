@@ -1,8 +1,19 @@
+import { useEffect } from "react";
 import { useI18nStore } from "../../stores/useI18nStore";
 import { useSubtitleStore } from "../../stores/useSubtitleStore";
 import { useSettingsStore } from "../../stores/useSettingsStore";
+import { useMediaStore } from "../../stores/useMediaStore";
 import { sortedCues } from "../../formats/srt";
 import { CueRow } from "./CueRow";
+
+/** True when the event originates from a text-entry control — keyboard
+ *  navigation must not fire while the user is typing. */
+function isTyping(e: KeyboardEvent): boolean {
+  const el = e.target as HTMLElement | null;
+  if (!el) return false;
+  const tag = el.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el.isContentEditable;
+}
 
 export function CueList() {
   const { t } = useI18nStore();
@@ -13,6 +24,29 @@ export function CueList() {
 
   const cues = sortedCues(doc.cues);
   const styleNames = (doc.styles ?? []).map((s) => s.name);
+
+  // ↑/↓ move the active cue (outside text fields). The row effect scrolls it
+  // into view; with media loaded, also seek the playhead to the cue start.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+      if (isTyping(e) || e.metaKey || e.ctrlKey || e.altKey) return;
+      const s = useSubtitleStore.getState();
+      const list = sortedCues(s.doc.cues);
+      if (!list.length) return;
+      e.preventDefault();
+      const idx = list.findIndex((c) => c.id === s.activeCueId);
+      const next =
+        idx === -1
+          ? list[0]
+          : list[Math.max(0, Math.min(list.length - 1, idx + (e.key === "ArrowDown" ? 1 : -1)))];
+      if (next.id === s.activeCueId) return;
+      s.setActiveCue(next.id);
+      if (useMediaStore.getState().mediaSrc) useMediaStore.getState().seek(next.start);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   if (!cues.length) {
     return (

@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import {
   SkipBack,
   Rewind,
@@ -84,24 +84,37 @@ function SeekBar({
   const trackRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number | null>(null);
   const lastXRef = useRef<number>(0);
-  const pct = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
+  // While dragging, show the pointer position — not mpv's (lagging) time-pos.
+  // Otherwise the handle visibly fights the 80 ms poll and jumps backwards.
+  const [dragFrac, setDragFrac] = useState<number | null>(null);
+  const pct =
+    dragFrac != null
+      ? dragFrac * 100
+      : duration > 0
+        ? Math.min(100, (currentTime / duration) * 100)
+        : 0;
 
-  const seekToClientX = (clientX: number) => {
+  const fracAtClientX = (clientX: number): number | null => {
     const el = trackRef.current;
-    if (!el || duration <= 0) return;
+    if (!el || duration <= 0) return null;
     const r = el.getBoundingClientRect();
-    const frac = Math.max(0, Math.min(1, (clientX - r.left) / r.width));
-    onSeek(frac * duration);
+    return Math.max(0, Math.min(1, (clientX - r.left) / r.width));
+  };
+  const seekToClientX = (clientX: number) => {
+    const frac = fracAtClientX(clientX);
+    if (frac != null) onSeek(frac * duration);
   };
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (duration <= 0) return;
     e.currentTarget.setPointerCapture(e.pointerId);
+    setDragFrac(fracAtClientX(e.clientX));
     seekToClientX(e.clientX);
   };
   const onPointerMove = (e: React.PointerEvent) => {
     if (e.buttons !== 1) return; // only while dragging
     lastXRef.current = e.clientX;
+    setDragFrac(fracAtClientX(e.clientX));
     // RAF throttle: one invoke per animation frame max. Without this, dragging at
     // high speed fires hundreds of mpv_seek calls/sec, flooding IPC and mpv.
     if (rafRef.current != null) return;
@@ -117,6 +130,7 @@ function SeekBar({
       rafRef.current = null;
     }
     seekToClientX(e.clientX);
+    setDragFrac(null);
   };
 
   return (

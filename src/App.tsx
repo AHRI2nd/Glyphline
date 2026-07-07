@@ -21,6 +21,7 @@ import { SettingsModal } from "./components/Settings/SettingsModal";
 import { StyleManagerModal } from "./components/Settings/StyleManagerModal";
 import { EmbeddedAssetsModal } from "./components/Settings/EmbeddedAssetsModal";
 import { InlineTagEditorModal } from "./components/Modals/InlineTagEditorModal";
+import { FindReplaceModal } from "./components/Modals/FindReplaceModal";
 
 export default function App() {
   const { t, lang } = useI18nStore();
@@ -33,6 +34,7 @@ export default function App() {
   const [showNewConfirm, setShowNewConfirm] = useState(false);
   const [showRawEditor, setShowRawEditor] = useState(false);
   const [showShift, setShowShift] = useState(false);
+  const [showFindReplace, setShowFindReplace] = useState(false);
   const [showStyles, setShowStyles] = useState(false);
   const [showEmbedded, setShowEmbedded] = useState(false);
   const showTagEditor = useSettingsStore((s) => s.tagEditorOpen);
@@ -127,6 +129,7 @@ export default function App() {
     onSkip: (d) => useMediaStore.getState().skip(d),
     onUndo: () => useSubtitleStore.getState().undo(),
     onRedo: () => useSubtitleStore.getState().redo(),
+    onFindReplace: () => setShowFindReplace(true),
     onAddCue: () => useSubtitleStore.getState().addCue(),
     onSplit: doSplit,
     onMerge: () => {
@@ -138,6 +141,8 @@ export default function App() {
       s.deleteCues([...s.selectedIds]);
     },
     onShift: () => setShowShift(true),
+    onFixOverlaps: () => useSubtitleStore.getState().fixOverlaps(),
+    onRemoveEmpty: () => useSubtitleStore.getState().removeEmptyCues(),
     onStyles: () => setShowStyles(true),
     onEditTags: () => useSettingsStore.getState().openTagEditor(),
     onEmbedded: () => setShowEmbedded(true),
@@ -145,7 +150,6 @@ export default function App() {
     onSettings: () => useSettingsStore.getState().openSettingsModal(),
     onHelp: () => setShowHelp(true),
     onResetLayout: () => resetDockLayout(),
-    onToggleSpectrogram: () => useSettingsStore.getState().toggleSpectrogram(),
     onToggleTranslation: () => useSettingsStore.getState().toggleTranslation(),
     onPlugins: () => setShowPluginManager(true),
     onSetLang: (l) => useI18nStore.getState().setLang(l),
@@ -165,11 +169,14 @@ export default function App() {
       onSkip: (d) => handlersRef.current.onSkip(d),
       onUndo: () => handlersRef.current.onUndo(),
       onRedo: () => handlersRef.current.onRedo(),
+      onFindReplace: () => handlersRef.current.onFindReplace(),
       onAddCue: () => handlersRef.current.onAddCue(),
       onSplit: () => handlersRef.current.onSplit(),
       onMerge: () => handlersRef.current.onMerge(),
       onDelete: () => handlersRef.current.onDelete(),
       onShift: () => handlersRef.current.onShift(),
+      onFixOverlaps: () => handlersRef.current.onFixOverlaps(),
+      onRemoveEmpty: () => handlersRef.current.onRemoveEmpty(),
       onStyles: () => handlersRef.current.onStyles(),
       onEditTags: () => handlersRef.current.onEditTags(),
       onEmbedded: () => handlersRef.current.onEmbedded(),
@@ -177,13 +184,24 @@ export default function App() {
       onSettings: () => handlersRef.current.onSettings(), // handled via store
       onHelp: () => handlersRef.current.onHelp(),
       onResetLayout: () => handlersRef.current.onResetLayout(),
-      onToggleSpectrogram: () => handlersRef.current.onToggleSpectrogram(),
       onToggleTranslation: () => handlersRef.current.onToggleTranslation(),
       onPlugins: () => handlersRef.current.onPlugins(),
       onSetLang: (l) => handlersRef.current.onSetLang(l),
     };
     installAppMenu(t, lang, stable).catch((e) => console.error("menu install failed", e));
   }, [lang, t]);
+
+  // ─── Hide the opaque mpv video window while any modal is open ─────────────────
+  // The mpv surface is a native child window drawn above the web view; a modal
+  // overlapping the video panel would otherwise be hidden behind it.
+  const setOverlayOpen = useSettingsStore((s) => s.setOverlayOpen);
+  const anyModalOpen =
+    showHelp || showSettings || showNewConfirm || showRawEditor || showShift ||
+    showFindReplace || showStyles || showEmbedded || showTagEditor ||
+    showPluginManager || pendingExport != null;
+  useEffect(() => {
+    setOverlayOpen(anyModalOpen);
+  }, [anyModalOpen, setOverlayOpen]);
 
   // ─── Update check on launch ───────────────────────────────────────────────────
   useEffect(() => {
@@ -245,6 +263,7 @@ export default function App() {
         />
       )}
       {showShift && <ShiftModal onClose={() => setShowShift(false)} />}
+      {showFindReplace && <FindReplaceModal onClose={() => setShowFindReplace(false)} />}
       {showStyles && <StyleManagerModal onClose={() => setShowStyles(false)} />}
       {showEmbedded && <EmbeddedAssetsModal onClose={() => setShowEmbedded(false)} />}
       {showTagEditor && <InlineTagEditorModal onClose={closeTagEditor} />}

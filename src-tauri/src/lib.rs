@@ -22,6 +22,13 @@ const MPV_RENDER_PARAM_API_TYPE:            c_int = 1;
 const MPV_RENDER_PARAM_OPENGL_INIT_PARAMS:  c_int = 2;
 const MPV_RENDER_PARAM_OPENGL_FBO:          c_int = 3;
 const MPV_RENDER_PARAM_FLIP_Y:              c_int = 4;
+// ⚠️ Default (1) makes mpv_render_context_render() BLOCK until the frame's target
+// display time — up to `video-timing-offset` (50 ms!) per call. We render on the
+// MAIN thread, so this must be 0 or playback starves the UI (jank/freeze).
+const MPV_RENDER_PARAM_BLOCK_FOR_TARGET_TIME: c_int = 12;
+// Consume a frame without drawing (used while the surface is hidden/degenerate so
+// the frame pipeline keeps flowing instead of piling up).
+const MPV_RENDER_PARAM_SKIP_RENDERING:        c_int = 13;
 
 /// `struct mpv_render_param { enum type; void *data; }`
 #[repr(C)]
@@ -217,7 +224,10 @@ mod platform {
     static CHILD_WIN:  AtomicI64 = AtomicI64::new(0); // our borderless child window
     static GL_VIEW:    AtomicI64 = AtomicI64::new(0); // the NSView backing the GL surface
     static GL_CTX:     AtomicI64 = AtomicI64::new(0); // NSOpenGLContext
-    static WANT_VISIBLE: AtomicBool = AtomicBool::new(true);
+    // Starts hidden: the window is only shown once the frontend has real video to
+    // display (mpv_set_window_visible(true)). Defaulting to visible flashes an empty
+    // black box at the screen's bottom-left between create_gl() and the first frame.
+    static WANT_VISIBLE: AtomicBool = AtomicBool::new(false);
     static CUR_W_PX: AtomicI32 = AtomicI32::new(0); // FBO size in physical px
     static CUR_H_PX: AtomicI32 = AtomicI32::new(0);
 
@@ -241,6 +251,7 @@ mod platform {
     }
 
     pub fn fbo_size() -> (i32, i32) { (CUR_W_PX.load(Ordering::SeqCst), CUR_H_PX.load(Ordering::SeqCst)) }
+    pub fn want_visible() -> bool { WANT_VISIBLE.load(Ordering::SeqCst) }
 
     pub unsafe fn make_current() {
         let ctx = GL_CTX.load(Ordering::SeqCst) as *mut Object;
@@ -256,6 +267,16 @@ mod platform {
         if child.is_null() { return; }
         let nil = std::ptr::null_mut::<Object>();
         if WANT_VISIBLE.load(Ordering::SeqCst) {
+            // CRITICAL: orderOut REMOVES the window from its parent's childWindows
+            // list (documented AppKit behavior). A plain orderFront would bring it
+            // back as an INDEPENDENT window that no longer follows the parent when
+            // the user drags the app window ("video stays fixed on screen" bug).
+            // Re-attach the parent-child relationship on every show.
+            let parent = PARENT_WIN.load(Ordering::SeqCst) as *mut Object;
+            if !parent.is_null() {
+                let _: () = msg_send![parent, removeChildWindow: child]; // no-op if not a child
+                let _: () = msg_send![parent, addChildWindow: child ordered: 1i64]; // above
+            }
             let _: () = msg_send![child, orderFront: nil];
             // CRITICAL: orderOut invalidates the GL drawable. Without re-attaching
             // the view, every later render silently draws nowhere ("video never
@@ -387,18 +408,35 @@ fn render_now() {
     if rc == 0 { return; }
     let Some(lib) = MPV_LIB.get() else { return };
     let (w, h) = platform::fbo_size();
-    if w <= 0 || h <= 0 { return; } // no surface size yet — skip until set_frame
     unsafe {
         platform::make_current();
         // Ack pending updates (clears mpv's update state), then redraw. Rendering
         // with no new frame just repaints the current one — exactly what we want
         // for repaint-on-resize/visibility.
         let _ = (lib.fns.render_update)(rc as MpvRenderCtx);
+
+        // No usable surface (hidden window / zero-size panel): still consume the
+        // frame via SKIP_RENDERING so mpv's frame pipeline keeps flowing — just
+        // don't draw anywhere.
+        if w <= 0 || h <= 0 || !platform::want_visible() {
+            let mut skip: c_int = 1;
+            let mut params = [
+                MpvRenderParam { kind: MPV_RENDER_PARAM_SKIP_RENDERING, data: &mut skip as *mut _ as *mut c_void },
+                MpvRenderParam { kind: 0, data: std::ptr::null_mut() },
+            ];
+            (lib.fns.render_render)(rc as MpvRenderCtx, params.as_mut_ptr());
+            return;
+        }
+
         let mut fbo  = MpvOpenglFbo { fbo: 0, w, h, internal_format: 0 };
         let mut flip: c_int = 1;
+        // block=0: never wait for the frame's target display time inside render()
+        // (default waits up to `video-timing-offset`, freezing the main thread).
+        let mut block: c_int = 0;
         let mut params = [
-            MpvRenderParam { kind: MPV_RENDER_PARAM_OPENGL_FBO, data: &mut fbo  as *mut _ as *mut c_void },
-            MpvRenderParam { kind: MPV_RENDER_PARAM_FLIP_Y,     data: &mut flip as *mut _ as *mut c_void },
+            MpvRenderParam { kind: MPV_RENDER_PARAM_OPENGL_FBO,           data: &mut fbo   as *mut _ as *mut c_void },
+            MpvRenderParam { kind: MPV_RENDER_PARAM_FLIP_Y,               data: &mut flip  as *mut _ as *mut c_void },
+            MpvRenderParam { kind: MPV_RENDER_PARAM_BLOCK_FOR_TARGET_TIME, data: &mut block as *mut _ as *mut c_void },
             MpvRenderParam { kind: 0, data: std::ptr::null_mut() },
         ];
         (lib.fns.render_render)(rc as MpvRenderCtx, params.as_mut_ptr());
@@ -476,6 +514,10 @@ fn mpv_init(app: tauri::AppHandle) -> Result<(), String> {
     let inst = MpvInstance { lib, handle };
 
     inst.set_str("vo",        "libmpv"); // output via the render API (we own the surface)
+    // We pass BLOCK_FOR_TARGET_TIME=0 to render() (no blocking wait on the main
+    // thread); per render.h, set video-timing-offset=0 alongside so mpv doesn't
+    // schedule frames ahead expecting the client to wait — keeps A/V sync exact.
+    inst.set_str("video-timing-offset", "0");
     inst.set_str("keep-open", "yes");
     inst.set_str("idle",      "yes");
     inst.set_str("input-default-bindings", "no");
@@ -696,16 +738,20 @@ macro_rules! with_mpv {
 }
 
 #[tauri::command]
-fn mpv_open(path: String) -> Result<(), String> {
-    with_mpv!(|g: &MpvInstance| {
-        let rc = g.command(&["loadfile", &path, "replace"]);
-        if rc < 0 { Err(format!("loadfile 실패: {rc}")) }
-        else {
-            // loadfile clears all tracks → our editing sub track is gone too.
-            SUBS_LOADED.store(false, std::sync::atomic::Ordering::SeqCst);
-            Ok(())
-        }
-    })
+async fn mpv_open(path: String) -> Result<(), String> {
+    // spawn_blocking: loadfile of a large/network file can take a while; never run
+    // it on the calling thread where it could stall the UI.
+    tokio::task::spawn_blocking(move || {
+        with_mpv!(|g: &MpvInstance| {
+            let rc = g.command(&["loadfile", &path, "replace"]);
+            if rc < 0 { Err(format!("loadfile 실패: {rc}")) }
+            else {
+                // loadfile clears all tracks → our editing sub track is gone too.
+                SUBS_LOADED.store(false, std::sync::atomic::Ordering::SeqCst);
+                Ok(())
+            }
+        })
+    }).await.map_err(|e| e.to_string())?
 }
 
 /// Render the editing subtitles: the frontend passes ASS text (serializeAss(doc));
@@ -713,19 +759,22 @@ fn mpv_open(path: String) -> Result<(), String> {
 /// call adds + selects; later calls reload the same path (cheap, used on every
 /// debounced cue edit). Empty content removes the track.
 #[tauri::command]
-fn mpv_set_subs(content: String) -> Result<(), String> {
-    use std::sync::atomic::Ordering;
-    let sub_path = std::env::temp_dir().join("glyphline_subs.ass");
-    std::fs::write(&sub_path, &content).map_err(|e| format!("자막 임시파일 쓰기 실패: {e}"))?;
-    let path = sub_path.to_string_lossy().to_string();
-    with_mpv!(|g: &MpvInstance| {
-        if SUBS_LOADED.swap(true, Ordering::SeqCst) {
-            g.command(&["sub-reload"]);
-        } else {
-            g.command(&["sub-add", &path, "select"]);
-        }
-        Ok(())
-    })
+async fn mpv_set_subs(content: String) -> Result<(), String> {
+    // File write + sub-(re)load off the calling thread (debounced, but still I/O).
+    tokio::task::spawn_blocking(move || {
+        use std::sync::atomic::Ordering;
+        let sub_path = std::env::temp_dir().join("glyphline_subs.ass");
+        std::fs::write(&sub_path, &content).map_err(|e| format!("자막 임시파일 쓰기 실패: {e}"))?;
+        let path = sub_path.to_string_lossy().to_string();
+        with_mpv!(|g: &MpvInstance| {
+            if SUBS_LOADED.swap(true, Ordering::SeqCst) {
+                g.command(&["sub-reload"]);
+            } else {
+                g.command(&["sub-add", &path, "select"]);
+            }
+            Ok(())
+        })
+    }).await.map_err(|e| e.to_string())?
 }
 
 /// Show or hide the adopted mpv window (hide for audio-only / no media / errors
@@ -779,8 +828,10 @@ fn mpv_set_speed(speed: f64) -> Result<(), String> {
     with_mpv!(|g: &MpvInstance| { g.set_double("speed", speed); Ok(()) })
 }
 #[tauri::command]
-fn mpv_stop() -> Result<(), String> {
-    with_mpv!(|g: &MpvInstance| { g.command(&["stop"]); Ok(()) })
+async fn mpv_stop() -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        with_mpv!(|g: &MpvInstance| { g.command(&["stop"]); Ok(()) })
+    }).await.map_err(|e| e.to_string())?
 }
 #[tauri::command]
 fn mpv_set_bounds(
@@ -794,21 +845,31 @@ fn mpv_set_bounds(
     // CSS x/y/w/h are in logical pixels relative to viewport top-left (= window top-left).
     // NSWindow frame is in screen points (logical pixels, Y=0 at bottom-left of primary screen).
     //
-    // Tauri Window.position() → PhysicalPosition (physical px from screen top-left).
-    // Divide by dpr → logical pts.  Flip Y using primary screen height.
+    // Tauri Window.position() → PhysicalPosition (physical px, global top-left origin).
+    // We must divide each physical quantity by ITS OWN monitor's scale factor — not a
+    // single `dpr` — or a mixed-DPI multi-monitor setup mislocates the video:
+    //   • the window position uses the monitor the window is currently on,
+    //   • the primary-screen height (the Cocoa flip reference) uses the PRIMARY scale.
+    // For a uniform-DPI setup these all equal `dpr` and this reduces to the old math.
     #[cfg(target_os = "macos")]
     {
         let win = match app.get_webview_window("main") { Some(w) => w, None => return };
         let pos = match win.outer_position() { Ok(p) => p, Err(_) => return };
-        let screen_h_phys = app.primary_monitor()
-            .ok().flatten()
-            .map(|m| m.size().height as f64)
-            .unwrap_or(dpr * 900.0); // fallback: 900pt screen
 
-        // Convert parent window origin from physical px to logical pts
-        let parent_x  = pos.x as f64 / dpr;
-        let parent_top = pos.y as f64 / dpr; // distance from screen top in pts
-        let screen_h   = screen_h_phys / dpr;
+        // Primary monitor defines Cocoa's global Y origin (bottom-left of primary).
+        let primary = app.primary_monitor().ok().flatten();
+        let prim_sf = primary.as_ref().map(|m| m.scale_factor()).unwrap_or(dpr);
+        let screen_h_phys = primary.as_ref().map(|m| m.size().height as f64).unwrap_or(dpr * 900.0);
+        let screen_h = screen_h_phys / prim_sf;
+
+        // The window's own monitor scale (falls back to dpr, which already tracks it).
+        let win_sf = win.current_monitor().ok().flatten()
+            .map(|m| m.scale_factor())
+            .unwrap_or(dpr);
+
+        // Convert parent window origin from physical px to logical pts.
+        let parent_x   = pos.x as f64 / win_sf;
+        let parent_top = pos.y as f64 / win_sf; // distance from global top in pts
 
         // CSS (x, y) is relative to window top-left; NSWindow Y is from screen bottom.
         let child_x = parent_x + x;

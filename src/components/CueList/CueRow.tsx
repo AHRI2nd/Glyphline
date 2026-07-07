@@ -28,10 +28,16 @@ export function CueRow({ cue, index, prev, selected, active, styleNames, showTra
   const [editField, setEditField] = useState<EditField>(null);
   const [editValue, setEditValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const rowRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (editField) inputRef.current?.select();
   }, [editField]);
+
+  // Keep the active row visible (keyboard navigation / find&replace / playback).
+  useEffect(() => {
+    if (active) rowRef.current?.scrollIntoView({ block: "nearest" });
+  }, [active]);
 
   const q = evaluateCue(cue, prev);
   const issue = hasAnyIssue(q);
@@ -55,6 +61,7 @@ export function CueRow({ cue, index, prev, selected, active, styleNames, showTra
 
   return (
     <div
+      ref={rowRef}
       className={[
         "group flex items-stretch border-b border-zinc-800 text-sm",
         selected ? "bg-indigo-950/40" : active ? "bg-zinc-800/40" : "hover:bg-zinc-900/60",

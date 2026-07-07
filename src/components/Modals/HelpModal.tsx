@@ -19,6 +19,8 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
     [`${mod} S`, t.scSave],
     [`${mod} O`, t.scOpen],
     [`${mod} N`, t.scNew],
+    [`${mod} F`, t.findReplace],
+    ["↑ ↓", t.scNavCues],
   ];
 
   return (

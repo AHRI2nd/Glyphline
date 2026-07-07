@@ -25,11 +25,14 @@ export interface MenuHandlers {
   onSkip: (delta: number) => void;
   onUndo: () => void;
   onRedo: () => void;
+  onFindReplace: () => void;
   onAddCue: () => void;
   onSplit: () => void;
   onMerge: () => void;
   onDelete: () => void;
   onShift: () => void;
+  onFixOverlaps: () => void;
+  onRemoveEmpty: () => void;
   onStyles: () => void;
   onEditTags: () => void;
   onEmbedded: () => void;
@@ -37,7 +40,6 @@ export interface MenuHandlers {
   onSettings: () => void;
   onHelp: () => void;
   onResetLayout: () => void;
-  onToggleSpectrogram: () => void;
   onToggleTranslation: () => void;
   onPlugins: () => void;
   onSetLang: (lang: Lang) => void;
@@ -89,6 +91,8 @@ export async function installAppMenu(t: Translations, lang: Lang, h: MenuHandler
       await MenuItem.new({ text: t.undo, accelerator: "CmdOrCtrl+Z", action: h.onUndo }),
       await MenuItem.new({ text: t.redo, accelerator: "CmdOrCtrl+Shift+Z", action: h.onRedo }),
       await sep(),
+      await MenuItem.new({ text: t.findReplace, accelerator: "CmdOrCtrl+F", action: h.onFindReplace }),
+      await sep(),
       // Predefined items so text fields support clipboard ops via the menu.
       await PredefinedMenuItem.new({ item: "Cut" }),
       await PredefinedMenuItem.new({ item: "Copy" }),
@@ -106,6 +110,9 @@ export async function installAppMenu(t: Translations, lang: Lang, h: MenuHandler
       await MenuItem.new({ text: t.deleteCue, action: h.onDelete }),
       await sep(),
       await MenuItem.new({ text: t.shiftTime, action: h.onShift }),
+      await MenuItem.new({ text: t.fixOverlaps, action: h.onFixOverlaps }),
+      await MenuItem.new({ text: t.removeEmptyCues, action: h.onRemoveEmpty }),
+      await sep(),
       await MenuItem.new({ text: t.styleManager, action: h.onStyles }),
       await MenuItem.new({ text: t.editTags, action: h.onEditTags }),
       await MenuItem.new({ text: `${t.embeddedAssets}…`, action: h.onEmbedded }),
@@ -130,7 +137,6 @@ export async function installAppMenu(t: Translations, lang: Lang, h: MenuHandler
     text: t.viewMenu,
     items: [
       await MenuItem.new({ text: t.resetLayout, action: h.onResetLayout }),
-      await MenuItem.new({ text: t.spectrogram, action: h.onToggleSpectrogram }),
       await MenuItem.new({ text: t.showTranslation, action: h.onToggleTranslation }),
       await MenuItem.new({ text: t.plugins, action: h.onPlugins }),
       await sep(),

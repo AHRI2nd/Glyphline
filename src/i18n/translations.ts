@@ -19,7 +19,6 @@ export interface Translations {
   pluginAddNew: string;
   pluginName: string;
   plugins: string;
-  spectrogram: string;
   editTags: string;
   inlineTagEditor: string;
   tagColor: string;
@@ -72,8 +71,22 @@ export interface Translations {
   splitCue: string;
   mergeCues: string;
   shiftTime: string;
+  fixOverlaps: string;
+  removeEmptyCues: string;
   noCues: string;
   emptyHint: string;
+  // find & replace
+  findReplace: string;
+  findPlaceholder: string;
+  replacePlaceholder: string;
+  matchCase: string;
+  useRegex: string;
+  findPrev: string;
+  findNext: string;
+  replaceOne: string;
+  replaceAll: string;
+  noMatches: string;
+  invalidRegex: string;
   // quality
   overlap: string;
   cpsHigh: string;
@@ -102,6 +115,7 @@ export interface Translations {
   scSave: string;
   scOpen: string;
   scNew: string;
+  scNavCues: string;
   // styles
   styles: string;
   styleManager: string;
@@ -155,7 +169,6 @@ const ko: Translations = {
   pluginAddNew: "새 플러그인 추가 (URL)",
   pluginName: "이름",
   plugins: "플러그인",
-  spectrogram: "스펙트로그램",
   editTags: "인라인 태그 편집…",
   inlineTagEditor: "인라인 태그 편집 (ASS)",
   tagColor: "색상",
@@ -206,8 +219,21 @@ const ko: Translations = {
   splitCue: "분할",
   mergeCues: "병합",
   shiftTime: "시간 이동",
+  fixOverlaps: "겹침 자동 수정",
+  removeEmptyCues: "빈 자막 삭제",
   noCues: "자막이 없습니다",
   emptyHint: "파일을 열거나 자막을 추가하세요.",
+  findReplace: "찾기/바꾸기…",
+  findPlaceholder: "찾을 내용",
+  replacePlaceholder: "바꿀 내용",
+  matchCase: "대소문자 구분",
+  useRegex: "정규식",
+  findPrev: "이전",
+  findNext: "다음",
+  replaceOne: "바꾸기",
+  replaceAll: "모두 바꾸기",
+  noMatches: "일치 없음",
+  invalidRegex: "잘못된 정규식",
   overlap: "이전 자막과 겹침",
   cpsHigh: "CPS 초과 (너무 빠름)",
   tooShort: "표시 시간이 너무 짧음",
@@ -232,6 +258,7 @@ const ko: Translations = {
   scSave: "저장 (.glyph)",
   scOpen: "열기",
   scNew: "새 파일",
+  scNavCues: "이전/다음 자막 이동",
   styles: "스타일",
   styleManager: "스타일 매니저",
   addStyle: "스타일 추가",
@@ -283,7 +310,6 @@ const en: Translations = {
   pluginAddNew: "Add new plugin (URL)",
   pluginName: "Name",
   plugins: "Plugins",
-  spectrogram: "Spectrogram",
   editTags: "Edit Inline Tags…",
   inlineTagEditor: "Inline Tag Editor (ASS)",
   tagColor: "Color",
@@ -334,8 +360,21 @@ const en: Translations = {
   splitCue: "Split",
   mergeCues: "Merge",
   shiftTime: "Shift time",
+  fixOverlaps: "Fix Overlaps",
+  removeEmptyCues: "Remove Empty Cues",
   noCues: "No cues",
   emptyHint: "Open a file or add a cue to begin.",
+  findReplace: "Find & Replace…",
+  findPlaceholder: "Find",
+  replacePlaceholder: "Replace with",
+  matchCase: "Match case",
+  useRegex: "Regex",
+  findPrev: "Previous",
+  findNext: "Next",
+  replaceOne: "Replace",
+  replaceAll: "Replace All",
+  noMatches: "No matches",
+  invalidRegex: "Invalid regex",
   overlap: "Overlaps previous cue",
   cpsHigh: "CPS too high (too fast)",
   tooShort: "Display time too short",
@@ -360,6 +399,7 @@ const en: Translations = {
   scSave: "Save (.glyph)",
   scOpen: "Open",
   scNew: "New file",
+  scNavCues: "Previous/next cue",
   styles: "Styles",
   styleManager: "Style Manager",
   addStyle: "Add style",
@@ -411,7 +451,6 @@ const ja: Translations = {
   pluginAddNew: "新しいプラグインを追加 (URL)",
   pluginName: "名前",
   plugins: "プラグイン",
-  spectrogram: "スペクトログラム",
   editTags: "インラインタグ編集…",
   inlineTagEditor: "インラインタグ編集 (ASS)",
   tagColor: "色",
@@ -462,8 +501,21 @@ const ja: Translations = {
   splitCue: "分割",
   mergeCues: "結合",
   shiftTime: "時間シフト",
+  fixOverlaps: "重なりを自動修正",
+  removeEmptyCues: "空の字幕を削除",
   noCues: "字幕がありません",
   emptyHint: "ファイルを開くか、字幕を追加してください。",
+  findReplace: "検索・置換…",
+  findPlaceholder: "検索する内容",
+  replacePlaceholder: "置換する内容",
+  matchCase: "大文字と小文字を区別",
+  useRegex: "正規表現",
+  findPrev: "前へ",
+  findNext: "次へ",
+  replaceOne: "置換",
+  replaceAll: "すべて置換",
+  noMatches: "一致なし",
+  invalidRegex: "無効な正規表現",
   overlap: "前の字幕と重複",
   cpsHigh: "CPS 超過（速すぎ）",
   tooShort: "表示時間が短すぎ",
@@ -488,6 +540,7 @@ const ja: Translations = {
   scSave: "保存 (.glyph)",
   scOpen: "開く",
   scNew: "新規ファイル",
+  scNavCues: "前/次の字幕へ移動",
   styles: "スタイル",
   styleManager: "スタイルマネージャ",
   addStyle: "スタイル追加",

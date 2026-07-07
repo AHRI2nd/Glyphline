@@ -46,6 +46,12 @@ interface SubtitleState {
 
   // editing
   updateCue: (id: string, patch: Partial<Omit<Cue, "id">>) => void;
+  /** Apply many cue patches as ONE undo step (find&replace "replace all" etc.). */
+  batchUpdateCues: (edits: Array<{ id: string; patch: Partial<Omit<Cue, "id">> }>) => void;
+  /** Clamp each cue's end to the next cue's start (sorted order). Returns #fixed. */
+  fixOverlaps: () => number;
+  /** Delete cues whose text (and translation) is blank. Returns #removed. */
+  removeEmptyCues: () => number;
   addCue: () => void;
   addCueAt: (start: number, end: number) => void;
   insertCueAfter: (id: string) => void;
@@ -173,6 +179,56 @@ export const useSubtitleStore = create<SubtitleState>((set, get) => {
     updateCue: (id, patch) => {
       pushHistory();
       set({ doc: withCues(get().doc.cues.map((c) => (c.id === id ? { ...c, ...patch } : c))) });
+    },
+
+    batchUpdateCues: (edits) => {
+      if (!edits.length) return;
+      pushHistory();
+      const byId = new Map(edits.map((e) => [e.id, e.patch]));
+      set({
+        doc: withCues(
+          get().doc.cues.map((c) => {
+            const patch = byId.get(c.id);
+            return patch ? { ...c, ...patch } : c;
+          }),
+        ),
+      });
+    },
+
+    fixOverlaps: () => {
+      const sorted = sortedCues(get().doc.cues);
+      // end > next.start → clamp end (keep ≥1 ms duration so the cue stays valid).
+      const clamps = new Map<string, number>();
+      for (let i = 0; i < sorted.length - 1; i++) {
+        const cur = sorted[i];
+        const next = sorted[i + 1];
+        if (cur.end > next.start) {
+          clamps.set(cur.id, Math.max(next.start, cur.start + 0.001));
+        }
+      }
+      if (!clamps.size) return 0;
+      pushHistory();
+      set({
+        doc: withCues(
+          get().doc.cues.map((c) => (clamps.has(c.id) ? { ...c, end: clamps.get(c.id)! } : c)),
+        ),
+      });
+      return clamps.size;
+    },
+
+    removeEmptyCues: () => {
+      const empty = get().doc.cues.filter(
+        (c) => c.text.trim() === "" && (c.translation ?? "").trim() === "",
+      );
+      if (!empty.length) return 0;
+      pushHistory();
+      const idSet = new Set(empty.map((c) => c.id));
+      set((s) => ({
+        doc: withCues(s.doc.cues.filter((c) => !idSet.has(c.id))),
+        selectedIds: new Set([...s.selectedIds].filter((id) => !idSet.has(id))),
+        activeCueId: s.activeCueId && idSet.has(s.activeCueId) ? null : s.activeCueId,
+      }));
+      return empty.length;
     },
 
     addCue: () => {
