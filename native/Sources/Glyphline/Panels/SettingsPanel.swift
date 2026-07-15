@@ -1,7 +1,5 @@
-// Quality-check thresholds + mpv status (ported from
-// ../../../src/components/Settings/SettingsModal.tsx). Full settings persistence
-// (uiScale, autoCheckUpdate, recentFiles…) is M6 scope; this covers the
-// self-contained quality-threshold piece.
+// General settings + quality-check thresholds + mpv status (ported from
+// ../../../src/components/Settings/SettingsModal.tsx).
 
 import SwiftUI
 import GlyphlineCore
@@ -13,6 +11,28 @@ struct SettingsPanel: View {
     var body: some View {
         PanelShell(title: t("settings"), width: 380) {
             VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text(t("uiScale")).font(GlyphFont.body(12))
+                        Slider(value: Binding(
+                            get: { settings.uiScale }, set: { settings.uiScale = $0 }
+                        ), in: 0.7...1.3, step: 0.05)
+                        .tint(GlyphColor.accentHover)
+                        Text("\(Int(settings.uiScale * 100))%")
+                            .font(GlyphFont.data(11)).foregroundStyle(GlyphColor.quiet)
+                            .frame(width: 40, alignment: .trailing)
+                    }
+                    Toggle(t("autoCheckUpdate"), isOn: Binding(
+                        get: { settings.autoCheckUpdate }, set: { settings.autoCheckUpdate = $0 }
+                    )).toggleStyle(.checkbox).font(GlyphFont.body(12))
+                    if let version = settings.availableUpdateVersion {
+                        Text("\(t("updateAvailable")): \(version)")
+                            .font(GlyphFont.body(11)).foregroundStyle(GlyphColor.accent)
+                    }
+                }
+
+                Divider()
+
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
                         Text(t("qualityThresholds")).font(GlyphFont.display(11)).foregroundStyle(GlyphColor.quiet)

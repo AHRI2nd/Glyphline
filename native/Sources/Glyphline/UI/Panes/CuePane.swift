@@ -12,12 +12,10 @@ struct CuePane: View {
     var onEditTags: ((Cue) -> Void)?
 
     var body: some View {
-        PaneChrome(title: document.doc.cues.isEmpty ? t("panelSubtitles") : "\(t("panelSubtitles")) (\(document.doc.cues.count))") {
-            if document.doc.cues.isEmpty {
-                PanePlaceholder(message: "\(t("noCues")) — \(t("emptyHint"))")
-            } else {
-                CueGridView(document: document, media: media, settings: settings, onEditTags: onEditTags)
-            }
+        if document.doc.cues.isEmpty {
+            PanePlaceholder(message: "\(t("noCues")) — \(t("emptyHint"))")
+        } else {
+            CueGridView(document: document, media: media, settings: settings, onEditTags: onEditTags)
         }
     }
 }

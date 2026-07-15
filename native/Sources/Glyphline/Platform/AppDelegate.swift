@@ -1,8 +1,11 @@
 // Quit-time unsaved-changes guard (ported from ../../../src/App.tsx's
-// CloseConfirmModal, triggered via Tauri's onCloseRequested). SwiftUI's
-// WindowGroup doesn't expose a way to block termination directly, so this uses
-// the standard AppKit pattern: NSApplicationDelegate.applicationShouldTerminate,
-// which can synchronously block quit with a blocking NSAlert.
+// CloseConfirmModal, triggered via Tauri's onCloseRequested).
+//
+// Presented as a real SwiftUI sheet (CloseConfirmPanel), same pattern as every
+// other M5/M6 panel — `applicationShouldTerminate` returns `.terminateLater`
+// and the panel's buttons call `NSApp.reply(toApplicationShouldTerminate:)`
+// once the user decides, which is AppKit's documented mechanism for exactly
+// this "confirm before quitting asynchronously" case.
 
 import AppKit
 
@@ -22,26 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard let state, state.document.isDirty else { return .terminateNow }
-
-        let alert = NSAlert()
-        alert.messageText = t("unsavedChangesTitle")
-        alert.informativeText = t("closeUnsavedMessage")
-        alert.addButton(withTitle: t("saveAndClose"))
-        alert.addButton(withTitle: t("closeWithoutSaving"))
-        alert.addButton(withTitle: t("cancel"))
-
-        switch alert.runModal() {
-        case .alertFirstButtonReturn: // save & close
-            if state.saveDocument() {
-                AutosaveService.clear()
-                return .terminateNow
-            }
-            return .terminateCancel // save was cancelled (e.g. no path chosen)
-        case .alertSecondButtonReturn: // close without saving
-            AutosaveService.clear()
-            return .terminateNow
-        default: // cancel
-            return .terminateCancel
-        }
+        state.activePanel = .closeConfirm
+        return .terminateLater
     }
 }

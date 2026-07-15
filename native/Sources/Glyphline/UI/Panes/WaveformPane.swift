@@ -11,29 +11,27 @@ struct WaveformPane: View {
     @State private var zoomLevel: Double = 50 // 0–100, log scale — see WaveformScrollView
 
     var body: some View {
-        PaneChrome(title: t("panelWaveform")) {
-            if media.mediaPath == nil {
-                PanePlaceholder(message: t("noMediaShort"))
-            } else {
-                VStack(spacing: 0) {
-                    HStack(spacing: 6) {
-                        Spacer()
-                        Button("−") { zoomBy(0.8) }.buttonStyle(.plain)
-                            .help(t("zoomOut")).accessibilityLabel(t("zoomOut"))
-                        Slider(value: $zoomLevel, in: 0...100).frame(width: 100).tint(GlyphColor.accentHover)
-                        Button("＋") { zoomBy(1.25) }.buttonStyle(.plain)
-                            .help(t("zoomIn")).accessibilityLabel(t("zoomIn"))
-                    }
-                    .font(GlyphFont.data(11))
-                    .foregroundStyle(GlyphColor.quiet)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-
-                    WaveformScrollView(
-                        document: document, media: media, zoomLevel: zoomLevel,
-                        onZoomWheel: { delta in zoomLevel = min(100, max(0, zoomLevel + delta)) }
-                    )
+        if media.mediaPath == nil {
+            PanePlaceholder(message: t("noMediaShort"))
+        } else {
+            VStack(spacing: 0) {
+                HStack(spacing: 6) {
+                    Spacer()
+                    Button("−") { zoomBy(0.8) }.buttonStyle(.plain)
+                        .help(t("zoomOut")).accessibilityLabel(t("zoomOut"))
+                    Slider(value: $zoomLevel, in: 0...100).frame(width: 100).tint(GlyphColor.accentHover)
+                    Button("＋") { zoomBy(1.25) }.buttonStyle(.plain)
+                        .help(t("zoomIn")).accessibilityLabel(t("zoomIn"))
                 }
+                .font(GlyphFont.data(11))
+                .foregroundStyle(GlyphColor.quiet)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+
+                WaveformScrollView(
+                    document: document, media: media, zoomLevel: zoomLevel,
+                    onZoomWheel: { delta in zoomLevel = min(100, max(0, zoomLevel + delta)) }
+                )
             }
         }
     }

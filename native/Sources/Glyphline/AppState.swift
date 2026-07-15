@@ -11,7 +11,7 @@ import GlyphlineCore
 /// Tauri app's one-modal-at-a-time UX). `nil` = none.
 enum ActivePanel: Identifiable {
     case findReplace, batchCleanup, pointSync, changeSpeed, statistics, shiftTime
-    case styleManager, embeddedAssets, inlineTagEditor, settings, rawEditor, help, qualityIssues
+    case styleManager, embeddedAssets, inlineTagEditor, settings, rawEditor, help, qualityIssues, closeConfirm
 
     var id: Self { self }
 }
@@ -52,6 +52,12 @@ final class AppState {
         autosave.start()
         if let pending = AutosaveService.checkPending(), !pending.glyph.isEmpty {
             recovery = pending
+        }
+        if settings.autoCheckUpdate {
+            Task { [weak self] in
+                guard let version = await UpdateCheck.checkForUpdate() else { return }
+                self?.settings.availableUpdateVersion = version
+            }
         }
     }
 

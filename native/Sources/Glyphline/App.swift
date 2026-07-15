@@ -95,6 +95,8 @@ struct GlyphlineApp: App {
                     .keyboardShortcut(",", modifiers: .command)
             }
             CommandMenu(t("viewMenu")) {
+                Button(t("resetLayout")) { state.settings.resetDockLayout() }
+                Divider()
                 Toggle(t("showTranslation"), isOn: Binding(
                     get: { state.settings.showTranslation },
                     set: { state.settings.showTranslation = $0 }

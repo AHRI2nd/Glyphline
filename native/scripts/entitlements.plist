@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Hardened Runtime is required for notarization. Library validation must
+         be disabled because libmpv is dlopen'd from Homebrew at runtime
+         (../Sources/Glyphline/Media/MPVBindings.swift) and is signed by a
+         different Team ID than this app — without this, Hardened Runtime
+         silently refuses the dlopen and mpv playback breaks. -->
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+    <!-- JIT/unsigned-memory allowances are NOT included — nothing in this app
+         needs them; keep the entitlement surface minimal. -->
+</dict>
+</plist>
