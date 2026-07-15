@@ -63,7 +63,7 @@ export default function App() {
   const showTagEditor = useSettingsStore((s) => s.tagEditorOpen);
   const closeTagEditor = useSettingsStore((s) => s.closeTagEditor);
   const [showPluginManager, setShowPluginManager] = useState(false);
-  const [pendingExport, setPendingExport] = useState<{ format: SubFormat; categories: LossCategory[] } | null>(null);
+  const [pendingExport, setPendingExport] = useState<{ format: SubFormat; categories: LossCategory[]; encoding?: string } | null>(null);
   const [updateVersion, setUpdateVersion] = useState<string | null>(null);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [recovery, setRecovery] = useState<AutosaveData | null>(null);
@@ -101,7 +101,8 @@ export default function App() {
   };
 
   // Run the file dialog + write. Assumes any loss was already confirmed.
-  const performExport = (format: SubFormat) => {
+  // `encoding` (WHATWG label) lets us emit legacy CP949 SMI for old Korean players.
+  const performExport = (format: SubFormat, encoding?: string) => {
     void (async () => {
       const adapter = adapterForFormat(format);
       const base = (useSubtitleStore.getState().fileName ?? "untitled").replace(/\.[^.]+$/, "");
@@ -109,7 +110,7 @@ export default function App() {
         defaultPath: `${base}.${adapter.extensions[0]}`,
         filters: [{ name: adapter.label, extensions: adapter.extensions }],
       });
-      if (path) await useSubtitleStore.getState().exportPath(path, format);
+      if (path) await useSubtitleStore.getState().exportPath(path, format, "text", encoding);
     })();
   };
 
@@ -126,14 +127,14 @@ export default function App() {
     })();
   };
 
-  const doExport = (format: SubFormat) => {
+  const doExport = (format: SubFormat, encoding?: string) => {
     // Warn before a lossy ASS->SMI export when override tags would be dropped.
     const loss = format === "smi" ? smiExportLoss(useSubtitleStore.getState().doc) : [];
     if (loss.length) {
-      setPendingExport({ format, categories: loss });
+      setPendingExport({ format, categories: loss, encoding });
       return;
     }
-    performExport(format);
+    performExport(format, encoding);
   };
 
   const doNew = () => {
@@ -174,6 +175,7 @@ export default function App() {
     onSave: () => void doSaveNative(),
     onExport: doExport,
     onExportTranslation: doExportTranslation,
+    onExportSmiCp949: () => doExport("smi", "euc-kr"),
     onTogglePlay: () => useMediaStore.getState().togglePlay(),
     onSkip: (d) => useMediaStore.getState().skip(d),
     onUndo: () => useSubtitleStore.getState().undo(),
@@ -202,6 +204,7 @@ export default function App() {
     onHelp: () => setShowHelp(true),
     onResetLayout: () => resetDockLayout(),
     onToggleTranslation: () => useSettingsStore.getState().toggleTranslation(),
+    onToggleActor: () => useSettingsStore.getState().toggleActor(),
     onPlugins: () => setShowPluginManager(true),
     onSetLang: (l) => useI18nStore.getState().setLang(l),
   };
@@ -219,6 +222,7 @@ export default function App() {
       onSave: () => handlersRef.current.onSave(),
       onExport: (f) => handlersRef.current.onExport(f),
       onExportTranslation: (f) => handlersRef.current.onExportTranslation(f),
+      onExportSmiCp949: () => handlersRef.current.onExportSmiCp949(),
       onTogglePlay: () => handlersRef.current.onTogglePlay(),
       onSkip: (d) => handlersRef.current.onSkip(d),
       onUndo: () => handlersRef.current.onUndo(),
@@ -241,6 +245,7 @@ export default function App() {
       onHelp: () => handlersRef.current.onHelp(),
       onResetLayout: () => handlersRef.current.onResetLayout(),
       onToggleTranslation: () => handlersRef.current.onToggleTranslation(),
+      onToggleActor: () => handlersRef.current.onToggleActor(),
       onPlugins: () => handlersRef.current.onPlugins(),
       onSetLang: (l) => handlersRef.current.onSetLang(l),
     };
@@ -449,9 +454,9 @@ export default function App() {
         <ExportWarningModal
           categories={pendingExport.categories}
           onConfirm={() => {
-            const fmt = pendingExport.format;
+            const { format: fmt, encoding } = pendingExport;
             setPendingExport(null);
-            performExport(fmt);
+            performExport(fmt, encoding);
           }}
           onCancel={() => setPendingExport(null)}
         />

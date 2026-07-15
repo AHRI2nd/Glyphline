@@ -4,6 +4,59 @@ import { listen } from "@tauri-apps/api/event";
 import { useI18nStore } from "../../stores/useI18nStore";
 import { useSettingsStore } from "../../stores/useSettingsStore";
 import { Backdrop } from "../Modals/ConfirmModal";
+import { DEFAULT_THRESHOLDS, NETFLIX_THRESHOLDS, type QualityThresholds } from "../../utils/quality";
+
+function QualitySection() {
+  const { t } = useI18nStore();
+  const quality = useSettingsStore((s) => s.quality);
+  const setQuality = useSettingsStore((s) => s.setQuality);
+  const resetQuality = useSettingsStore((s) => s.resetQuality);
+
+  const rows: Array<{ key: keyof QualityThresholds; label: string; step: number }> = [
+    { key: "maxCps", label: t.qMaxCps, step: 1 },
+    { key: "minDuration", label: t.qMinDuration, step: 0.1 },
+    { key: "maxDuration", label: t.qMaxDuration, step: 0.5 },
+    { key: "maxLineLength", label: t.qMaxLineLength, step: 1 },
+    { key: "maxLines", label: t.qMaxLines, step: 1 },
+  ];
+
+  return (
+    <div className="mt-5 border-t border-zinc-800 pt-4">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">{t.qualityThresholds}</span>
+        <div className="flex gap-1">
+          <button
+            onClick={() => resetQuality(DEFAULT_THRESHOLDS)}
+            className="rounded bg-zinc-800 px-2 py-0.5 text-[10px] text-zinc-300 hover:bg-zinc-700"
+          >
+            {t.qPresetDefault}
+          </button>
+          <button
+            onClick={() => resetQuality(NETFLIX_THRESHOLDS)}
+            className="rounded bg-zinc-800 px-2 py-0.5 text-[10px] text-zinc-300 hover:bg-zinc-700"
+          >
+            {t.qPresetNetflix}
+          </button>
+        </div>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        {rows.map(({ key, label, step }) => (
+          <label key={key} className="flex items-center justify-between text-sm text-zinc-300">
+            <span>{label}</span>
+            <input
+              type="number"
+              min={0}
+              step={step}
+              value={quality[key]}
+              onChange={(e) => setQuality({ [key]: Number(e.target.value) } as Partial<QualityThresholds>)}
+              className="w-20 rounded border border-zinc-700 bg-zinc-950 px-2 py-0.5 text-right font-mono text-xs text-zinc-100 outline-none focus:border-indigo-500"
+            />
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function MpvSection() {
   const [available, setAvailable] = useState<boolean | null>(null);
@@ -106,7 +159,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   return (
     <Backdrop onClick={onClose}>
       <div
-        className="w-[420px] rounded-xl border border-zinc-700 bg-zinc-900 p-5 shadow-2xl"
+        className="ws-scroll max-h-[85vh] w-[420px] overflow-y-auto rounded-xl border border-zinc-700 bg-zinc-900 p-5 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="mb-4 text-sm font-semibold text-zinc-100">{t.settings}</h3>
@@ -130,6 +183,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           />
           {t.autoCheckUpdate}
         </label>
+
+        <QualitySection />
 
         <MpvSection />
 

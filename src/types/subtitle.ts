@@ -4,7 +4,7 @@
 // (SRT/VTT/ASS/SMI) are adapters that parse into / serialize out of this model;
 // the native `.glyph` (JSON) format persists it losslessly.
 
-export type SubFormat = "srt" | "vtt" | "ass" | "smi";
+export type SubFormat = "srt" | "vtt" | "ass" | "smi" | "sbv" | "lrc" | "txt";
 
 /** The native project extension. */
 export const NATIVE_EXT = "glyph";

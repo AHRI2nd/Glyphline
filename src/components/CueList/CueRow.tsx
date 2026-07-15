@@ -16,12 +16,13 @@ interface Props {
   active: boolean;
   styleNames: string[]; // when non-empty, show a per-cue style selector
   showTranslation: boolean; // when true, show the parallel translation column
+  showActor: boolean; // when true, show the per-cue actor/speaker column
   onContextMenu?: (e: React.MouseEvent) => void; // right-click → CueList context menu
 }
 
 type EditField = "start" | "end" | null;
 
-export function CueRow({ cue, index, prev, selected, active, styleNames, showTranslation, onContextMenu }: Props) {
+export function CueRow({ cue, index, prev, selected, active, styleNames, showTranslation, showActor, onContextMenu }: Props) {
   const { t } = useI18nStore();
   const updateCue = useSubtitleStore((s) => s.updateCue);
   const toggleSelect = useSubtitleStore((s) => s.toggleSelect);
@@ -40,7 +41,8 @@ export function CueRow({ cue, index, prev, selected, active, styleNames, showTra
     if (active) rowRef.current?.scrollIntoView({ block: "nearest" });
   }, [active]);
 
-  const q = evaluateCue(cue, prev);
+  const quality = useSettingsStore((s) => s.quality);
+  const q = evaluateCue(cue, prev, quality);
   const issue = hasAnyIssue(q);
   const hasMedia = useMediaStore((s) => s.mediaSrc != null);
 
@@ -68,7 +70,13 @@ export function CueRow({ cue, index, prev, selected, active, styleNames, showTra
         selected ? "bg-indigo-950/40" : active ? "bg-zinc-800/40" : "hover:bg-zinc-900/60",
       ].join(" ")}
       onClick={(e) => {
-        toggleSelect(cue.id, e.metaKey || e.ctrlKey);
+        const s = useSubtitleStore.getState();
+        if (e.shiftKey && s.activeCueId) {
+          e.preventDefault(); // don't let Shift+click select page text
+          s.selectRange(s.activeCueId, cue.id);
+        } else {
+          toggleSelect(cue.id, e.metaKey || e.ctrlKey);
+        }
         // Jump the video playhead to this cue when media is loaded.
         if (useMediaStore.getState().mediaSrc) useMediaStore.getState().seek(cue.start);
       }}
@@ -110,6 +118,18 @@ export function CueRow({ cue, index, prev, selected, active, styleNames, showTra
           {cps(cue).toFixed(0)} cps
         </span>
       </div>
+
+      {showActor && (
+        <div className="flex w-24 shrink-0 items-center border-l border-zinc-800/60 px-1" onClick={(e) => e.stopPropagation()}>
+          <input
+            value={cue.actor ?? ""}
+            spellCheck={false}
+            placeholder={t.actorPlaceholder}
+            onChange={(e) => updateCue(cue.id, { actor: e.target.value || undefined })}
+            className="w-full rounded bg-transparent px-1 py-0.5 text-xs text-zinc-300 outline-none placeholder:text-zinc-700 focus:bg-zinc-950"
+          />
+        </div>
+      )}
 
       {styleNames.length > 0 && (
         <div className="flex w-28 shrink-0 items-center border-l border-zinc-800/60 px-1" onClick={(e) => e.stopPropagation()}>
@@ -183,6 +203,8 @@ function issueText(q: CueQuality, t: ReturnType<typeof useI18nStore.getState>["t
   if (q.cpsTooHigh) msgs.push(t.cpsHigh);
   if (q.durationTooShort) msgs.push(t.tooShort);
   if (q.durationTooLong) msgs.push(t.tooLong);
+  if (q.lineTooLong) msgs.push(t.lineTooLong);
+  if (q.tooManyLines) msgs.push(t.tooManyLines);
   return msgs.join(" · ");
 }
 

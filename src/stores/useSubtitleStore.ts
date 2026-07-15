@@ -43,12 +43,14 @@ interface SubtitleState {
    * translation column as the body text (cues without one fall back to the
    * original); ASS spans/tokens are dropped there — they align to the original.
    */
-  exportPath: (path: string, format: SubFormat, source?: "text" | "translation") => Promise<void>;
+  exportPath: (path: string, format: SubFormat, source?: "text" | "translation", encoding?: string) => Promise<void>;
   serializeCurrent: () => string;
 
   // selection
   setActiveCue: (id: string | null) => void;
   toggleSelect: (id: string, additive: boolean) => void;
+  /** Select every cue between the anchor and `toId` (inclusive, time-sorted). */
+  selectRange: (anchorId: string, toId: string) => void;
   clearSelection: () => void;
 
   // editing
@@ -83,6 +85,7 @@ interface SubtitleState {
   addCueAt: (start: number, end: number) => void;
   insertCueAfter: (id: string) => void;
   deleteCues: (ids: string[]) => void;
+  duplicateCue: (id: string) => void;
   splitCue: (id: string, atTime: number) => void;
   mergeCues: (ids: string[]) => void;
   shiftTime: (deltaSec: number, scope: "all" | "selected") => void;
@@ -259,7 +262,7 @@ export const useSubtitleStore = create<SubtitleState>((set, get) => {
       set({ filePath: path, fileName: baseName(path), isDirty: false });
     },
 
-    exportPath: async (path, format, source = "text") => {
+    exportPath: async (path, format, source = "text", encoding) => {
       let doc = get().doc;
       if (source === "translation") {
         doc = {
@@ -273,7 +276,11 @@ export const useSubtitleStore = create<SubtitleState>((set, get) => {
         };
       }
       const content = adapterForFormat(format).serialize(doc);
-      await invoke("write_text_file", { path, content });
+      if (encoding && encoding.toLowerCase() !== "utf-8") {
+        await invoke("write_text_file_encoded", { path, content, encoding });
+      } else {
+        await invoke("write_text_file", { path, content });
+      }
     },
 
     serializeCurrent: () => {
@@ -291,6 +298,16 @@ export const useSubtitleStore = create<SubtitleState>((set, get) => {
         else next.add(id);
         return { selectedIds: next, activeCueId: id };
       }),
+
+    selectRange: (anchorId, toId) => {
+      const order = sortedCues(get().doc.cues);
+      const a = order.findIndex((c) => c.id === anchorId);
+      const b = order.findIndex((c) => c.id === toId);
+      if (a === -1 || b === -1) return;
+      const [lo, hi] = a <= b ? [a, b] : [b, a];
+      const next = new Set(order.slice(lo, hi + 1).map((c) => c.id));
+      set({ selectedIds: next, activeCueId: toId });
+    },
 
     clearSelection: () => set({ selectedIds: new Set() }),
 
@@ -520,6 +537,26 @@ export const useSubtitleStore = create<SubtitleState>((set, get) => {
       const next = [...cues];
       next.splice(idx + 1, 0, cue);
       set({ doc: withCues(next), activeCueId: cue.id });
+    },
+
+    duplicateCue: (id) => {
+      const cues = get().doc.cues;
+      const ref = cues.find((c) => c.id === id);
+      if (!ref) return;
+      pushHistory();
+      // Copy text/style/actor/spans; place it right after, shifted by its duration
+      // (clamped to a minimum) so it doesn't sit exactly on top of the original.
+      const dur = Math.max(0.5, ref.end - ref.start);
+      const copy: Cue = {
+        ...structuredClone(ref),
+        id: newCueId(),
+        start: ref.end + 0.001,
+        end: ref.end + 0.001 + dur,
+      };
+      const idx = cues.findIndex((c) => c.id === id);
+      const next = [...cues];
+      next.splice(idx + 1, 0, copy);
+      set({ doc: withCues(next), activeCueId: copy.id, selectedIds: new Set([copy.id]) });
     },
 
     deleteCues: (ids) => {

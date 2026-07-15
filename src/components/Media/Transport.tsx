@@ -1,12 +1,15 @@
 import { useRef, useState } from "react";
 import {
   SkipBack,
-  Rewind,
   Play,
   Pause,
-  FastForward,
   SkipForward,
   Plus,
+  ChevronLeft,
+  ChevronRight,
+  Repeat,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { useMediaStore, PLAYBACK_RATES } from "../../stores/useMediaStore";
 import { useSubtitleStore } from "../../stores/useSubtitleStore";
@@ -19,11 +22,26 @@ export function Transport() {
   const currentTime = useMediaStore((s) => s.currentTime);
   const duration = useMediaStore((s) => s.duration);
   const playbackRate = useMediaStore((s) => s.playbackRate);
-  const { togglePlay, skip, setPlaybackRate, seek } = useMediaStore();
+  const volume = useMediaStore((s) => s.volume);
+  const muted = useMediaStore((s) => s.muted);
+  const looping = useMediaStore((s) => s.loopRegion != null);
+  const { togglePlay, skip, frameStep, setPlaybackRate, seek, setVolume, toggleMute, playRegion, clearLoop } =
+    useMediaStore();
 
   const addCueAtPlayhead = () => {
     const end = duration > 0 ? Math.min(currentTime + 2, duration) : currentTime + 2;
     useSubtitleStore.getState().addCueAt(currentTime, end);
+  };
+
+  // Loop over the active cue (toggle). Falls back to any single selected cue.
+  const toggleLoopActive = () => {
+    if (looping) {
+      clearLoop();
+      return;
+    }
+    const s = useSubtitleStore.getState();
+    const cue = s.doc.cues.find((c) => c.id === s.activeCueId);
+    if (cue) playRegion(cue.start, cue.end);
   };
 
   return (
@@ -31,7 +49,7 @@ export function Transport() {
       <SeekBar currentTime={currentTime} duration={duration} onSeek={seek} />
       <div className="flex items-center gap-1 px-2 pb-1.5 pt-1">
       <IconBtn onClick={() => skip(-5)} title="-5s"><SkipBack size={14} /></IconBtn>
-      <IconBtn onClick={() => skip(-1)} title="-1s"><Rewind size={14} /></IconBtn>
+      <IconBtn onClick={() => frameStep(false)} title={t.frameBack}><ChevronLeft size={14} /></IconBtn>
       <IconBtn
         onClick={togglePlay}
         title="Play / Pause"
@@ -39,17 +57,41 @@ export function Transport() {
       >
         {isPlaying ? <Pause size={16} /> : <Play size={16} />}
       </IconBtn>
-      <IconBtn onClick={() => skip(1)} title="+1s"><FastForward size={14} /></IconBtn>
+      <IconBtn onClick={() => frameStep(true)} title={t.frameForward}><ChevronRight size={14} /></IconBtn>
       <IconBtn onClick={() => skip(5)} title="+5s"><SkipForward size={14} /></IconBtn>
+      <IconBtn
+        onClick={toggleLoopActive}
+        title={t.loopActiveCue}
+        className={`flex items-center justify-center rounded p-1 transition-colors ${
+          looping ? "bg-indigo-600 text-white hover:bg-indigo-500" : "hover:bg-zinc-800"
+        }`}
+      >
+        <Repeat size={14} />
+      </IconBtn>
 
       <span className="ml-2 font-mono text-xs text-zinc-400">
         {formatDisplayTime(currentTime)} / {formatDisplayTime(duration)}
       </span>
 
+      {/* volume */}
+      <div className="ml-auto flex items-center gap-1" title={`${t.volume} ${Math.round(volume)}%`}>
+        <IconBtn onClick={toggleMute} title={t.mute}>
+          {muted || volume === 0 ? <VolumeX size={14} /> : <Volume2 size={14} />}
+        </IconBtn>
+        <input
+          type="range"
+          min={0}
+          max={130}
+          value={muted ? 0 : volume}
+          onChange={(e) => setVolume(Number(e.target.value))}
+          className="h-1 w-16 accent-indigo-500"
+        />
+      </div>
+
       <select
         value={playbackRate}
         onChange={(e) => setPlaybackRate(Number(e.target.value))}
-        className="ml-auto rounded bg-zinc-800 px-1 py-0.5 text-xs text-zinc-200 outline-none"
+        className="rounded bg-zinc-800 px-1 py-0.5 text-xs text-zinc-200 outline-none"
         title="Speed"
       >
         {PLAYBACK_RATES.map((r) => (

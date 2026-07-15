@@ -696,6 +696,15 @@ mod decode_tests {
 }
 #[tauri::command]
 async fn write_text_file(path: String, content: String) -> Result<(), String> { std::fs::write(&path, content).map_err(|e| e.to_string()) }
+/// Write text in a named legacy encoding (e.g. "euc-kr" for CP949 SMI that old
+/// Korean TVs/players require, "shift_jis"). Unmappable chars become entity/`?`.
+/// `encoding` is a WHATWG label; unknown labels fall back to UTF-8.
+#[tauri::command]
+async fn write_text_file_encoded(path: String, content: String, encoding: String) -> Result<(), String> {
+    let enc = encoding_rs::Encoding::for_label(encoding.as_bytes()).unwrap_or(encoding_rs::UTF_8);
+    let (bytes, _, _) = enc.encode(&content);
+    std::fs::write(&path, bytes).map_err(|e| e.to_string())
+}
 #[tauri::command]
 async fn read_binary_file(path: String) -> Result<Vec<u8>, String> { std::fs::read(&path).map_err(|e| e.to_string()) }
 #[tauri::command]
@@ -881,6 +890,26 @@ async fn mpv_skip(delta: f64) -> Result<(), String> {
 fn mpv_set_speed(speed: f64) -> Result<(), String> {
     with_mpv!(|g: &MpvInstance| { g.set_double("speed", speed); Ok(()) })
 }
+/// Volume is 0–130 in mpv (100 = original). Property setter → synchronous.
+#[tauri::command]
+fn mpv_set_volume(volume: f64) -> Result<(), String> {
+    with_mpv!(|g: &MpvInstance| { g.set_double("volume", volume.clamp(0.0, 130.0)); Ok(()) })
+}
+#[tauri::command]
+fn mpv_set_mute(mute: bool) -> Result<(), String> {
+    with_mpv!(|g: &MpvInstance| { g.set_flag("mute", mute); Ok(()) })
+}
+/// Step exactly one frame forward (dir≥0) or back — pauses playback like mpv's
+/// own frame-step. Blocking command (decodes/renders a frame) → spawn_blocking.
+#[tauri::command]
+async fn mpv_frame_step(forward: bool) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        with_mpv!(|g: &MpvInstance| {
+            g.command(&[if forward { "frame-step" } else { "frame-back-step" }]);
+            Ok(())
+        })
+    }).await.map_err(|e| e.to_string())?
+}
 #[tauri::command]
 async fn mpv_stop() -> Result<(), String> {
     tokio::task::spawn_blocking(move || {
@@ -954,12 +983,13 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
-            read_text_file, write_text_file, read_binary_file, remove_file, autosave_path,
+            read_text_file, write_text_file, write_text_file_encoded, read_binary_file, remove_file, autosave_path,
             check_mpv, install_mpv,
             extract_waveform_audio,
             mpv_init,
             mpv_open, mpv_play_pause, mpv_set_pause,
             mpv_seek, mpv_skip, mpv_set_speed, mpv_stop,
+            mpv_set_volume, mpv_set_mute, mpv_frame_step,
             mpv_set_bounds, mpv_set_subs, mpv_set_window_visible,
         ])
         .run(tauri::generate_context!())

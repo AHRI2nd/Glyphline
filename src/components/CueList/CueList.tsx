@@ -27,6 +27,7 @@ export function CueList() {
   const selectedIds = useSubtitleStore((s) => s.selectedIds);
   const activeCueId = useSubtitleStore((s) => s.activeCueId);
   const showTranslation = useSettingsStore((s) => s.showTranslation);
+  const showActor = useSettingsStore((s) => s.showActor);
 
   const cues = sortedCues(doc.cues);
   const styleNames = (doc.styles ?? []).map((s) => s.name);
@@ -107,6 +108,7 @@ export function CueList() {
         <div className="w-24 border-l border-zinc-800/60 py-2 text-center">{t.start}</div>
         <div className="w-24 border-l border-zinc-800/60 py-2 text-center">{t.end}</div>
         <div className="w-20 py-2 text-center">{t.duration}</div>
+        {showActor && <div className="w-24 border-l border-zinc-800/60 py-2 pl-2">{t.actor}</div>}
         {styleNames.length > 0 && <div className="w-28 border-l border-zinc-800/60 py-2 pl-2">{t.cueStyle}</div>}
         <div className="flex-1 py-2 pl-2">{t.text}</div>
         {showTranslation && <div className="flex-1 border-l border-zinc-800/60 py-2 pl-2">{t.translation}</div>}
@@ -124,6 +126,7 @@ export function CueList() {
             active={activeCueId === cue.id}
             styleNames={styleNames}
             showTranslation={showTranslation}
+            showActor={showActor}
             onContextMenu={(e) => {
               e.preventDefault();
               useSubtitleStore.getState().setActiveCue(cue.id);
@@ -167,6 +170,7 @@ function ContextMenu({ ctx, onClose }: { ctx: CtxMenu; onClose: () => void }) {
     },
     "sep",
     { label: t.ctxInsertAfter, onClick: run(() => s().insertCueAfter(ctx.cueId)) },
+    { label: t.ctxDuplicate, onClick: run(() => s().duplicateCue(ctx.cueId)) },
     {
       label: t.splitCue,
       onClick: run(() => {

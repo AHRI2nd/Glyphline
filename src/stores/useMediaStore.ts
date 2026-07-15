@@ -46,6 +46,10 @@ interface MediaState {
   currentTime: number;
   isPlaying: boolean;
   playbackRate: number;
+  volume: number; // 0–100 (mpv scale, 100 = original)
+  muted: boolean;
+  /** When set, playback loops within [start, end) — used to repeat the active cue. */
+  loopRegion: { start: number; end: number } | null;
   error: string | null;
 
   loadMedia: (path: string) => Promise<void>;
@@ -54,7 +58,13 @@ interface MediaState {
   togglePlay: () => void;
   seek: (sec: number) => void;
   skip: (delta: number) => void;
+  frameStep: (forward: boolean) => void;
   setPlaybackRate: (r: number) => void;
+  setVolume: (v: number) => void;
+  toggleMute: () => void;
+  /** Loop playback over [start, end): seek to start, unpause, and remember the region. */
+  playRegion: (start: number, end: number) => void;
+  clearLoop: () => void;
 }
 
 export const useMediaStore = create<MediaState>((set, get) => ({
@@ -68,6 +78,9 @@ export const useMediaStore = create<MediaState>((set, get) => ({
   currentTime: 0,
   isPlaying: false,
   playbackRate: 1,
+  volume: 100,
+  muted: false,
+  loopRegion: null,
   error: null,
 
   loadMedia: async (path) => {
@@ -99,7 +112,7 @@ export const useMediaStore = create<MediaState>((set, get) => ({
     invoke("mpv_stop").catch(() => {});
     set({
       mediaPath: null, mediaSrc: null, waveformSrc: null, mediaKind: null, mediaName: null,
-      currentTime: 0, duration: 0, isPlaying: false, error: null,
+      currentTime: 0, duration: 0, isPlaying: false, loopRegion: null, error: null,
     });
   },
 
@@ -115,7 +128,14 @@ export const useMediaStore = create<MediaState>((set, get) => ({
   },
 
   skip: (delta) => {
+    // A manual skip cancels any active loop so it doesn't yank you back.
+    set({ loopRegion: null });
     invoke("mpv_skip", { delta }).catch((e) => console.warn("[mpv]", e));
+  },
+
+  frameStep: (forward) => {
+    set({ loopRegion: null });
+    invoke("mpv_frame_step", { forward }).catch((e) => console.warn("[mpv]", e));
   },
 
   setPlaybackRate: (speed) => {
@@ -123,13 +143,42 @@ export const useMediaStore = create<MediaState>((set, get) => ({
       .then(() => set({ playbackRate: speed }))
       .catch((e) => console.warn("[mpv]", e));
   },
+
+  setVolume: (v) => {
+    const volume = Math.max(0, Math.min(130, v));
+    // Adjusting volume implicitly unmutes (matches every media player).
+    set({ volume, muted: false });
+    invoke("mpv_set_volume", { volume }).catch((e) => console.warn("[mpv]", e));
+    invoke("mpv_set_mute", { mute: false }).catch(() => {});
+  },
+
+  toggleMute: () => {
+    const muted = !get().muted;
+    set({ muted });
+    invoke("mpv_set_mute", { mute: muted }).catch((e) => console.warn("[mpv]", e));
+  },
+
+  playRegion: (start, end) => {
+    set({ loopRegion: { start, end } });
+    invoke("mpv_seek", { pos: Math.max(0, start) }).catch(() => {});
+    invoke("mpv_set_pause", { pause: false }).catch(() => {});
+  },
+
+  clearLoop: () => set({ loopRegion: null }),
 }));
 
 // ─── Subscribe to mpv events from Rust ───────────────────────────────────────
 // Called once from main.tsx after the store is created.
 export function initMpvListeners() {
   listen<number>("mpv-time-pos", (e) => {
-    useMediaStore.setState({ currentTime: e.payload });
+    const t = e.payload;
+    useMediaStore.setState({ currentTime: t });
+    // Loop playback: when the region end is reached, jump back to its start.
+    // (The 80 ms poll granularity means we overshoot by <80 ms — fine for review.)
+    const loop = useMediaStore.getState().loopRegion;
+    if (loop && t >= loop.end) {
+      invoke("mpv_seek", { pos: loop.start }).catch(() => {});
+    }
   });
   listen<number>("mpv-duration", (e) => {
     if (e.payload > 0) useMediaStore.setState({ duration: e.payload });

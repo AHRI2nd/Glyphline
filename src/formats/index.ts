@@ -7,6 +7,9 @@ import { parseSrt, serializeSrt } from "./srt";
 import { parseVtt, serializeVtt } from "./vtt";
 import { parseAss, serializeAss } from "./ass";
 import { parseSmi, serializeSmi } from "./smi";
+import { parseSbv, serializeSbv } from "./sbv";
+import { parseLrc, serializeLrc } from "./lrc";
+import { parseTxt, serializeTxt } from "./txt";
 
 export interface FormatAdapter {
   id: SubFormat;
@@ -21,6 +24,9 @@ export const EXTERNAL_ADAPTERS: FormatAdapter[] = [
   { id: "vtt", label: "WebVTT (.vtt)", extensions: ["vtt"], parse: parseVtt, serialize: serializeVtt },
   { id: "ass", label: "ASS/SSA (.ass)", extensions: ["ass", "ssa"], parse: parseAss, serialize: serializeAss },
   { id: "smi", label: "SAMI (.smi)", extensions: ["smi", "sami"], parse: parseSmi, serialize: serializeSmi },
+  { id: "sbv", label: "YouTube (.sbv)", extensions: ["sbv"], parse: parseSbv, serialize: serializeSbv },
+  { id: "lrc", label: "LRC Lyrics (.lrc)", extensions: ["lrc"], parse: parseLrc, serialize: serializeLrc },
+  { id: "txt", label: "Plain Text (.txt)", extensions: ["txt"], parse: parseTxt, serialize: serializeTxt },
 ];
 
 /** Every extension we can open, including the native project file. */

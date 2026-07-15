@@ -24,6 +24,7 @@ export interface MenuHandlers {
   onSave: () => void;
   onExport: (format: SubFormat) => void;
   onExportTranslation: (format: SubFormat) => void;
+  onExportSmiCp949: () => void;
   onTogglePlay: () => void;
   onSkip: (delta: number) => void;
   onUndo: () => void;
@@ -46,6 +47,7 @@ export interface MenuHandlers {
   onHelp: () => void;
   onResetLayout: () => void;
   onToggleTranslation: () => void;
+  onToggleActor: () => void;
   onPlugins: () => void;
   onSetLang: (lang: Lang) => void;
 }
@@ -107,6 +109,11 @@ export async function installAppMenu(
           await MenuItem.new({ text: "WebVTT (.vtt)", action: () => h.onExport("vtt") }),
           await MenuItem.new({ text: "ASS/SSA (.ass)", action: () => h.onExport("ass") }),
           await MenuItem.new({ text: "SAMI (.smi)", action: () => h.onExport("smi") }),
+          await MenuItem.new({ text: "SAMI · CP949 (.smi)", action: h.onExportSmiCp949 }),
+          await sep(),
+          await MenuItem.new({ text: "YouTube (.sbv)", action: () => h.onExport("sbv") }),
+          await MenuItem.new({ text: "LRC (.lrc)", action: () => h.onExport("lrc") }),
+          await MenuItem.new({ text: "Plain Text (.txt)", action: () => h.onExport("txt") }),
         ],
       }),
       await Submenu.new({
@@ -176,6 +183,7 @@ export async function installAppMenu(
     items: [
       await MenuItem.new({ text: t.resetLayout, action: h.onResetLayout }),
       await MenuItem.new({ text: t.showTranslation, action: h.onToggleTranslation }),
+      await MenuItem.new({ text: t.showActor, action: h.onToggleActor }),
       await MenuItem.new({ text: t.plugins, action: h.onPlugins }),
       await sep(),
       await Submenu.new({

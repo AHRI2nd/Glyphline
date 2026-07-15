@@ -135,6 +135,28 @@ export interface Translations {
   exportTranslationAs: string;
   ctxPlayHere: string;
   ctxInsertAfter: string;
+  ctxDuplicate: string;
+  actor: string;
+  actorPlaceholder: string;
+  showActor: string;
+  // media controls
+  volume: string;
+  mute: string;
+  frameBack: string;
+  frameForward: string;
+  loopActiveCue: string;
+  // quality thresholds
+  lineTooLong: string;
+  tooManyLines: string;
+  negativeDuration: string;
+  qualityThresholds: string;
+  qMaxCps: string;
+  qMinDuration: string;
+  qMaxDuration: string;
+  qMaxLineLength: string;
+  qMaxLines: string;
+  qPresetDefault: string;
+  qPresetNetflix: string;
   noCues: string;
   emptyHint: string;
   // find & replace
@@ -342,6 +364,26 @@ const ko: Translations = {
   exportTranslationAs: "번역 내보내기",
   ctxPlayHere: "여기서 재생",
   ctxInsertAfter: "아래에 자막 삽입",
+  ctxDuplicate: "자막 복제",
+  actor: "화자",
+  actorPlaceholder: "이름",
+  showActor: "화자 열 표시",
+  volume: "볼륨",
+  mute: "음소거",
+  frameBack: "이전 프레임",
+  frameForward: "다음 프레임",
+  loopActiveCue: "활성 자막 반복 재생",
+  lineTooLong: "줄이 너무 김",
+  tooManyLines: "줄 수 초과",
+  negativeDuration: "음수 시간",
+  qualityThresholds: "품질 검사 기준",
+  qMaxCps: "최대 CPS",
+  qMinDuration: "최소 표시 시간 (초)",
+  qMaxDuration: "최대 표시 시간 (초)",
+  qMaxLineLength: "줄당 최대 글자 수",
+  qMaxLines: "자막당 최대 줄 수",
+  qPresetDefault: "기본값",
+  qPresetNetflix: "Netflix",
   noCues: "자막이 없습니다",
   emptyHint: "파일을 열거나 자막을 추가하세요.",
   findReplace: "찾기/바꾸기…",
@@ -542,6 +584,26 @@ const en: Translations = {
   exportTranslationAs: "Export Translation As",
   ctxPlayHere: "Play from Here",
   ctxInsertAfter: "Insert Cue Below",
+  ctxDuplicate: "Duplicate Cue",
+  actor: "Actor",
+  actorPlaceholder: "Name",
+  showActor: "Show Actor Column",
+  volume: "Volume",
+  mute: "Mute",
+  frameBack: "Previous frame",
+  frameForward: "Next frame",
+  loopActiveCue: "Loop active cue",
+  lineTooLong: "Line too long",
+  tooManyLines: "Too many lines",
+  negativeDuration: "Negative duration",
+  qualityThresholds: "Quality Check Thresholds",
+  qMaxCps: "Max CPS",
+  qMinDuration: "Min duration (s)",
+  qMaxDuration: "Max duration (s)",
+  qMaxLineLength: "Max chars per line",
+  qMaxLines: "Max lines per cue",
+  qPresetDefault: "Default",
+  qPresetNetflix: "Netflix",
   noCues: "No cues",
   emptyHint: "Open a file or add a cue to begin.",
   findReplace: "Find & Replace…",
@@ -742,6 +804,26 @@ const ja: Translations = {
   exportTranslationAs: "翻訳をエクスポート",
   ctxPlayHere: "ここから再生",
   ctxInsertAfter: "下に字幕を挿入",
+  ctxDuplicate: "字幕を複製",
+  actor: "話者",
+  actorPlaceholder: "名前",
+  showActor: "話者列を表示",
+  volume: "音量",
+  mute: "ミュート",
+  frameBack: "前のフレーム",
+  frameForward: "次のフレーム",
+  loopActiveCue: "アクティブ字幕をループ再生",
+  lineTooLong: "行が長すぎる",
+  tooManyLines: "行数が多すぎる",
+  negativeDuration: "負の時間",
+  qualityThresholds: "品質チェック基準",
+  qMaxCps: "最大CPS",
+  qMinDuration: "最小表示時間 (秒)",
+  qMaxDuration: "最大表示時間 (秒)",
+  qMaxLineLength: "1行あたりの最大文字数",
+  qMaxLines: "字幕あたりの最大行数",
+  qPresetDefault: "デフォルト",
+  qPresetNetflix: "Netflix",
   noCues: "字幕がありません",
   emptyHint: "ファイルを開くか、字幕を追加してください。",
   findReplace: "検索・置換…",

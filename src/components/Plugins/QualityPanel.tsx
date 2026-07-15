@@ -1,4 +1,5 @@
 import { useSubtitleStore } from "../../stores/useSubtitleStore";
+import { useSettingsStore } from "../../stores/useSettingsStore";
 import { useI18nStore } from "../../stores/useI18nStore";
 import { evaluateCue, hasAnyIssue, cps, cueDuration } from "../../utils/quality";
 import { sortedCues } from "../../formats/srt";
@@ -8,9 +9,10 @@ export function QualityPanel() {
   const { t } = useI18nStore();
   const cues = useSubtitleStore((s) => s.doc.cues);
   const setActiveCue = useSubtitleStore((s) => s.setActiveCue);
+  const quality = useSettingsStore((s) => s.quality);
   const sorted = sortedCues(cues);
   const issues = sorted
-    .map((cue, idx) => ({ cue, q: evaluateCue(cue, idx > 0 ? sorted[idx - 1] : null) }))
+    .map((cue, idx) => ({ cue, q: evaluateCue(cue, idx > 0 ? sorted[idx - 1] : null, quality) }))
     .filter(({ q }) => hasAnyIssue(q));
 
   if (!issues.length) {
@@ -43,7 +45,9 @@ export function QualityPanel() {
             {q.cpsTooHigh && <Badge color="amber">{t.cpsHigh} ({cps(cue).toFixed(0)})</Badge>}
             {q.durationTooShort && <Badge color="amber">{t.tooShort} ({cueDuration(cue).toFixed(2)}s)</Badge>}
             {q.durationTooLong && <Badge color="amber">{t.tooLong} ({cueDuration(cue).toFixed(2)}s)</Badge>}
-            {q.negativeDuration && <Badge color="red">음수 시간</Badge>}
+            {q.lineTooLong && <Badge color="amber">{t.lineTooLong}</Badge>}
+            {q.tooManyLines && <Badge color="amber">{t.tooManyLines}</Badge>}
+            {q.negativeDuration && <Badge color="red">{t.negativeDuration}</Badge>}
           </div>
           <div className="mt-0.5 font-mono text-[10px] text-zinc-600">
             {formatDisplayTime(cue.start)} → {formatDisplayTime(cue.end)}

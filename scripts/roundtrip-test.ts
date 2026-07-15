@@ -4,6 +4,9 @@ import { parseSrt, serializeSrt } from "../src/formats/srt";
 import { parseVtt, serializeVtt } from "../src/formats/vtt";
 import { parseAss, serializeAss, embeddedByteSize } from "../src/formats/ass";
 import { parseSmi, serializeSmi } from "../src/formats/smi";
+import { parseSbv, serializeSbv } from "../src/formats/sbv";
+import { parseLrc, serializeLrc } from "../src/formats/lrc";
+import { parseTxt, serializeTxt } from "../src/formats/txt";
 import { parseGlyph, serializeGlyph } from "../src/formats/glyph";
 
 let failures = 0;
@@ -199,6 +202,40 @@ const transDoc = parseSrt(srt);
 transDoc.cues[0].translation = "안녕 세계\n둘째 줄";
 const transGlyph = parseGlyph(serializeGlyph(transDoc));
 check("GLYPH: translation preserved", transGlyph.cues[0].translation === "안녕 세계\n둘째 줄", JSON.stringify(transGlyph.cues[0].translation));
+
+// ── SBV (YouTube) ─────────────────────────────────────────────────────────────
+const sbv = `0:00:01.000,0:00:03.500
+Hello world
+second line
+
+0:00:04.000,0:00:06.000
+Goodbye
+`;
+const sbvDoc = parseSbv(sbv);
+check("SBV: 2 cues parsed", sbvDoc.cues.length === 2, `got ${sbvDoc.cues.length}`);
+check("SBV: times", sbvDoc.cues[0].start === 1 && sbvDoc.cues[0].end === 3.5);
+check("SBV: multiline preserved", sbvDoc.cues[0].text === "Hello world\nsecond line");
+const sbv2 = parseSbv(serializeSbv(sbvDoc));
+check("SBV: round-trip stable", JSON.stringify(sbv2.cues.map(c=>[c.start,c.end,c.text])) === JSON.stringify(sbvDoc.cues.map(c=>[c.start,c.end,c.text])));
+
+// ── LRC ───────────────────────────────────────────────────────────────────────
+const lrc = `[ti:Song]
+[00:01.00]first line
+[00:03.50]second line
+`;
+const lrcDoc = parseLrc(lrc);
+check("LRC: metadata ignored, 2 cues", lrcDoc.cues.length === 2, `got ${lrcDoc.cues.length}`);
+check("LRC: start time + implied end", lrcDoc.cues[0].start === 1 && lrcDoc.cues[0].end === 3.5);
+check("LRC: text", lrcDoc.cues[0].text === "first line");
+const lrc2 = parseLrc(serializeLrc(lrcDoc));
+check("LRC: round-trip start stable", Math.abs(lrc2.cues[0].start - lrcDoc.cues[0].start) < 0.01);
+
+// ── TXT ───────────────────────────────────────────────────────────────────────
+const txt = `line one\nline two\n\nline three`;
+const txtDoc = parseTxt(txt);
+check("TXT: 3 non-empty lines → 3 cues", txtDoc.cues.length === 3, `got ${txtDoc.cues.length}`);
+check("TXT: sequential timing", txtDoc.cues[0].start === 0 && txtDoc.cues[1].start === 2);
+check("TXT: export is text-only", serializeTxt(txtDoc).includes("line one") && !serializeTxt(txtDoc).includes("00:"));
 
 // ── Cross-format conversion: SRT -> ASS ───────────────────────────────────────
 const asAss = parseAss(serializeAss(srtDoc));
