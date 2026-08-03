@@ -7,6 +7,7 @@
 // for weight changes and a specific tabset for tab selection.
 
 import Foundation
+import CoreGraphics
 
 enum PanelKind: String, Codable, CaseIterable, Hashable {
     case video, waveform, subtitles
@@ -139,4 +140,89 @@ func updatingSelection(at path: [Int], to panel: PanelKind, in node: DockNode) -
     guard case .split(let axis, var children, let weights) = node, children.indices.contains(first) else { return node }
     children[first] = updatingSelection(at: Array(path.dropFirst()), to: panel, in: children[first])
     return .split(axis: axis, children: children, weights: weights)
+}
+
+// ── model-driven hit testing (drives the custom tab drag) ────────────────────────
+
+/// Divider thickness used by BOTH SplitContainer's layout and dockHitTest below.
+/// They must agree, or hit-test rectangles drift from what's on screen.
+let DOCK_DIVIDER_THICKNESS: CGFloat = 6
+
+/// Which tabset is under `point` (its full tab list + selected panel — every
+/// panel appears exactly once in the tree, so either identifies it uniquely),
+/// and which drop zone of it. Mirrors SplitContainer's weight-proportional
+/// layout exactly, so no view frame registration is needed. `nil` when the
+/// point is on a divider or outside `rect`.
+func dockHitTest(_ point: CGPoint, in node: DockNode, rect: CGRect) -> (panels: [PanelKind], selected: PanelKind, zone: DropZone)? {
+    guard rect.contains(point) else { return nil }
+    switch node {
+    case .tabs(let panels, let selected):
+        return (panels, selected, dropZone(for: point, in: rect))
+    case .split(let axis, let children, let weights):
+        let total = axis == .horizontal ? rect.width : rect.height
+        let available = max(1, total - DOCK_DIVIDER_THICKNESS * CGFloat(max(0, children.count - 1)))
+        var offset: CGFloat = axis == .horizontal ? rect.minX : rect.minY
+        for (child, weight) in zip(children, weights) {
+            let length = available * CGFloat(weight)
+            let childRect = axis == .horizontal
+                ? CGRect(x: offset, y: rect.minY, width: length, height: rect.height)
+                : CGRect(x: rect.minX, y: offset, width: rect.width, height: length)
+            if childRect.contains(point) {
+                return dockHitTest(point, in: child, rect: childRect)
+            }
+            offset += length + DOCK_DIVIDER_THICKNESS
+        }
+        return nil // on a divider
+    }
+}
+
+/// Turns a raw hit into an actionable (target, zone) — or nil when the drop
+/// would not visibly change the layout, so the CALLER SHOWS NO PREVIEW for it.
+/// This is the "what you see is what lands" contract, an exact equivalence:
+/// a zone highlight is shown ⇔ releasing performs a move that changes the
+/// tree. Without this, dropping a tab a few points inside its own pane's edge
+/// showed a convincing preview and then silently did nothing (the self-target
+/// no-op guard in movingPanel), as did idempotent drops like dropping a panel
+/// onto the edge it already sits against.
+///
+/// Rules:
+/// - Hover over another tabset: anchor = its selected tab.
+/// - Own tabset, single tab: every zone is a no-op — it's already there.
+/// - Own tabset, multiple tabs, center: no-op (already a tab here).
+/// - Own tabset, multiple tabs, edge: TEAR-OUT — split alongside, anchored to
+///   a sibling tab that stays behind (flexlayout supports this).
+/// - Finally, simulate the move against `root`: if the resulting tree is
+///   identical (idempotent drop), suppress.
+func resolveDockDrop(
+    dragged: PanelKind,
+    hit: (panels: [PanelKind], selected: PanelKind, zone: DropZone)?,
+    in root: DockNode
+) -> (target: PanelKind, zone: DropZone)? {
+    guard let hit else { return nil }
+    let candidate: (target: PanelKind, zone: DropZone)
+    if !hit.panels.contains(dragged) {
+        candidate = (hit.selected, hit.zone)
+    } else if hit.panels.count > 1, hit.zone != .center,
+              let anchor = hit.panels.first(where: { $0 != dragged }) {
+        candidate = (anchor, hit.zone)
+    } else {
+        return nil
+    }
+    guard movingPanel(dragged, toZone: candidate.zone, ofTarget: candidate.target, in: root) != root else {
+        return nil
+    }
+    return candidate
+}
+
+/// Edge zones claim the outer 25% of the tabset; the middle is a tab merge.
+func dropZone(for point: CGPoint, in rect: CGRect) -> DropZone {
+    guard rect.width > 0, rect.height > 0 else { return .center }
+    let nx = (point.x - rect.minX) / rect.width
+    let ny = (point.y - rect.minY) / rect.height
+    let margin: CGFloat = 0.25
+    if nx < margin { return .left }
+    if nx > 1 - margin { return .right }
+    if ny < margin { return .top }
+    if ny > 1 - margin { return .bottom }
+    return .center
 }

@@ -32,9 +32,13 @@ echo "==> Building (release)"
 cd "$ROOT_DIR"
 swift build -c release
 
-RESOURCE_BUNDLE="$(find "$ROOT_DIR/.build" -maxdepth 4 -iname "Glyphline_Glyphline.bundle" -path "*release*" | head -1)"
-if [ -z "$RESOURCE_BUNDLE" ]; then
-    echo "error: could not find Glyphline_Glyphline.bundle under a release build path" >&2
+# Deterministic path only — a `find "*release*"` pattern here once matched the
+# STALE copy inside a previously assembled Glyphline-release.app, which the
+# rm -rf below then deleted before the cp, failing the build intermittently
+# depending on filesystem traversal order.
+RESOURCE_BUNDLE="$BUILD_DIR/Glyphline_Glyphline.bundle"
+if [ ! -d "$RESOURCE_BUNDLE" ]; then
+    echo "error: resource bundle not found at $RESOURCE_BUNDLE" >&2
     exit 1
 fi
 

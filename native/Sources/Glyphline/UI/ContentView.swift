@@ -8,18 +8,66 @@ import GlyphlineCore
 
 struct ContentView: View {
     let state: AppState
+    @State private var dockDragState = DockDragState()
 
     var body: some View {
         VStack(spacing: 0) {
             TitleHeader(document: state.document)
 
-            DockLayoutView(
-                node: state.settings.dockLayout,
-                content: panelContent,
-                onMove: { panel, zone, target in state.settings.moveDockPanel(panel, toZone: zone, ofTarget: target) },
-                onSelect: { panel, path in state.settings.selectDockTab(panel, tabsetPath: path) },
-                onWeightsChange: { path, weights in state.settings.setDockWeights(at: path, to: weights) }
-            )
+            // The dock root: owns the drag coordinate space and resolves chip-drag
+            // positions against the layout tree (dockHitTest) — both the live
+            // zone preview and the drop commit derive from the same hit test.
+            GeometryReader { geo in
+                ZStack(alignment: .topLeading) {
+                    DockLayoutView(
+                        node: state.settings.dockLayout,
+                        dragState: dockDragState,
+                        content: panelContent,
+                        onSelect: { panel, path in state.settings.selectDockTab(panel, tabsetPath: path) },
+                        onWeightsChange: { path, weights in state.settings.setDockWeights(at: path, to: weights) },
+                        onTabDragChanged: { panel, location in
+                            let hit = dockHitTest(location, in: state.settings.dockLayout, rect: CGRect(origin: .zero, size: geo.size))
+                            // resolveDockDrop nils out no-op drops (e.g. onto the
+                            // panel's own single-tab tabset) so no preview shows
+                            // for them — a visible highlight always means the
+                            // release will perform exactly that move.
+                            let resolved = resolveDockDrop(dragged: panel, hit: hit, in: state.settings.dockLayout)
+                            dockDragState.update(panel: panel, cursor: location, hit: resolved)
+                        },
+                        onTabDragEnded: { panel, location in
+                            // Commit exactly what the last onChanged previewed. Do NOT
+                            // recompute from onEnded's location: macOS DragGesture has
+                            // reported end locations inconsistent with the preceding
+                            // onChanged stream in named coordinate spaces, which made
+                            // the drop silently miss while the preview looked right.
+                            // The preview IS the contract — what you saw is what lands.
+                            let target = dockDragState.hoverTarget
+                            let zone = dockDragState.hoverZone
+                            dockDragState.end()
+                            if let target, let zone {
+                                state.settings.moveDockPanel(panel, toZone: zone, ofTarget: target)
+                            }
+                        }
+                    )
+
+                    // Ghost chip following the cursor — the DragGesture-based drag
+                    // has no system drag image, so this is the "I'm dragging" cue.
+                    if let dragging = dockDragState.draggingPanel {
+                        Text(t(dragging.titleKey))
+                            .font(GlyphFont.display(11, weight: .semibold))
+                            .textCase(.uppercase)
+                            .tracking(0.5)
+                            .foregroundStyle(GlyphColor.ink)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(GlyphColor.accent, in: RoundedRectangle(cornerRadius: 5))
+                            .shadow(radius: 6)
+                            .position(x: dockDragState.cursor.x, y: dockDragState.cursor.y - 14)
+                            .allowsHitTesting(false)
+                    }
+                }
+            }
+            .coordinateSpace(name: DOCK_COORDINATE_SPACE)
             .padding(GlyphMetric.paneSpacing)
 
             TransportBar(media: state.media, document: state.document)

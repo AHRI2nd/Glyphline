@@ -1,21 +1,24 @@
-// A tab group: tab bar (draggable tabs, click to select) + the selected panel's
-// content. The content area is itself a drop target — dropping a tab onto its
-// center merges it in as a new tab; dropping onto an edge (25% margin) splits
-// this tabset and inserts the dropped panel alongside it (mirrors flexlayout's
-// drag-to-dock affordance). Drag payload is the raw PanelKind string — simplest
-// robust representation for an in-process-only drag.
+// A tab group: tab bar (drag a chip to re-dock its panel, click to select) +
+// the selected panel's content. Dropping onto a tabset's center merges the
+// dragged panel in as a tab; the outer 25% edges split it (flexlayout's
+// drag-to-dock affordance).
+//
+// The drag is a plain DragGesture in the dock's named coordinate space — see
+// DockDragState.swift for why the system NSItemProvider drag was abandoned.
+// This view is intentionally dumb: the chip gesture just forwards positions
+// up via onTabDrag*/; hit-testing and the actual move live at the dock root
+// (ContentView), which knows the full tree + dock size.
 
 import SwiftUI
 
 struct TabsetView: View {
     let panels: [PanelKind]
     let selected: PanelKind
+    let dragState: DockDragState
     let content: (PanelKind) -> AnyView
     let onSelect: (PanelKind) -> Void
-    let onMove: (PanelKind, DropZone, PanelKind) -> Void
-
-    @State private var hoverZone: DropZone?
-    @State private var isDropTargeted = false
+    let onTabDragChanged: (PanelKind, CGPoint) -> Void
+    let onTabDragEnded: (PanelKind, CGPoint) -> Void
 
     var body: some View {
         VStack(spacing: 0) {
@@ -24,34 +27,15 @@ struct TabsetView: View {
                 content(selected)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                if isDropTargeted, let hoverZone {
-                    DropZoneIndicator(zone: hoverZone)
+                // Each panel lives in exactly one tabset, so "hoverTarget is one
+                // of OUR tabs" uniquely identifies this tabset. (Matching any tab
+                // — not just `selected` — matters for tear-out drops, whose
+                // anchor is a sibling tab rather than the selected one.)
+                if let hoverTarget = dragState.hoverTarget, panels.contains(hoverTarget),
+                   let zone = dragState.hoverZone {
+                    DropZoneIndicator(zone: zone)
                         .allowsHitTesting(false)
                 }
-            }
-            .overlay(
-                GeometryReader { geo in
-                    Color.clear
-                        .contentShape(Rectangle())
-                        .onContinuousHover { phase in
-                            switch phase {
-                            case .active(let location):
-                                hoverZone = Self.zone(for: location, in: geo.size)
-                            case .ended:
-                                break
-                            }
-                        }
-                }
-            )
-            .dropDestination(for: String.self) { items, _ in
-                guard let raw = items.first, let dragged = PanelKind(rawValue: raw),
-                      let zone = hoverZone, let target = selected as PanelKind? else { return false }
-                onMove(dragged, zone, target)
-                isDropTargeted = false
-                return true
-            } isTargeted: { targeted in
-                isDropTargeted = targeted
-                if !targeted { hoverZone = nil }
             }
         }
         .background(GlyphColor.bg)
@@ -64,7 +48,11 @@ struct TabsetView: View {
             ForEach(panels, id: \.self) { panel in
                 TabChip(panel: panel, isSelected: panel == selected)
                     .onTapGesture { onSelect(panel) }
-                    .draggable(panel.rawValue)
+                    .gesture(
+                        DragGesture(minimumDistance: 4, coordinateSpace: .named(DOCK_COORDINATE_SPACE))
+                            .onChanged { value in onTabDragChanged(panel, value.location) }
+                            .onEnded { value in onTabDragEnded(panel, value.location) }
+                    )
             }
             Spacer(minLength: 0)
         }
@@ -73,19 +61,12 @@ struct TabsetView: View {
         .padding(.bottom, 4)
         .background(GlyphColor.surface)
     }
-
-    private static func zone(for location: CGPoint, in size: CGSize) -> DropZone {
-        guard size.width > 0, size.height > 0 else { return .center }
-        let margin: CGFloat = 0.25
-        let nx = location.x / size.width
-        let ny = location.y / size.height
-        if nx < margin { return .left }
-        if nx > 1 - margin { return .right }
-        if ny < margin { return .top }
-        if ny > 1 - margin { return .bottom }
-        return .center
-    }
 }
+
+/// Name of the coordinate space attached to the dock root (ContentView) —
+/// chip drag gestures report locations in this space so dockHitTest can
+/// resolve them against the layout tree.
+let DOCK_COORDINATE_SPACE = "glyphline.dock"
 
 private struct TabChip: View {
     let panel: PanelKind
