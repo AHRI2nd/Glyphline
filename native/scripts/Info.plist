@@ -10,6 +10,8 @@
     <string>Glyphline</string>
     <key>CFBundleDisplayName</key>
     <string>Glyphline</string>
+    <key>CFBundleIconFile</key>
+    <string>Glyphline.icns</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>

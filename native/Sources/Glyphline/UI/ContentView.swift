@@ -23,6 +23,7 @@ struct ContentView: View {
                         node: state.settings.dockLayout,
                         dragState: dockDragState,
                         content: panelContent,
+                        badge: { $0 == .subtitles ? state.document.doc.cues.count : nil },
                         onSelect: { panel, path in state.settings.selectDockTab(panel, tabsetPath: path) },
                         onWeightsChange: { path, weights in state.settings.setDockWeights(at: path, to: weights) },
                         onTabDragChanged: { panel, location in

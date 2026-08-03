@@ -12,6 +12,7 @@ struct DockLayoutView: View {
     var path: [Int] = []
     let dragState: DockDragState
     let content: (PanelKind) -> AnyView
+    var badge: (PanelKind) -> Int? = { _ in nil }
     let onSelect: (PanelKind, [Int]) -> Void
     let onWeightsChange: ([Int], [Double]) -> Void
     let onTabDragChanged: (PanelKind, CGPoint) -> Void
@@ -22,13 +23,13 @@ struct DockLayoutView: View {
         case .split(let axis, let children, let weights):
             SplitContainer(
                 axis: axis, children: children, weights: weights, path: path, dragState: dragState,
-                content: content, onSelect: onSelect, onWeightsChange: onWeightsChange,
+                content: content, badge: badge, onSelect: onSelect, onWeightsChange: onWeightsChange,
                 onTabDragChanged: onTabDragChanged, onTabDragEnded: onTabDragEnded
             )
         case .tabs(let panels, let selected):
             TabsetView(
                 panels: panels, selected: selected, dragState: dragState,
-                content: content,
+                content: content, badge: badge,
                 onSelect: { onSelect($0, path) },
                 onTabDragChanged: onTabDragChanged,
                 onTabDragEnded: onTabDragEnded
@@ -49,6 +50,7 @@ struct SplitContainer: View {
     let path: [Int]
     let dragState: DockDragState
     let content: (PanelKind) -> AnyView
+    let badge: (PanelKind) -> Int?
     let onSelect: (PanelKind, [Int]) -> Void
     let onWeightsChange: ([Int], [Double]) -> Void
     let onTabDragChanged: (PanelKind, CGPoint) -> Void
@@ -76,7 +78,7 @@ struct SplitContainer: View {
         ForEach(Array(children.enumerated()), id: \.offset) { i, child in
             DockLayoutView(
                 node: child, path: path + [i], dragState: dragState,
-                content: content, onSelect: onSelect, onWeightsChange: onWeightsChange,
+                content: content, badge: badge, onSelect: onSelect, onWeightsChange: onWeightsChange,
                 onTabDragChanged: onTabDragChanged, onTabDragEnded: onTabDragEnded
             )
             .frame(

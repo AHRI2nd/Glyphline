@@ -16,6 +16,9 @@ struct TabsetView: View {
     let selected: PanelKind
     let dragState: DockDragState
     let content: (PanelKind) -> AnyView
+    /// Optional count shown after a tab's title, e.g. "SUBTITLES 619" — nil
+    /// for panels with nothing to count (video/waveform).
+    let badge: (PanelKind) -> Int?
     let onSelect: (PanelKind) -> Void
     let onTabDragChanged: (PanelKind, CGPoint) -> Void
     let onTabDragEnded: (PanelKind, CGPoint) -> Void
@@ -46,7 +49,7 @@ struct TabsetView: View {
     private var tabBar: some View {
         HStack(spacing: 2) {
             ForEach(panels, id: \.self) { panel in
-                TabChip(panel: panel, isSelected: panel == selected)
+                TabChip(panel: panel, isSelected: panel == selected, count: badge(panel))
                     .onTapGesture { onSelect(panel) }
                     .gesture(
                         DragGesture(minimumDistance: 4, coordinateSpace: .named(DOCK_COORDINATE_SPACE))
@@ -71,20 +74,28 @@ let DOCK_COORDINATE_SPACE = "glyphline.dock"
 private struct TabChip: View {
     let panel: PanelKind
     let isSelected: Bool
+    let count: Int?
 
     var body: some View {
-        Text(t(panel.titleKey))
-            .font(GlyphFont.display(11, weight: .semibold))
-            .foregroundStyle(isSelected ? GlyphColor.ink : GlyphColor.quiet)
-            .textCase(.uppercase)
-            .tracking(0.5)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
-            .background(
-                isSelected ? GlyphColor.bg : Color.clear,
-                in: RoundedRectangle(cornerRadius: 5)
-            )
-            .contentShape(Rectangle())
+        HStack(spacing: 5) {
+            Text(t(panel.titleKey))
+                .textCase(.uppercase)
+                .tracking(0.5)
+            if let count {
+                Text("\(count)")
+                    .font(GlyphFont.data(10))
+                    .foregroundStyle(isSelected ? GlyphColor.quiet : GlyphColor.quiet.opacity(0.7))
+            }
+        }
+        .font(GlyphFont.display(11, weight: .semibold))
+        .foregroundStyle(isSelected ? GlyphColor.ink : GlyphColor.quiet)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(
+            isSelected ? GlyphColor.bg : Color.clear,
+            in: RoundedRectangle(cornerRadius: 5)
+        )
+        .contentShape(Rectangle())
     }
 }
 

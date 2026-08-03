@@ -47,6 +47,11 @@ rm -rf "$APP_DIR"
 mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
 cp "$BUILD_DIR/Glyphline" "$APP_DIR/Contents/MacOS/Glyphline"
 cp "$SCRIPT_DIR/Info.plist" "$APP_DIR/Contents/Info.plist"
+if [ -f "$SCRIPT_DIR/Glyphline.icns" ]; then
+    cp "$SCRIPT_DIR/Glyphline.icns" "$APP_DIR/Contents/Resources/Glyphline.icns"
+else
+    echo "warning: Glyphline.icns not found — run scripts/build-icon.sh first" >&2
+fi
 # Standard, codesign-safe location — a bundle-root sibling of Contents/ (what
 # SwiftPM's generated Bundle.module accessor looks for first) fails codesign's
 # "unsealed contents present in the bundle root" check. L10n.swift's
