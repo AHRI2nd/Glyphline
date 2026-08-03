@@ -214,16 +214,21 @@ func resolveDockDrop(
     return candidate
 }
 
-/// Edge zones claim the outer 25% of the tabset; the middle is a tab merge.
+/// Edge zones are a FIXED width/height (up to 25% of the pane, for tiny panes)
+/// rather than a proportional 25% of whatever size the pane happens to be —
+/// a constant-size hit target is learnable (the same physical distance from
+/// an edge always works), where a percentage-based one silently changes size
+/// as panes are resized, undermining the muscle memory a user builds up.
 func dropZone(for point: CGPoint, in rect: CGRect) -> DropZone {
     guard rect.width > 0, rect.height > 0 else { return .center }
-    let nx = (point.x - rect.minX) / rect.width
-    let ny = (point.y - rect.minY) / rect.height
-    let margin: CGFloat = 0.25
-    if nx < margin { return .left }
-    if nx > 1 - margin { return .right }
-    if ny < margin { return .top }
-    if ny > 1 - margin { return .bottom }
+    let marginX = min(80, rect.width * 0.25)
+    let marginY = min(80, rect.height * 0.25)
+    let x = point.x - rect.minX
+    let y = point.y - rect.minY
+    if x < marginX { return .left }
+    if x > rect.width - marginX { return .right }
+    if y < marginY { return .top }
+    if y > rect.height - marginY { return .bottom }
     return .center
 }
 

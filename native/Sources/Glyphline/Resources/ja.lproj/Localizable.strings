@@ -276,3 +276,8 @@
 "qualityIssues" = "品質の問題";
 "qualityIssuesCount" = "%@件";
 "qualityIssuesNone" = "✓ 品質の問題なし";
+"dockMergeAsTab" = "タブとして追加";
+"dockSplitLeft" = "左に分割";
+"dockSplitRight" = "右に分割";
+"dockSplitTop" = "上に分割";
+"dockSplitBottom" = "下に分割";

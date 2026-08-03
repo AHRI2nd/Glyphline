@@ -276,3 +276,8 @@
 "qualityIssues" = "Quality Issues";
 "qualityIssuesCount" = "%@ items";
 "qualityIssuesNone" = "✓ No quality issues";
+"dockMergeAsTab" = "Add as tab";
+"dockSplitLeft" = "Split left";
+"dockSplitRight" = "Split right";
+"dockSplitTop" = "Split top";
+"dockSplitBottom" = "Split bottom";

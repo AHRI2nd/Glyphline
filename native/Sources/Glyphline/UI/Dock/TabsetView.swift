@@ -10,6 +10,7 @@
 // (ContentView), which knows the full tree + dock size.
 
 import SwiftUI
+import AppKit
 
 struct TabsetView: View {
     let panels: [PanelKind]
@@ -50,12 +51,24 @@ struct TabsetView: View {
     private var tabBar: some View {
         HStack(spacing: 2) {
             ForEach(panels, id: \.self) { panel in
+                // Dimmed while ITS panel is the one being dragged — without this,
+                // both the original chip and the cursor-following ghost chip
+                // (ContentView) read as two separate, equally "real" tabs, which
+                // reads as confusing/duplicated rather than "this one is moving."
                 TabChip(panel: panel, isSelected: panel == selected, count: badge(panel))
+                    .opacity(dragState.draggingPanel == panel ? 0.35 : 1)
+                    .animation(.easeOut(duration: 0.1), value: dragState.draggingPanel == panel)
                     .onTapGesture { onSelect(panel) }
                     .gesture(
                         DragGesture(minimumDistance: 4, coordinateSpace: .named(DOCK_COORDINATE_SPACE))
-                            .onChanged { value in onTabDragChanged(panel, value.location) }
-                            .onEnded { value in onTabDragEnded(panel, value.location) }
+                            .onChanged { value in
+                                if dragState.draggingPanel == nil { NSCursor.closedHand.push() }
+                                onTabDragChanged(panel, value.location)
+                            }
+                            .onEnded { value in
+                                NSCursor.pop()
+                                onTabDragEnded(panel, value.location)
+                            }
                     )
             }
             Spacer(minLength: 0)
@@ -102,7 +115,9 @@ private struct TabChip: View {
 }
 
 /// Translucent overlay previewing where a dropped tab will land — full-pane
-/// tint for a center merge, a half-pane band for an edge split.
+/// tint for a center merge, a half-pane band for an edge split — labeled with
+/// the plain-language outcome ("Add as tab" / "Split left" / …) so intent is
+/// legible without having to infer it from the highlight shape alone.
 private struct DropZoneIndicator: View {
     let zone: DropZone
 
@@ -112,11 +127,28 @@ private struct DropZoneIndicator: View {
             RoundedRectangle(cornerRadius: 4)
                 .fill(GlyphColor.accent.opacity(0.35))
                 .overlay(RoundedRectangle(cornerRadius: 4).stroke(GlyphColor.accentHover, lineWidth: 2))
+                .overlay(
+                    Text(t(labelKey(for: zone)))
+                        .font(GlyphFont.display(11, weight: .semibold))
+                        .foregroundStyle(GlyphColor.ink)
+                        .padding(.horizontal, 8).padding(.vertical, 4)
+                        .background(GlyphColor.accent, in: RoundedRectangle(cornerRadius: 4))
+                )
                 .frame(width: r.width, height: r.height)
                 .position(x: r.midX, y: r.midY)
                 // Slides between zones (e.g. left → top) instead of snapping —
                 // the frame/position change is implicitly interpolated.
                 .animation(.easeOut(duration: 0.15), value: zone)
+        }
+    }
+
+    private func labelKey(for zone: DropZone) -> String {
+        switch zone {
+        case .center: return "dockMergeAsTab"
+        case .left: return "dockSplitLeft"
+        case .right: return "dockSplitRight"
+        case .top: return "dockSplitTop"
+        case .bottom: return "dockSplitBottom"
         }
     }
 

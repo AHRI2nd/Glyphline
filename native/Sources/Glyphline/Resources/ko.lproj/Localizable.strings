@@ -276,3 +276,8 @@
 "qualityIssues" = "품질 문제";
 "qualityIssuesCount" = "%@개 항목";
 "qualityIssuesNone" = "✓ 품질 문제 없음";
+"dockMergeAsTab" = "탭으로 추가";
+"dockSplitLeft" = "왼쪽에 분할";
+"dockSplitRight" = "오른쪽에 분할";
+"dockSplitTop" = "위에 분할";
+"dockSplitBottom" = "아래에 분할";
