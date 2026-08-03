@@ -73,11 +73,27 @@ struct SplitContainer: View {
         }
     }
 
+    /// Identity is the set of panels a subtree contains, not its sibling index
+    /// — a tab move/split then reads as one subtree inserting and another
+    /// removing, which SwiftUI can animate cleanly. Offset-based ids would
+    /// instead make every LATER sibling "change identity" on any insertion,
+    /// producing a jarring cross-fade across unrelated panels.
+    private struct IdentifiedChild: Identifiable {
+        let id: String
+        let index: Int
+        let node: DockNode
+    }
+
+    private var identifiedChildren: [IdentifiedChild] {
+        children.enumerated().map { IdentifiedChild(id: dockNodeID($1), index: $0, node: $1) }
+    }
+
     @ViewBuilder
     private func row(available: CGFloat) -> some View {
-        ForEach(Array(children.enumerated()), id: \.offset) { i, child in
+        ForEach(identifiedChildren) { entry in
+            let i = entry.index
             DockLayoutView(
-                node: child, path: path + [i], dragState: dragState,
+                node: entry.node, path: path + [i], dragState: dragState,
                 content: content, badge: badge, onSelect: onSelect, onWeightsChange: onWeightsChange,
                 onTabDragChanged: onTabDragChanged, onTabDragEnded: onTabDragEnded
             )
@@ -85,6 +101,7 @@ struct SplitContainer: View {
                 width: axis == .horizontal ? available * CGFloat(weights[i]) : nil,
                 height: axis == .vertical ? available * CGFloat(weights[i]) : nil
             )
+            .transition(.opacity.combined(with: .scale(scale: 0.94)))
 
             if i < children.count - 1 {
                 DividerHandle(axis: axis)
@@ -124,6 +141,7 @@ private struct DividerHandle: View {
     var body: some View {
         Rectangle()
             .fill(hovering ? GlyphColor.accent.opacity(0.6) : GlyphColor.border)
+            .animation(.easeOut(duration: 0.12), value: hovering)
             .contentShape(Rectangle())
             .onHover { inside in
                 hovering = inside

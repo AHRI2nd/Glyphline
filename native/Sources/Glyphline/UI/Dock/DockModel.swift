@@ -226,3 +226,19 @@ func dropZone(for point: CGPoint, in rect: CGRect) -> DropZone {
     if ny > 1 - margin { return .bottom }
     return .center
 }
+
+/// A stable identity for a subtree, independent of its position among
+/// siblings — the exact set of panels it (recursively) contains, since every
+/// PanelKind appears exactly once in the whole tree. Used as SwiftUI ForEach
+/// ids in SplitContainer so a tab move/split animates as an insert+remove of
+/// the moved subtree instead of every sibling silently reindexing (which is
+/// what `.offset`-based ids would do, producing a jarring cross-fade of
+/// unrelated panels instead of the one that actually moved).
+func dockNodeID(_ node: DockNode) -> String {
+    switch node {
+    case .tabs(let panels, _):
+        return panels.map(\.rawValue).sorted().joined(separator: ",")
+    case .split(_, let children, _):
+        return children.map(dockNodeID).joined(separator: "|")
+    }
+}

@@ -38,6 +38,7 @@ struct TabsetView: View {
                    let zone = dragState.hoverZone {
                     DropZoneIndicator(zone: zone)
                         .allowsHitTesting(false)
+                        .transition(.opacity)
                 }
             }
         }
@@ -95,6 +96,7 @@ private struct TabChip: View {
             isSelected ? GlyphColor.bg : Color.clear,
             in: RoundedRectangle(cornerRadius: 5)
         )
+        .animation(.easeOut(duration: 0.15), value: isSelected)
         .contentShape(Rectangle())
     }
 }
@@ -112,6 +114,9 @@ private struct DropZoneIndicator: View {
                 .overlay(RoundedRectangle(cornerRadius: 4).stroke(GlyphColor.accentHover, lineWidth: 2))
                 .frame(width: r.width, height: r.height)
                 .position(x: r.midX, y: r.midY)
+                // Slides between zones (e.g. left → top) instead of snapping —
+                // the frame/position change is implicitly interpolated.
+                .animation(.easeOut(duration: 0.15), value: zone)
         }
     }
 

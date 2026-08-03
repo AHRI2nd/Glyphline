@@ -24,7 +24,11 @@ struct ContentView: View {
                         dragState: dockDragState,
                         content: panelContent,
                         badge: { $0 == .subtitles ? state.document.doc.cues.count : nil },
-                        onSelect: { panel, path in state.settings.selectDockTab(panel, tabsetPath: path) },
+                        onSelect: { panel, path in
+                            withAnimation(.easeOut(duration: 0.15)) {
+                                state.settings.selectDockTab(panel, tabsetPath: path)
+                            }
+                        },
                         onWeightsChange: { path, weights in state.settings.setDockWeights(at: path, to: weights) },
                         onTabDragChanged: { panel, location in
                             let hit = dockHitTest(location, in: state.settings.dockLayout, rect: CGRect(origin: .zero, size: geo.size))
@@ -46,7 +50,9 @@ struct ContentView: View {
                             let zone = dockDragState.hoverZone
                             dockDragState.end()
                             if let target, let zone {
-                                state.settings.moveDockPanel(panel, toZone: zone, ofTarget: target)
+                                withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                                    state.settings.moveDockPanel(panel, toZone: zone, ofTarget: target)
+                                }
                             }
                         }
                     )
@@ -63,7 +69,14 @@ struct ContentView: View {
                             .padding(.vertical, 5)
                             .background(GlyphColor.accent, in: RoundedRectangle(cornerRadius: 5))
                             .shadow(radius: 6)
+                            // Position tracks the cursor with zero lag (precision
+                            // matters more than smoothing for a 1:1 drag follower);
+                            // only the initial pickup gets a spring "lift" so the
+                            // drag doesn't just pop into existence.
                             .position(x: dockDragState.cursor.x, y: dockDragState.cursor.y - 14)
+                            .scaleEffect(1.04)
+                            .transition(.scale(scale: 0.85).combined(with: .opacity))
+                            .animation(.spring(response: 0.25, dampingFraction: 0.6), value: dockDragState.draggingPanel != nil)
                             .allowsHitTesting(false)
                     }
                 }
