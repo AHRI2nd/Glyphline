@@ -9,6 +9,7 @@ import GlyphlineCore
 struct ContentView: View {
     let state: AppState
     @State private var dockDragState = DockDragState()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 0) {
@@ -37,7 +38,16 @@ struct ContentView: View {
                             // for them — a visible highlight always means the
                             // release will perform exactly that move.
                             let resolved = resolveDockDrop(dragged: panel, hit: hit, in: state.settings.dockLayout)
-                            dockDragState.update(panel: panel, cursor: location, hit: resolved)
+                            // Only the pickup animates (scrim fades in, chip lifts);
+                            // every later frame is applied raw so cursor tracking
+                            // stays exactly 1:1 with the pointer.
+                            if dockDragState.draggingPanel == nil, !reduceMotion {
+                                withAnimation(.easeOut(duration: 0.18)) {
+                                    dockDragState.update(panel: panel, cursor: location, hit: resolved)
+                                }
+                            } else {
+                                dockDragState.update(panel: panel, cursor: location, hit: resolved)
+                            }
                         },
                         onTabDragEnded: { panel, location in
                             // Commit exactly what the last onChanged previewed. Do NOT
@@ -48,35 +58,46 @@ struct ContentView: View {
                             // The preview IS the contract — what you saw is what lands.
                             let target = dockDragState.hoverTarget
                             let zone = dockDragState.hoverZone
-                            dockDragState.end()
+                            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.14)) {
+                                dockDragState.end()
+                            }
                             if let target, let zone {
-                                withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                                withAnimation(reduceMotion ? nil : .spring(response: 0.34, dampingFraction: 0.84)) {
                                     state.settings.moveDockPanel(panel, toZone: zone, ofTarget: target)
                                 }
                             }
                         }
                     )
 
-                    // Ghost chip following the cursor — the DragGesture-based drag
-                    // has no system drag image, so this is the "I'm dragging" cue.
+                    // Dims the workspace and lights the destination — see
+                    // DockDragOverlay for the full rationale.
+                    if dockDragState.isDragging {
+                        DockDragOverlay(
+                            dragState: dockDragState,
+                            layout: state.settings.dockLayout,
+                            dockSize: geo.size
+                        )
+                        .allowsHitTesting(false)
+                        .transition(.opacity)
+                    }
+
+                    // The tab in hand. Rides above the scrim on a raised shadow so
+                    // it reads as lifted off the surface rather than pasted on it.
                     if let dragging = dockDragState.draggingPanel {
                         Text(t(dragging.titleKey))
                             .font(GlyphFont.display(11, weight: .semibold))
                             .textCase(.uppercase)
                             .tracking(0.5)
-                            .foregroundStyle(GlyphColor.ink)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
-                            .background(GlyphColor.accent, in: RoundedRectangle(cornerRadius: 5))
-                            .shadow(radius: 6)
-                            // Position tracks the cursor with zero lag (precision
-                            // matters more than smoothing for a 1:1 drag follower);
-                            // only the initial pickup gets a spring "lift" so the
-                            // drag doesn't just pop into existence.
-                            .position(x: dockDragState.cursor.x, y: dockDragState.cursor.y - 14)
-                            .scaleEffect(1.04)
-                            .transition(.scale(scale: 0.85).combined(with: .opacity))
-                            .animation(.spring(response: 0.25, dampingFraction: 0.6), value: dockDragState.draggingPanel != nil)
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 11)
+                            .padding(.vertical, 6)
+                            .background(GlyphColor.accent, in: RoundedRectangle(cornerRadius: 6))
+                            .shadow(color: .black.opacity(0.5), radius: 14, y: 5)
+                            // Tracks the cursor with zero lag — precision beats
+                            // smoothing for a 1:1 follower. Only the pickup is
+                            // animated, so the drag doesn't pop into existence.
+                            .position(x: dockDragState.cursor.x, y: dockDragState.cursor.y - 16)
+                            .transition(.scale(scale: 0.8).combined(with: .opacity))
                             .allowsHitTesting(false)
                     }
                 }

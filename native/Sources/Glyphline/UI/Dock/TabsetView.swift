@@ -27,21 +27,8 @@ struct TabsetView: View {
     var body: some View {
         VStack(spacing: 0) {
             tabBar
-            ZStack {
-                content(selected)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                // Each panel lives in exactly one tabset, so "hoverTarget is one
-                // of OUR tabs" uniquely identifies this tabset. (Matching any tab
-                // — not just `selected` — matters for tear-out drops, whose
-                // anchor is a sibling tab rather than the selected one.)
-                if let hoverTarget = dragState.hoverTarget, panels.contains(hoverTarget),
-                   let zone = dragState.hoverZone {
-                    DropZoneIndicator(zone: zone)
-                        .allowsHitTesting(false)
-                        .transition(.opacity)
-                }
-            }
+            content(selected)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background(GlyphColor.bg)
         .clipShape(RoundedRectangle(cornerRadius: GlyphMetric.cornerRadius))
@@ -114,51 +101,6 @@ private struct TabChip: View {
     }
 }
 
-/// Translucent overlay previewing where a dropped tab will land — full-pane
-/// tint for a center merge, a half-pane band for an edge split — labeled with
-/// the plain-language outcome ("Add as tab" / "Split left" / …) so intent is
-/// legible without having to infer it from the highlight shape alone.
-private struct DropZoneIndicator: View {
-    let zone: DropZone
-
-    var body: some View {
-        GeometryReader { geo in
-            let r = rect(for: zone, in: geo.size)
-            RoundedRectangle(cornerRadius: 4)
-                .fill(GlyphColor.accent.opacity(0.35))
-                .overlay(RoundedRectangle(cornerRadius: 4).stroke(GlyphColor.accentHover, lineWidth: 2))
-                .overlay(
-                    Text(t(labelKey(for: zone)))
-                        .font(GlyphFont.display(11, weight: .semibold))
-                        .foregroundStyle(GlyphColor.ink)
-                        .padding(.horizontal, 8).padding(.vertical, 4)
-                        .background(GlyphColor.accent, in: RoundedRectangle(cornerRadius: 4))
-                )
-                .frame(width: r.width, height: r.height)
-                .position(x: r.midX, y: r.midY)
-                // Slides between zones (e.g. left → top) instead of snapping —
-                // the frame/position change is implicitly interpolated.
-                .animation(.easeOut(duration: 0.15), value: zone)
-        }
-    }
-
-    private func labelKey(for zone: DropZone) -> String {
-        switch zone {
-        case .center: return "dockMergeAsTab"
-        case .left: return "dockSplitLeft"
-        case .right: return "dockSplitRight"
-        case .top: return "dockSplitTop"
-        case .bottom: return "dockSplitBottom"
-        }
-    }
-
-    private func rect(for zone: DropZone, in size: CGSize) -> CGRect {
-        switch zone {
-        case .center: return CGRect(x: 0, y: 0, width: size.width, height: size.height)
-        case .top: return CGRect(x: 0, y: 0, width: size.width, height: size.height / 2)
-        case .bottom: return CGRect(x: 0, y: size.height / 2, width: size.width, height: size.height / 2)
-        case .left: return CGRect(x: 0, y: 0, width: size.width / 2, height: size.height)
-        case .right: return CGRect(x: size.width / 2, y: 0, width: size.width / 2, height: size.height)
-        }
-    }
-}
+// The drop preview lives at the dock root (DockDragOverlay) — a tabset can
+// only paint within its own bounds, so drawing it here clipped it and put it
+// under sibling panes.

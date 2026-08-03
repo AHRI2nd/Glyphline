@@ -232,6 +232,44 @@ func dropZone(for point: CGPoint, in rect: CGRect) -> DropZone {
     return .center
 }
 
+/// The on-screen rect of the tabset containing `panel`, in dock coordinates.
+/// Geometry mirrors dockHitTest/SplitContainer exactly — they must stay in
+/// lockstep. Lets the dock root draw the drop preview over the whole
+/// workspace (correct z-order above every pane) instead of each tabset
+/// drawing its own, which buried the preview under sibling panes.
+func dockTabsetRect(containing panel: PanelKind, in node: DockNode, rect: CGRect) -> CGRect? {
+    switch node {
+    case .tabs(let panels, _):
+        return panels.contains(panel) ? rect : nil
+    case .split(let axis, let children, let weights):
+        let total = axis == .horizontal ? rect.width : rect.height
+        let available = max(1, total - DOCK_DIVIDER_THICKNESS * CGFloat(max(0, children.count - 1)))
+        var offset: CGFloat = axis == .horizontal ? rect.minX : rect.minY
+        for (child, weight) in zip(children, weights) {
+            let length = available * CGFloat(weight)
+            let childRect = axis == .horizontal
+                ? CGRect(x: offset, y: rect.minY, width: length, height: rect.height)
+                : CGRect(x: rect.minX, y: offset, width: rect.width, height: length)
+            if let found = dockTabsetRect(containing: panel, in: child, rect: childRect) { return found }
+            offset += length + DOCK_DIVIDER_THICKNESS
+        }
+        return nil
+    }
+}
+
+/// Where a drop lands inside its target pane — the region that will be
+/// occupied after the move. `.center` takes the whole pane (it becomes a tab
+/// there); edges take the half they'll split off.
+func dockZoneRect(_ zone: DropZone, in r: CGRect) -> CGRect {
+    switch zone {
+    case .center: return r
+    case .top: return CGRect(x: r.minX, y: r.minY, width: r.width, height: r.height / 2)
+    case .bottom: return CGRect(x: r.minX, y: r.midY, width: r.width, height: r.height / 2)
+    case .left: return CGRect(x: r.minX, y: r.minY, width: r.width / 2, height: r.height)
+    case .right: return CGRect(x: r.midX, y: r.minY, width: r.width / 2, height: r.height)
+    }
+}
+
 /// A stable identity for a subtree, independent of its position among
 /// siblings — the exact set of panels it (recursively) contains, since every
 /// PanelKind appears exactly once in the whole tree. Used as SwiftUI ForEach
