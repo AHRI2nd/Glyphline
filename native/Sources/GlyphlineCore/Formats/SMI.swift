@@ -120,7 +120,7 @@ public func serializeSmi(_ doc: SubtitleDocument) -> String {
 }
 
 private func replaceAll(_ pattern: String, _ input: String, _ template: String) -> String {
-    guard let re = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { return input }
+    guard let re = RegexCache.get(pattern, options: [.caseInsensitive]) else { return input }
     let ns = input as NSString
     return re.stringByReplacingMatches(
         in: input, range: NSRange(location: 0, length: ns.length), withTemplate: template)

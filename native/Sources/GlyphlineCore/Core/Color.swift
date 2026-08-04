@@ -36,7 +36,7 @@ public func hexToAssColor(_ hex: String, alpha: String = "00") -> String {
 
 // First match's capture groups (index 0 = whole match), nil for non-participating.
 func firstMatchGroups(_ pattern: String, _ input: String) -> [String?]? {
-    guard let re = try? NSRegularExpression(pattern: pattern) else { return nil }
+    guard let re = RegexCache.get(pattern) else { return nil }
     let ns = input as NSString
     guard let m = re.firstMatch(in: input, range: NSRange(location: 0, length: ns.length)) else { return nil }
     return (0..<m.numberOfRanges).map { i in

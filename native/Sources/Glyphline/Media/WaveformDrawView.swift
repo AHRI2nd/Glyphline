@@ -24,6 +24,13 @@ final class WaveformDrawView: NSView {
     var pxPerSec: CGFloat = 71 { didSet { needsDisplay = true } }
     var cues: [Cue] = [] {
         didSet {
+            // WaveformScrollView reassigns this every SwiftUI update cycle,
+            // including ones driven by the ~80ms playback poll where the cue
+            // list itself hasn't changed at all — without this guard, every
+            // one of those ticks re-ran the O(n) overlap sweep and forced a
+            // full redraw for no reason, on top of whatever real work the
+            // ticking currentTime already needed.
+            guard cues != oldValue else { return }
             overlapSlots = overlapColorSlots(for: cues, paletteSize: GlyphColor.overlapPalette.count)
             needsDisplay = true
         }
@@ -224,7 +231,7 @@ final class WaveformDrawView: NSView {
         ctx.setFillColor(NSColor.clear.cgColor)
         ctx.fill(dirtyRect)
 
-        drawCueRegions(ctx)
+        drawCueRegions(ctx, dirtyRect: dirtyRect)
         drawPeaks(ctx, dirtyRect: dirtyRect)
         drawPlayhead(ctx)
     }
@@ -258,11 +265,19 @@ final class WaveformDrawView: NSView {
         ctx.strokePath()
     }
 
-    private func drawCueRegions(_ ctx: CGContext) {
+    private func drawCueRegions(_ ctx: CGContext, dirtyRect: NSRect) {
         let draggingId = draggingCueId
         for (index, cue) in cues.enumerated() {
             let x0 = CGFloat(cue.start) * pxPerSec
             let x1 = CGFloat(cue.end) * pxPerSec
+            // cues is start-sorted: once a cue starts past the visible range,
+            // every cue after it does too, so the rest of the array can't
+            // possibly matter this frame. Without this, a document with
+            // thousands of cues re-ran a full NSAttributedString layout for
+            // every single one of them on every redraw, including the ~80ms
+            // playback tick, regardless of how few were actually on screen.
+            if x0 > dirtyRect.maxX { break }
+            if x1 < dirtyRect.minX { continue }
             let rect = CGRect(x: x0, y: 0, width: max(1, x1 - x0), height: bounds.height)
             let active = cue.id == activeCueId
             let hovered = hoverGrab?.id == cue.id

@@ -646,9 +646,15 @@ private func casingTransform(_ mode: CaseMode) -> (String) -> String {
             }.joined(separator: "\n")
         }
     case .title:
+        // Compiled once here, not inside the closure — the closure below runs
+        // once per cue (Subtitle ▸ 일괄 정리 ▸ 대소문자 변환 applies it across
+        // the whole document), and re-parsing the same fixed pattern on every
+        // cue was the same wasted-compilation tax found in the format
+        // parsers (see RegexCache's doc comment).
+        let titleWordRegex = try? NSRegularExpression(pattern: #"\p{L}+"#)
         return { s in
             let lower = s.lowercased()
-            guard let re = try? NSRegularExpression(pattern: #"\p{L}+"#) else { return lower }
+            guard let re = titleWordRegex else { return lower }
             let ns = lower as NSString
             var result = ""
             var cursor = 0
