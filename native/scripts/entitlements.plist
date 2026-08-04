@@ -9,7 +9,22 @@
          silently refuses the dlopen and mpv playback breaks. -->
     <key>com.apple.security.cs.disable-library-validation</key>
     <true/>
-    <!-- JIT/unsigned-memory allowances are NOT included — nothing in this app
-         needs them; keep the entitlement surface minimal. -->
+    <!-- Homebrew's macOS mpv build (0.41+) bundles its own Swift Cocoa/TouchBar
+         integration ("AppHub") directly inside libmpv.2.dylib. AppHub spawns
+         several internal Lua threads (stats/console/select/positioning/
+         commands/context_menu, its on-screen menu system) unconditionally
+         during mpv_initialize(), before vo is even chosen, so it is not
+         reachable via mpv's own load-scripts option (that only gates the
+         separate, standard mp_load_scripts path; tried first, confirmed
+         ineffective by watching mpv_initialize() block on the main thread in
+         a crash report while a LuaJIT script thread died underneath it).
+         Those scripts run on LuaJIT, which JIT-compiles to RWX pages the
+         normal way (not through Apple's MAP_JIT API); Hardened Runtime kills
+         the process the instant such a page executes (SIGKILL,
+         CODESIGNING/"Invalid Page") without this entitlement. This is Apple's
+         documented mechanism for any embedded non-Apple JIT engine, not a
+         security relaxation specific to us. -->
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
 </dict>
 </plist>

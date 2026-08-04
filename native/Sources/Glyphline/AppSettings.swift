@@ -17,6 +17,15 @@ final class AppSettings {
         didSet {
             UserDefaults.standard.set(language.rawValue, forKey: languageKey)
             L10nStore.shared.setLanguage(language)
+            // Our own strings (Subtitle/Playback/View menu content, panels) read
+            // from L10nStore above and update immediately. But File/Edit/Window/
+            // Help and their standard items (Quit, Hide, Cut, Copy, Undo, Enter
+            // Full Screen, …) are titled by AppKit itself from its own bundles,
+            // resolved once at launch from this "AppleLanguages" default — never
+            // from our in-app toggle. Writing it here keeps the two in sync from
+            // the *next* launch on; AppKit caches its already-built menu strings,
+            // so an already-running window can't pick this up without a restart.
+            UserDefaults.standard.set([language.rawValue], forKey: "AppleLanguages")
         }
     }
     private let languageKey = "glyphline.language"
@@ -70,6 +79,12 @@ final class AppSettings {
             resolvedLanguage = .systemDefault
         }
         language = resolvedLanguage
+        // didSet above does NOT fire for this assignment (Swift suppresses
+        // property observers for a property's own first assignment inside its
+        // declaring type's initializer), so AppleLanguages would otherwise stay
+        // unwritten on every launch except the one where the user actively
+        // re-picks a language from the menu. Do it explicitly here too.
+        UserDefaults.standard.set([resolvedLanguage.rawValue], forKey: "AppleLanguages")
 
         let savedScale = UserDefaults.standard.double(forKey: uiScaleKey)
         uiScale = savedScale > 0 ? savedScale : 1.0

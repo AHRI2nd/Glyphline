@@ -95,7 +95,12 @@ struct GlyphlineApp: App {
                 Button(menuLabel("settings")) { state.activePanel = .settings }
                     .keyboardShortcut(",", modifiers: .command)
             }
-            CommandMenu(t("viewMenu")) {
+            // Merged into the single, system-titled View menu (CommandMenu
+            // would instead open a SECOND top-level menu next to it, titled
+            // in our in-app language while AppKit's own "View" stays in the
+            // system's language — the exact mismatch this was written to fix).
+            CommandGroup(after: .toolbar) {
+                Divider()
                 Button(t("resetLayout")) { state.settings.resetDockLayout() }
                 Divider()
                 Toggle(t("showTranslation"), isOn: Binding(
