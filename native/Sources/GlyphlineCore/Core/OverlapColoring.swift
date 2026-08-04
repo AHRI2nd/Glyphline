@@ -7,9 +7,14 @@
 // Standard interval-graph greedy coloring: sweep cues in start-time order,
 // track which intervals are still "open" (their end hasn't passed the current
 // cue's start), and hand out the lowest color slot not already in use by an
-// open interval. Two cues share a color only when nothing currently open
-// between them prevents it — the guarantee that directly-overlapping cues
-// always differ, while distant, non-overlapping cues freely reuse slots.
+// open interval, so distant non-overlapping cues freely reuse slots.
+//
+// LIMIT: distinctness holds only while at most `paletteSize` cues overlap at
+// the same instant. Past that the slot wraps and two simultaneously-visible
+// cues do share a color — unavoidable with a fixed palette, and it degrades
+// quietly rather than failing. Five slots covers ordinary subtitle work
+// (even dense signs/karaoke rarely stacks that deep); see the
+// exceeding-the-palette test for the exact pinned behavior.
 
 import Foundation
 

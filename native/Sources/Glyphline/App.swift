@@ -52,15 +52,32 @@ struct GlyphlineApp: App {
             CommandMenu(t("subtitleMenu")) {
                 Button(t("addCue")) { state.document.addCue() }
                     .keyboardShortcut(.return, modifiers: .command)
+                // Split/merge/delete/duplicate are the operations a timing pass
+                // repeats hundreds of times; they had no accelerators at all.
+                // ⌘S/⌘⇧S (save/save as) are taken, hence ⌘⌥S for split.
                 Button(t("splitCue")) { splitActiveCue() }
+                    .keyboardShortcut("s", modifiers: [.command, .option])
                     .disabled(state.document.activeCueId == nil)
                 Button(t("mergeCues")) {
                     state.document.mergeCues(Array(state.document.selectedIds))
                 }
+                .keyboardShortcut("m", modifiers: [.command, .shift])
                 .disabled(state.document.selectedIds.count < 2)
+                Button(t("ctxDuplicate")) {
+                    guard let id = state.document.activeCueId else { return }
+                    state.document.duplicateCue(id)
+                }
+                .keyboardShortcut("d", modifiers: .command)
+                .disabled(state.document.activeCueId == nil)
+                // ⌘⌫ rather than a bare ⌫: a plain Delete key equivalent on a
+                // menu item is matched before the responder chain, which would
+                // swallow backspace in every text field in the app. The bare
+                // Delete key still deletes when the GRID itself has focus —
+                // CueTableView handles it there, where no field editor is active.
                 Button(t("deleteCue")) {
                     state.document.deleteCues(Array(state.document.selectedIds))
                 }
+                .keyboardShortcut(.delete, modifiers: .command)
                 .disabled(state.document.selectedIds.isEmpty)
                 Divider()
                 Button(menuLabel("shiftTime")) { state.activePanel = .shiftTime }

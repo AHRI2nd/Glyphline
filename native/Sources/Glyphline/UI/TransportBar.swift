@@ -74,7 +74,7 @@ struct TransportBar: View {
             return
         }
         guard let id = document.activeCueId, let cue = document.doc.cues.first(where: { $0.id == id }) else { return }
-        media.playRegion(start: cue.start, end: cue.end)
+        media.playRegion(cueId: cue.id, start: cue.start, end: cue.end)
     }
 
     /// Ported from Transport.tsx's addCueAtPlayhead: a 2s cue starting at the

@@ -313,14 +313,16 @@ struct DocumentModelStructureTests {
         #expect(m.doc.cues[0].start == 0 && m.doc.cues[0].end == 5)
     }
 
-    @Test("deleteCues removes by id and clears selection")
+    @Test("deleteCues removes by id and moves selection to the next cue")
     func delete() {
         let m = DocumentModel()
         m.loadParsed(SubtitleDocument(cues: [cue("a", 0, 1), cue("b", 1, 2)]))
         m.selectedIds = ["a"]
         m.deleteCues(["a"])
         #expect(m.doc.cues.map(\.id) == ["b"])
-        #expect(m.selectedIds.isEmpty)
+        // Selection now follows the deletion instead of emptying — see
+        // deleteCues' doc comment and "selection after delete" below.
+        #expect(m.selectedIds == ["b"])
     }
 }
 
@@ -377,5 +379,44 @@ struct DocumentModelExportTests {
         m.loadParsed(SubtitleDocument(format: .srt, cues: [cue("a", 1, 3, "Hello")]))
         let out = m.exportContent(format: .srt, source: .translation)
         #expect(out.contains("Hello"))
+    }
+}
+
+@Suite("DocumentModel: selection after delete")
+struct DocumentModelDeleteSelectionTests {
+    private func loaded(_ cues: [Cue]) -> DocumentModel {
+        let m = DocumentModel()
+        m.loadParsed(SubtitleDocument(format: .srt, cues: cues), filePath: nil, fileName: nil)
+        return m
+    }
+
+    @Test("deleting a middle cue selects the one that takes its place")
+    func middle() {
+        let m = loaded([cue("a", 0, 1), cue("b", 2, 3), cue("c", 4, 5)])
+        m.deleteCues(["b"])
+        #expect(m.activeCueId == "c")
+        #expect(m.selectedIds == ["c"])
+    }
+
+    @Test("deleting the last cue falls back to the new last cue")
+    func last() {
+        let m = loaded([cue("a", 0, 1), cue("b", 2, 3), cue("c", 4, 5)])
+        m.deleteCues(["c"])
+        #expect(m.activeCueId == "b")
+    }
+
+    @Test("deleting a contiguous run selects the first survivor after it")
+    func run() {
+        let m = loaded([cue("a", 0, 1), cue("b", 2, 3), cue("c", 4, 5), cue("d", 6, 7)])
+        m.deleteCues(["b", "c"])
+        #expect(m.activeCueId == "d")
+    }
+
+    @Test("deleting everything leaves nothing selected")
+    func all() {
+        let m = loaded([cue("a", 0, 1), cue("b", 2, 3)])
+        m.deleteCues(["a", "b"])
+        #expect(m.activeCueId == nil)
+        #expect(m.selectedIds.isEmpty)
     }
 }

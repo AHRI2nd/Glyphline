@@ -7,11 +7,22 @@
 // cached by (path, mtime) so re-opening the same file is instant.
 
 import Foundation
+import CryptoKit
 
 enum WaveformExtractor {
     enum ExtractError: Error { case mpvNotFound, extractionFailed }
 
     private static let mpvCandidates = ["/opt/homebrew/bin/mpv", "/usr/local/bin/mpv"]
+
+    /// Cache key for (path, mtime). Uses SHA-256 rather than Swift's `Hasher`,
+    /// which is seeded randomly per process — with that, the key for the very
+    /// same file differed on every launch, so the cache below never hit across
+    /// restarts: re-opening a video always re-ran the multi-second extraction
+    /// AND left another ~20MB WAV behind in the temp directory each time.
+    private static func cacheKey(path: String, mtime: TimeInterval) -> String {
+        let digest = SHA256.hash(data: Data("\(path)|\(mtime)".utf8))
+        return digest.prefix(8).map { String(format: "%02x", $0) }.joined()
+    }
 
     /// Extract (or return the cached) downsampled WAV path for `path`. Runs mpv
     /// off the calling thread; safe to call from the main actor with `await`.
@@ -22,10 +33,7 @@ enum WaveformExtractor {
 
         let mtime = (try? FileManager.default.attributesOfItem(atPath: path)[.modificationDate] as? Date)
             .flatMap { $0 }?.timeIntervalSince1970 ?? 0
-        var hasher = Hasher()
-        hasher.combine(path)
-        hasher.combine(mtime)
-        let key = String(format: "%016x", UInt64(bitPattern: Int64(hasher.finalize())))
+        let key = cacheKey(path: path, mtime: mtime)
         let out = FileManager.default.temporaryDirectory.appendingPathComponent("glyphline_wave_\(key).wav")
 
         if FileManager.default.fileExists(atPath: out.path) { return out }

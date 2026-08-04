@@ -57,6 +57,18 @@ struct OverlapColoringTests {
         #expect(slots["b"] != slots["c"])
     }
 
+    @Test("more simultaneous overlaps than palette slots reuses colors, without crashing")
+    func exceedsPalette() {
+        // Seven cues all covering the same instant against a five-slot palette.
+        // Distinctness is mathematically impossible here; what matters is that
+        // it degrades quietly and still marks every one of them as overlapping.
+        let cues = sortedCues((0..<7).map { cue("c\($0)", 0, 10) })
+        let slots = overlapColorSlots(for: cues, paletteSize: 5)
+        #expect(slots.count == 7, "every overlapping cue is still flagged")
+        for slot in slots.values { #expect((0..<5).contains(slot)) }
+        #expect(Set(slots.values).count == 5, "all five slots get used before any repeats")
+    }
+
     @Test("palette size of zero returns empty map without crashing")
     func zeroPalette() {
         let cues = sortedCues([cue("a", 0, 5), cue("b", 2, 7)])

@@ -53,6 +53,15 @@ final class AppSettings {
     var spellCheckNotation: Bool {
         didSet { UserDefaults.standard.set(spellCheckNotation, forKey: spellCheckNotationKey) }
     }
+
+    /// Waveform zoom, 0–100 on a log scale (see WaveformScrollView). Persisted
+    /// because it's a working preference — how densely you want to see the
+    /// audio — not per-file state, and having it snap back to the default on
+    /// every launch meant re-dialling it at the start of each session.
+    var waveformZoom: Double {
+        didSet { UserDefaults.standard.set(waveformZoom, forKey: waveformZoomKey) }
+    }
+    private let waveformZoomKey = "glyphline.waveformZoom"
     private let spellTextLanguageKey = "glyphline.spell.textLanguage"
     private let spellTranslationLanguageKey = "glyphline.spell.translationLanguage"
     private let spellCheckNotationKey = "glyphline.spell.checkNotation"
@@ -99,6 +108,7 @@ final class AppSettings {
         spellTextLanguage = UserDefaults.standard.string(forKey: spellTextLanguageKey) ?? ""
         spellTranslationLanguage = UserDefaults.standard.string(forKey: spellTranslationLanguageKey) ?? defaultTranslation
         spellCheckNotation = UserDefaults.standard.object(forKey: spellCheckNotationKey) as? Bool ?? true
+        waveformZoom = UserDefaults.standard.object(forKey: waveformZoomKey) as? Double ?? 50
 
         if let data = UserDefaults.standard.data(forKey: dockLayoutKey),
            let decoded = try? JSONDecoder().decode(DockNode.self, from: data) {

@@ -19,6 +19,12 @@ struct WaveformAudio {
         guard let channelData = buffer.floatChannelData else {
             return WaveformAudio(samples: [], sampleRate: format.sampleRate)
         }
+        // A video with no audio track (or one whose audio failed to decode)
+        // extracts to a zero-length WAV — `mono` is then empty and its
+        // baseAddress is nil, which the force-unwrap below would crash on.
+        guard frameCount > 0 else {
+            return WaveformAudio(samples: [], sampleRate: format.sampleRate)
+        }
         // Already mono from extraction, but average channels defensively if not.
         let channels = Int(format.channelCount)
         var mono = [Float](repeating: 0, count: frameCount)

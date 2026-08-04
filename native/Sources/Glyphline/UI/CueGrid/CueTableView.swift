@@ -11,12 +11,24 @@ final class CueTableView: NSTableView {
     var playheadProvider: (() -> Double?)?
     /// (key) → handled? — "i"/"o"/"p" live-timing actions.
     var onTimingKey: ((Character) -> Void)?
+    /// Delete/Backspace on the selected rows — the standard macOS list gesture.
+    var onDeleteSelection: (() -> Void)?
 
     override func keyDown(with event: NSEvent) {
         if let chars = event.charactersIgnoringModifiers?.lowercased(), chars.count == 1,
            let c = chars.first, ["i", "o", "p"].contains(c),
            event.modifierFlags.intersection([.command, .option, .control]).isEmpty {
             onTimingKey?(c)
+            return
+        }
+        // Safe to take the bare Delete key here: keyDown only reaches the table
+        // when the table itself is first responder. While a cell is being
+        // edited the field editor holds focus and gets the keystroke instead,
+        // so this never eats a backspace mid-typing.
+        let deleteKeys: Set<UInt16> = [51, 117] // delete, forward-delete
+        if deleteKeys.contains(event.keyCode),
+           event.modifierFlags.intersection([.command, .option, .control]).isEmpty {
+            onDeleteSelection?()
             return
         }
         super.keyDown(with: event)

@@ -67,8 +67,15 @@ struct MPVVideoView: NSViewRepresentable {
             let doc = document.doc
             pushTask = Task { [weak media] in
                 try? await Task.sleep(for: .milliseconds(300))
+                guard !Task.isCancelled else { return }
+                // Serialize off the main actor. This Task would otherwise
+                // inherit MainActor from the enclosing class, and serializing a
+                // feature-length document measures ~45ms (see the perf suite) —
+                // paid on the main thread every time the user pauses typing for
+                // 300ms, which reads as a hitch in the middle of editing. The
+                // engine call itself stays on the main actor below.
+                let ass = await Task.detached { serializeAss(withDefaultStyleIfNeeded(doc)) }.value
                 guard !Task.isCancelled, let media else { return }
-                let ass = serializeAss(withDefaultStyleIfNeeded(doc))
                 media.pushSubtitles(ass)
             }
         }

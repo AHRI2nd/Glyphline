@@ -37,7 +37,13 @@ final class AutosaveService {
         guard let glyph = try? serializeGlyph(document.doc) else { return }
         let data = AutosaveData(savedAt: Date(), filePath: document.filePath, fileName: document.fileName, glyph: glyph)
         guard let json = try? JSONEncoder().encode(data) else { return }
-        try? json.write(to: Self.path)
+        // .atomic matters more here than anywhere else in the app: this file
+        // exists to survive a crash, and a plain write leaves a truncated file
+        // if the process dies mid-write. checkPending() silently returns nil on
+        // a corrupt file, so the failure mode is "recovery quietly unavailable
+        // exactly when it was needed". Every other write path in the app is
+        // already atomic; this one was the outlier.
+        try? json.write(to: Self.path, options: .atomic)
     }
 
     /// Checked once at launch — returns the pending autosave, if any.

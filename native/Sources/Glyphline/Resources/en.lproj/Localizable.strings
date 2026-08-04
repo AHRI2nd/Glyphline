@@ -164,7 +164,7 @@
 "apply" = "Apply";
 "shiftPrompt" = "Seconds to shift. Negative moves earlier.";
 "shiftAll" = "All";
-"shiftSelected" = "Selected";
+"shiftSelected" = "Selected only";
 "uiScale" = "UI scale";
 "autoCheckUpdate" = "Check for updates on launch";
 "updateAvailable" = "A new version is available";
@@ -203,7 +203,7 @@
 "lossBorderShadow" = "Outline/shadow/blur";
 "lossDrawing" = "Vector drawing (\\p)";
 "lossClip" = "Clip mask (\\clip)";
-"lossColor" = "Secondary colours/alpha";
+"lossColor" = "Secondary colors/alpha";
 "lossOther" = "Other tags";
 
 /* Native-only additions (no Tauri equivalent — AppKit menu/dialog specifics). */
@@ -213,11 +213,11 @@
 "errorTitle" = "Error";
 "ok" = "OK";
 "exportSmiCp949" = "SAMI · CP949 (.smi)";
-"noMediaShort" = "No media";
+"noMediaShort" = "No Media";
 "noMediaDesc" = "Open a video or audio file to start playing.";
 "mpvMissingDesc" = "Install it with brew install mpv.";
 "audioLoadedTitle" = "Playing Audio";
-"mpvMissing" = "mpv is not installed (brew install mpv)";
+"mpvMissing" = "mpv is not installed";
 "mpvInstalled" = "Installed";
 "mediaEngine" = "Media Engine (mpv)";
 "colorPrimary" = "Primary color";

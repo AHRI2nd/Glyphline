@@ -170,7 +170,7 @@ struct ContentView: View {
                 }
             })
         case .waveform:
-            return AnyView(WaveformPane(document: state.document, media: state.media, onOpenMedia: { state.openMediaPicker() }))
+            return AnyView(WaveformPane(document: state.document, media: state.media, settings: state.settings, onOpenMedia: { state.openMediaPicker() }))
         case .subtitles:
             return AnyView(CuePane(
                 document: state.document, media: state.media, settings: state.settings,

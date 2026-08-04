@@ -78,7 +78,18 @@ final class MPVSurfaceView: NSOpenGLView, MediaEngineControlling {
 
     deinit {
         pollTimer?.invalidate()
-        if let renderCtx { lib.renderContextFree(renderCtx) }
+        if let renderCtx {
+            // Detach the update callback BEFORE freeing the context. mpv invokes
+            // it from its own render thread, and onMPVRenderUpdate resolves the
+            // context pointer with Unmanaged.takeUnretainedValue() — a callback
+            // that lands while this object is being deallocated would resurrect
+            // freed memory. Clearing it first is mpv's documented way to
+            // guarantee no further callbacks reference us. This view really does
+            // get torn down in normal use (SwiftUI rebuilds it when the video
+            // pane is re-docked), so the window is reachable, not theoretical.
+            lib.renderContextSetUpdateCallback(renderCtx, nil, nil)
+            lib.renderContextFree(renderCtx)
+        }
         if let mpv { lib.destroy(mpv) }
     }
 

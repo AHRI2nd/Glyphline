@@ -31,22 +31,35 @@ final class MediaModel {
     var playbackRate: Double = 1
     var volume: Double = 100 // mpv scale, 0–130, 100 = original
     var muted = false
-    /// Loop playback within [start, end) — used to repeat the active cue.
-    var loopRegion: (start: Double, end: Double)?
+    /// The cue being looped, or nil. Stored as an ID rather than a fixed time
+    /// range because looping exists to let you hear a cue WHILE you retime it —
+    /// snapshotting the bounds meant dragging the cue's edge kept replaying the
+    /// old range, and deleting the cue left an orphan loop the user had to
+    /// notice and switch off by hand.
+    private(set) var loopCueId: String?
+    /// Resolves a cue id to its current timing. Injected by AppState, which owns
+    /// both models — MediaModel deliberately doesn't depend on DocumentModel.
+    var loopBoundsProvider: ((String) -> (start: Double, end: Double)?)?
+
+    /// Live bounds of the looping cue; nil once it stops existing.
+    var loopRegion: (start: Double, end: Double)? {
+        guard let loopCueId else { return nil }
+        return loopBoundsProvider?(loopCueId)
+    }
     var error: String?
 
     func loadMedia(_ path: String) {
         mediaPath = path
         mediaKind = Self.kind(of: path)
         mediaName = (path as NSString).lastPathComponent
-        currentTime = 0; duration = 0; isPlaying = false; loopRegion = nil; error = nil
+        currentTime = 0; duration = 0; isPlaying = false; loopCueId = nil; error = nil
         engine?.open(path: path)
     }
 
     func closeMedia() {
         engine?.stop()
         mediaPath = nil; mediaKind = nil; mediaName = nil
-        currentTime = 0; duration = 0; isPlaying = false; loopRegion = nil; error = nil
+        currentTime = 0; duration = 0; isPlaying = false; loopCueId = nil; error = nil
     }
 
     /// Called by the poll timer — mpv is the source of truth for these three.
@@ -70,12 +83,12 @@ final class MediaModel {
     }
 
     func skip(_ delta: Double) {
-        loopRegion = nil // a manual skip cancels any active loop
+        loopCueId = nil // a manual skip cancels any active loop
         engine?.skip(delta)
     }
 
     func frameStep(forward: Bool) {
-        loopRegion = nil
+        loopCueId = nil
         engine?.frameStep(forward: forward)
     }
 
@@ -97,14 +110,15 @@ final class MediaModel {
         engine?.setMute(muted)
     }
 
-    /// Loop over [start, end): seek to start, unpause, remember the region.
-    func playRegion(start: Double, end: Double) {
-        loopRegion = (start, end)
+    /// Loop over the given cue: seek to its start, unpause, remember WHICH cue
+    /// is looping (not its times — see `loopRegion`).
+    func playRegion(cueId: String, start: Double, end: Double) {
+        loopCueId = cueId
         engine?.seek(max(0, start))
         engine?.setPause(false)
     }
 
-    func clearLoop() { loopRegion = nil }
+    func clearLoop() { loopCueId = nil }
 
     func pushSubtitles(_ assText: String) { engine?.setSubtitles(assText) }
 

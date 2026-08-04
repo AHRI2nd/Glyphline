@@ -50,6 +50,13 @@ final class AppState {
     /// Called once from the app's `.onAppear` — starts the autosave timer and
     /// offers recovery if a previous session left an autosave behind.
     func startUp() {
+        // Loop playback resolves its bounds live from the document, so retiming
+        // a cue while it loops actually changes what you hear. AppState is the
+        // one place that owns both models.
+        media.loopBoundsProvider = { [weak document] id in
+            guard let cue = document?.doc.cues.first(where: { $0.id == id }) else { return nil }
+            return (cue.start, cue.end)
+        }
         autosave.start()
         if let pending = AutosaveService.checkPending(), !pending.glyph.isEmpty {
             recovery = pending

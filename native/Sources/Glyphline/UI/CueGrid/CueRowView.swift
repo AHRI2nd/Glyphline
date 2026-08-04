@@ -27,6 +27,14 @@ final class CueRowView: NSTableRowView {
         didSet { needsDisplay = true }
     }
 
+    /// True while the playhead is inside this cue — i.e. this subtitle is on
+    /// screen right now. Deliberately separate from selection: playback marks
+    /// and scrolls to this row but never steals what the user has selected,
+    /// so you can keep editing one cue while the video plays past others.
+    var isPlayingCue: Bool = false {
+        didSet { if isPlayingCue != oldValue { needsDisplay = true } }
+    }
+
     override var isSelected: Bool {
         didSet { if isSelected != oldValue { needsDisplay = true } }
     }
@@ -50,7 +58,15 @@ final class CueRowView: NSTableRowView {
         if isActiveCue {
             NSColor(GlyphColor.accent).withAlphaComponent(0.08).setFill()
             bounds.fill()
-            NSColor(GlyphColor.signalLight).setFill()
+        }
+        // One left stripe, whose COLOR says which fact is true, so the playing
+        // row and the row you're editing never fight over the same edge.
+        // signalLight is the waveform playhead's own color, which is what makes
+        // "now" one continuous thread from the waveform into the grid; the
+        // active cue falls back to the flatter accent when it isn't also the
+        // one on screen.
+        if isPlayingCue || isActiveCue {
+            NSColor(isPlayingCue ? GlyphColor.signalLight : GlyphColor.accent).setFill()
             NSRect(x: 0, y: 0, width: GlyphMetric.spineWidth, height: bounds.height).fill()
         }
         // Mirrors the active-cue spine but on the right edge, in the

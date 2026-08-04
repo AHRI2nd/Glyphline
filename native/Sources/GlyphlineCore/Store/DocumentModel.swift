@@ -470,13 +470,28 @@ public final class DocumentModel {
         selectedIds = [copy.id]
     }
 
+    /// Deletes `ids` and selects whichever cue slides into their place, falling
+    /// back to the last remaining cue. Clearing the selection outright meant
+    /// losing your position in the document on every delete — with nothing
+    /// selected, the next delete/split/timing shortcut also silently did
+    /// nothing until you clicked back into the list.
     public func deleteCues(_ ids: [String]) {
         guard !ids.isEmpty else { return }
         pushHistory()
         let idSet = Set(ids)
+        let ordered = sortedCues(doc.cues)
+        let firstDeletedIdx = ordered.firstIndex { idSet.contains($0.id) }
         withCues(doc.cues.filter { !idSet.contains($0.id) })
-        selectedIds = []
-        activeCueId = nil
+
+        let survivor: Cue? = {
+            guard let i = firstDeletedIdx else { return nil }
+            // The nearest surviving cue at or after the deletion point; if the
+            // deletion ran to the end of the document, the new last cue.
+            return ordered[i...].first { !idSet.contains($0.id) }
+                ?? ordered[..<i].last { !idSet.contains($0.id) }
+        }()
+        activeCueId = survivor?.id
+        selectedIds = survivor.map { [$0.id] } ?? []
     }
 
     /// Split at `atTime`: multi-line text splits at the midpoint line break, else
@@ -670,13 +685,23 @@ private func casingTransform(_ mode: CaseMode) -> (String) -> String {
     }
 }
 
+// Compiled once at module scope, not inside stripHearingImpaired — that
+// function runs once per cue (removeHearingImpaired sweeps the whole
+// document), so building these four every call re-paid the compile cost
+// thousands of times on a feature-length subtitle file. Same wasted work the
+// format parsers had; see RegexCache in FormatCommon.swift.
+private let hiBracketRegex = try! NSRegularExpression(pattern: "\\[[^\\]]*\\]|\\([^)]*\\)|（[^）]*）|【[^】]*】")
+private let hiMusicRegex = try! NSRegularExpression(pattern: "♪[^♪]*♪|♪.*$")
+private let hiNameRegex = try! NSRegularExpression(pattern: #"^\s*[-–—]?\s*[\p{Lu}][\p{Lu} .'-]{1,20}:\s*"#)
+private let hiSpacesRegex = try! NSRegularExpression(pattern: #"\s{2,}"#)
+
 /// Remove hearing-impaired annotations: bracketed/parenthesized runs like
 /// "[music]", "(door slams)", "♪ lyrics ♪", and leading "NAME:" speaker labels.
 private func stripHearingImpaired(_ text: String) -> String {
-    let bracketRe = try! NSRegularExpression(pattern: "\\[[^\\]]*\\]|\\([^)]*\\)|（[^）]*）|【[^】]*】")
-    let musicRe = try! NSRegularExpression(pattern: "♪[^♪]*♪|♪.*$")
-    let nameRe = try! NSRegularExpression(pattern: #"^\s*[-–—]?\s*[\p{Lu}][\p{Lu} .'-]{1,20}:\s*"#)
-    let spacesRe = try! NSRegularExpression(pattern: #"\s{2,}"#)
+    let bracketRe = hiBracketRegex
+    let musicRe = hiMusicRegex
+    let nameRe = hiNameRegex
+    let spacesRe = hiSpacesRegex
 
     func replace(_ re: NSRegularExpression, _ s: String) -> String {
         let ns = s as NSString

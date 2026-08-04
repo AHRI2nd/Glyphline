@@ -10,11 +10,14 @@ struct HelpPanel: View {
             ("⌘Z", t("scUndo")), ("⌘⇧Z", t("scRedo")),
             ("⌘N", t("scNew")), ("⌘⇧O", t("scOpenMedia")),
             ("⌘F", t("scFind")), ("⌘Return", t("addCue")),
+            ("⌘O", t("scOpen")), ("⌘S", t("scSave")),
+            ("⌥⌘S", t("splitCue")), ("⇧⌘M", t("mergeCues")),
+            ("⌘D", t("ctxDuplicate")), ("⌘⌫", t("deleteCue")),
             ("↑ ↓", t("scNavCues")),
             ("I", t("scTimingIn")),
             ("O", t("scTimingOut")),
             ("P", t("scTimingChain")),
-            ("Space", t("playPause")),
+            ("⌘K", t("playPause")),
             ("← →", t("scNudgeCue")),
             ("⌥← ⌥→", t("scNudgeStart")),
             ("⌥⇧← ⌥⇧→", t("scNudgeEnd")),
@@ -24,7 +27,10 @@ struct HelpPanel: View {
     var body: some View {
         PanelShell(title: t("shortcuts"), width: 340) {
             Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 8) {
-                ForEach(rows, id: \.1) { key, desc in
+                // Keyed by the keycap, which is unique by construction — the
+                // description was the id before, and two commands sharing a
+                // translated label in some language would have collided.
+                ForEach(rows, id: \.0) { key, desc in
                     GridRow {
                         // Keycap style per CLAUDE.md: rounded border-zinc-600 bg-zinc-800 font-mono.
                         Text(key)

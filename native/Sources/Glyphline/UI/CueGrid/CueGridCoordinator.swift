@@ -72,9 +72,64 @@ final class CueGridCoordinator: NSObject, NSTableViewDataSource, NSTableViewDele
         }
     }
 
-    func reload() {
+    /// Last cue we scrolled to, so an active cue that's already on screen
+    /// doesn't get re-scrolled on every unrelated update.
+    private var lastScrolledCueId: String?
+    /// Cues currently under the playhead (more than one when they overlap).
+    private var playingCueIds: Set<String> = []
+
+    /// Marks the cues the playhead is inside and, while actually playing,
+    /// scrolls the first of them into view — so the list follows the video
+    /// without touching the selection. Runs on the ~80ms poll, so it exits
+    /// early on the common case where the set hasn't changed.
+    func syncPlayback(time: Double?, isPlaying: Bool) {
+        var next: Set<String> = []
+        var firstIdx: Int?
+        if let time {
+            for (i, cue) in rows.enumerated() {
+                if cue.start > time { break } // rows are start-sorted
+                if time < cue.end {
+                    next.insert(cue.id)
+                    if firstIdx == nil { firstIdx = i }
+                }
+            }
+        }
+        guard next != playingCueIds else { return }
+        let affected = next.symmetricDifference(playingCueIds)
+        playingCueIds = next
+        for id in affected {
+            guard let idx = rows.firstIndex(where: { $0.id == id }),
+                  let rowView = tableView?.rowView(atRow: idx, makeIfNecessary: false) as? CueRowView
+            else { continue }
+            rowView.isPlayingCue = next.contains(id)
+        }
+        // Only while playing: when paused the user is free to scroll and read
+        // elsewhere, matching how the waveform only re-centres during playback.
+        if isPlaying, let firstIdx {
+            tableView?.scrollRowToVisible(firstIdx)
+        }
+    }
+
+    /// Brings the active cue into view. Find & Replace, Quality Issues,
+    /// Proofreading and waveform selection all jump the active cue somewhere
+    /// else in the document; without this the grid stayed put, so clicking a
+    /// search hit or a flagged cue looked like it did nothing whenever the
+    /// target was outside the visible rows.
+    private func scrollActiveCueIntoView() {
+        guard let tableView, let id = lastActiveCueId, id != lastScrolledCueId,
+              let idx = rows.firstIndex(where: { $0.id == id }) else { return }
+        lastScrolledCueId = id
+        tableView.scrollRowToVisible(idx)
+    }
+
+    /// `force` re-renders cells even when the model is unchanged. Needed when
+    /// the CELLS have diverged from the model without the model moving — the
+    /// rejected-timecode path below leaves the user's unparseable text sitting
+    /// in the field editor, and only a real reloadData() rebuilds that cell
+    /// from the document and discards it.
+    func reload(force: Bool = false) {
         let newRows = sortedCues(document.doc.cues)
-        let needsFullReload = newRows != rows || qualityThresholds != lastReloadedThresholds
+        let needsFullReload = force || newRows != rows || qualityThresholds != lastReloadedThresholds
         rows = newRows
         if needsFullReload {
             lastReloadedThresholds = qualityThresholds
@@ -82,6 +137,9 @@ final class CueGridCoordinator: NSObject, NSTableViewDataSource, NSTableViewDele
             tableView?.reloadData()
         }
         applySelectionFromModel()
+        // After `rows` is current, so a freshly added cue (⌘Return) can be
+        // found and scrolled to on the same pass that inserts it.
+        scrollActiveCueIntoView()
     }
 
     private func applySelectionFromModel() {
@@ -151,6 +209,9 @@ final class CueGridCoordinator: NSObject, NSTableViewDataSource, NSTableViewDele
         view.identifier = id
         let cue = rows[row]
         view.isActiveCue = cue.id == lastActiveCueId
+        // Rows scrolled into view mid-playback must arrive already marked;
+        // syncPlayback only touches rows that exist at the moment it runs.
+        view.isPlayingCue = playingCueIds.contains(cue.id)
         view.overlapColor = overlapSlots[cue.id].map { GlyphColor.overlapPalette[$0] }
         return view
     }
@@ -271,10 +332,10 @@ final class CueGridCoordinator: NSObject, NSTableViewDataSource, NSTableViewDele
 
         switch column {
         case .start:
-            guard let t = parseTimestampInput(value) else { reload(); return }
+            guard let t = parseTimestampInput(value) else { reload(force: true); return }
             document.updateCue(cueId) { $0.start = t }
         case .end:
-            guard let t = parseTimestampInput(value) else { reload(); return }
+            guard let t = parseTimestampInput(value) else { reload(force: true); return }
             document.updateCue(cueId) { $0.end = t }
         case .style:
             document.updateCue(cueId) { $0.style = value.isEmpty ? nil : value }

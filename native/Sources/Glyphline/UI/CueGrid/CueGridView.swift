@@ -60,6 +60,10 @@ struct CueGridView: NSViewRepresentable {
         table.onTimingKey = { [weak coordinator = context.coordinator] key in
             coordinator?.handleTimingKey(key)
         }
+        table.onDeleteSelection = { [weak document] in
+            guard let document, !document.selectedIds.isEmpty else { return }
+            document.deleteCues(Array(document.selectedIds))
+        }
 
         let scroll = NSScrollView()
         scroll.documentView = table
@@ -97,6 +101,13 @@ struct CueGridView: NSViewRepresentable {
             }
         }
         context.coordinator.reload()
+        // Read after reload() so `rows` is current. Reading currentTime/isPlaying
+        // HERE (not inside a closure) is what registers this view for Observation
+        // updates on the playback poll — the grid follows the video from this.
+        context.coordinator.syncPlayback(
+            time: media.mediaPath != nil ? media.currentTime : nil,
+            isPlaying: media.isPlaying
+        )
     }
 
     /// Actor/Translation are optional (View ▸ 화자/번역 열 표시, default hidden —

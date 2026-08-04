@@ -61,6 +61,15 @@ struct SettingsPanel: View {
                         Text(MPVLibrary.isAvailable ? t("mpvInstalled") : t("mpvMissing"))
                             .font(GlyphFont.body(12))
                     }
+                    // The install command moved out of mpvMissing (it was being
+                    // printed twice in the video pane's empty state, which pairs
+                    // that title with mpvMissingDesc) — show it here instead, so
+                    // Settings still answers "then how do I install it?".
+                    if !MPVLibrary.isAvailable {
+                        Text(t("mpvMissingDesc"))
+                            .font(GlyphFont.body(11))
+                            .foregroundStyle(GlyphColor.quiet)
+                    }
                 }
             }
         } footer: {

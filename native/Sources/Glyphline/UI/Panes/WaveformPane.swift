@@ -8,8 +8,11 @@ import GlyphlineCore
 struct WaveformPane: View {
     let document: DocumentModel
     let media: MediaModel
+    let settings: AppSettings
     var onOpenMedia: () -> Void
-    @State private var zoomLevel: Double = 50 // 0–100, log scale — see WaveformScrollView
+    // 0–100, log scale (see WaveformScrollView). Lives in AppSettings so it
+    // survives relaunch rather than resetting to the default each session.
+    private var zoomLevel: Double { settings.waveformZoom }
 
     var body: some View {
         if media.mediaPath == nil {
@@ -26,7 +29,7 @@ struct WaveformPane: View {
                     Spacer()
                     Button("−") { zoomBy(0.8) }.buttonStyle(.plain)
                         .help(t("zoomOut")).accessibilityLabel(t("zoomOut"))
-                    Slider(value: $zoomLevel, in: 0...100).frame(width: 100).tint(GlyphColor.accentHover)
+                    Slider(value: Binding(get: { settings.waveformZoom }, set: { settings.waveformZoom = $0 }), in: 0...100).frame(width: 100).tint(GlyphColor.accentHover)
                     Button("＋") { zoomBy(1.25) }.buttonStyle(.plain)
                         .help(t("zoomIn")).accessibilityLabel(t("zoomIn"))
                 }
@@ -37,7 +40,7 @@ struct WaveformPane: View {
 
                 WaveformScrollView(
                     document: document, media: media, zoomLevel: zoomLevel,
-                    onZoomWheel: { delta in zoomLevel = min(100, max(0, zoomLevel + delta)) }
+                    onZoomWheel: { delta in settings.waveformZoom = min(100, max(0, zoomLevel + delta)) }
                 )
             }
         }
@@ -46,6 +49,6 @@ struct WaveformPane: View {
     private func zoomBy(_ factor: Double) {
         let px = WaveformScrollView.zoomLevelToPixels(zoomLevel) * factor
         // Invert zoomLevelToPixels (px = 10 · 50^(level/100)) to solve for level.
-        zoomLevel = min(100, max(0, 100 * log(px / 10) / log(50)))
+        settings.waveformZoom = min(100, max(0, 100 * log(px / 10) / log(50)))
     }
 }
