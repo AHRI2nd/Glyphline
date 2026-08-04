@@ -265,3 +265,12 @@
 "spellIgnoredWords" = "무시 중인 단어";
 "spellUnignore" = "무시 해제";
 "spellVariantOf" = "다른 표기: %@";
+
+"a11yWaveform" = "파형 타임라인";
+"a11yWaveformHelp" = "자막 %@개. 화살표 키로 선택된 자막의 시간을 조정합니다.";
+"a11yCueRegion" = "자막 %@, %@부터 %@까지. %@";
+"a11yQualityIssues" = "품질 문제: %@";
+"a11yNoIssues" = "문제 없음";
+"scNudgeCue" = "선택한 자막 전체를 0.1초 이동 (파형)";
+"scNudgeStart" = "시작 지점을 0.1초 이동 (파형)";
+"scNudgeEnd" = "종료 지점을 0.1초 이동 (파형)";

@@ -265,3 +265,12 @@
 "spellIgnoredWords" = "無視中の単語";
 "spellUnignore" = "無視を解除";
 "spellVariantOf" = "別の表記: %@";
+
+"a11yWaveform" = "波形タイムライン";
+"a11yWaveformHelp" = "字幕 %@件。矢印キーで選択中の字幕のタイミングを調整します。";
+"a11yCueRegion" = "字幕 %@、%@ から %@ まで。%@";
+"a11yQualityIssues" = "品質の問題: %@";
+"a11yNoIssues" = "問題なし";
+"scNudgeCue" = "選択した字幕全体を0.1秒移動 (波形)";
+"scNudgeStart" = "開始位置を0.1秒移動 (波形)";
+"scNudgeEnd" = "終了位置を0.1秒移動 (波形)";

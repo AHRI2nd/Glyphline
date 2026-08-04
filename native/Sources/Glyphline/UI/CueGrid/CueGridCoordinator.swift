@@ -210,7 +210,15 @@ final class CueGridCoordinator: NSObject, NSTableViewDataSource, NSTableViewDele
     /// the tooltip even names it.
     private func makeFlagView(quality q: CueQuality) -> NSView {
         let container = NSView()
-        guard hasAnyIssue(q) else { return container }
+        // The dot is pure color with no text, so its meaning is invisible to
+        // VoiceOver unless spelled out here.
+        container.setAccessibilityElement(true)
+        container.setAccessibilityRole(.staticText)
+        guard hasAnyIssue(q) else {
+            container.setAccessibilityLabel(t("a11yNoIssues"))
+            return container
+        }
+        container.setAccessibilityLabel(t("a11yQualityIssues", issueSummary(q).replacingOccurrences(of: "\n", with: ", ")))
         let isHardIssue = q.negativeDuration || q.overlapsPrev
         let dot = NSView(frame: NSRect(x: 4, y: 9, width: 6, height: 6))
         dot.wantsLayer = true

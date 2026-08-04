@@ -15,6 +15,9 @@ struct HelpPanel: View {
             ("O", t("scTimingOut")),
             ("P", t("scTimingChain")),
             ("Space", t("playPause")),
+            ("← →", t("scNudgeCue")),
+            ("⌥← ⌥→", t("scNudgeStart")),
+            ("⌥⇧← ⌥⇧→", t("scNudgeEnd")),
         ]
     }
 

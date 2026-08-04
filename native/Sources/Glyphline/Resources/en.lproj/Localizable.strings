@@ -265,3 +265,12 @@
 "spellIgnoredWords" = "Ignored words";
 "spellUnignore" = "Stop ignoring";
 "spellVariantOf" = "Also spelled: %@";
+
+"a11yWaveform" = "Waveform timeline";
+"a11yWaveformHelp" = "%@ cues. Use arrow keys to adjust the selected cue's timing.";
+"a11yCueRegion" = "Cue %@, %@ to %@. %@";
+"a11yQualityIssues" = "Quality issues: %@";
+"a11yNoIssues" = "No issues";
+"scNudgeCue" = "Slide the selected cue by 0.1s (waveform)";
+"scNudgeStart" = "Move the start by 0.1s (waveform)";
+"scNudgeEnd" = "Move the end by 0.1s (waveform)";

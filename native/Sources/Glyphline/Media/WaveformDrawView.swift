@@ -144,6 +144,10 @@ final class WaveformDrawView: NSView {
     // ── drag gestures ────────────────────────────────────────────────────────────
 
     override func mouseDown(with event: NSEvent) {
+        // Clicking the waveform hands it keyboard focus, so the arrow-key
+        // timing edits below apply to whatever the user just clicked on
+        // without a separate Tab press.
+        window?.makeFirstResponder(self)
         let p = convert(event.locationInWindow, from: nil)
         pressOriginX = p.x
         let t = time(atX: p.x)
@@ -224,6 +228,54 @@ final class WaveformDrawView: NSView {
         onZoomWheel?(event.deltaY > 0 ? 4 : -4)
     }
 
+    // ── keyboard operation ───────────────────────────────────────────────────────
+    // Timing editing was drag-only, which made the waveform — the surface where
+    // timing work actually happens — unusable without a mouse. These mirror the
+    // three drag affordances exactly (slide body / move start edge / move end
+    // edge) so the keyboard path teaches the same model as the pointer one.
+    // ⌘-based combos are avoided: ⌘←/→ and ⌘⇧←/→ are already the Playback
+    // menu's skip shortcuts and would win over any local handler.
+
+    /// Seconds per arrow press. Matches the drag path's feel at default zoom
+    /// without being so fine that keyboard retiming takes hundreds of presses.
+    private let nudgeStep: Double = 0.1
+
+    override var acceptsFirstResponder: Bool { true }
+    override func becomeFirstResponder() -> Bool { needsDisplay = true; return true }
+    override func resignFirstResponder() -> Bool { needsDisplay = true; return true }
+
+    override func keyDown(with event: NSEvent) {
+        let code = event.keyCode
+        // 123 = left arrow, 124 = right arrow.
+        guard code == 123 || code == 124 else {
+            super.keyDown(with: event)
+            return
+        }
+        guard let id = activeCueId, let cue = cues.first(where: { $0.id == id }) else {
+            super.keyDown(with: event)
+            return
+        }
+        let delta = (code == 124 ? nudgeStep : -nudgeStep)
+        let option = event.modifierFlags.contains(.option)
+        let shift = event.modifierFlags.contains(.shift)
+
+        var start = cue.start, end = cue.end
+        if option && shift {
+            end = max(start + minDuration, cue.end + delta)
+        } else if option {
+            start = max(0, min(cue.end - minDuration, cue.start + delta))
+        } else {
+            start = max(0, cue.start + delta)
+            end = start + (cue.end - cue.start)
+        }
+        // Bracketed so a burst of held-down presses collapses into one undo
+        // entry only if the caller chooses to; each discrete press is its own
+        // edit here, matching how the grid's own field edits behave.
+        onBeginEdit?()
+        onAdjustCue?(id, start, end)
+        onEndEdit?()
+    }
+
     // ── drawing ──────────────────────────────────────────────────────────────────
 
     override func draw(_ dirtyRect: NSRect) {
@@ -234,6 +286,7 @@ final class WaveformDrawView: NSView {
         drawCueRegions(ctx, dirtyRect: dirtyRect)
         drawPeaks(ctx, dirtyRect: dirtyRect)
         drawPlayhead(ctx)
+        drawFocusRing(ctx)
     }
 
     private func drawPeaks(_ ctx: CGContext, dirtyRect: NSRect) {
@@ -352,5 +405,49 @@ final class WaveformDrawView: NSView {
         ctx.move(to: CGPoint(x: x, y: 0))
         ctx.addLine(to: CGPoint(x: x, y: bounds.height))
         ctx.strokePath()
+    }
+
+    /// Keyboard focus has to be visible for the arrow-key editing above to be
+    /// discoverable — drawn on the clip view's visible rect rather than
+    /// `bounds` because this view is the full scrollable width (often many
+    /// screens wide), so a bounds-sized ring would be almost entirely
+    /// off-screen.
+    private func drawFocusRing(_ ctx: CGContext) {
+        guard window?.firstResponder === self else { return }
+        let visible = enclosingScrollView?.contentView.documentVisibleRect ?? bounds
+        ctx.setStrokeColor(NSColor(GlyphColor.signalLight).withAlphaComponent(0.9).cgColor)
+        ctx.setLineWidth(2)
+        ctx.stroke(visible.insetBy(dx: 1, dy: 1))
+    }
+
+    // ── accessibility ────────────────────────────────────────────────────────────
+    // Without these the whole waveform is a single unlabeled blank element to
+    // VoiceOver: the cue regions are drawn pixels, not subviews, so there is
+    // nothing for assistive tech to find unless it's published explicitly.
+
+    override func isAccessibilityElement() -> Bool { true }
+    override func accessibilityRole() -> NSAccessibility.Role? { .group }
+    override func accessibilityLabel() -> String? { t("a11yWaveform") }
+    override func accessibilityHelp() -> String? { t("a11yWaveformHelp", "\(cues.count)") }
+
+    override func accessibilityChildren() -> [Any]? {
+        cues.enumerated().map { index, cue in
+            let element = NSAccessibilityElement()
+            element.setAccessibilityRole(.button)
+            element.setAccessibilityLabel(t(
+                "a11yCueRegion",
+                "\(index + 1)",
+                formatDisplayTime(cue.start),
+                formatDisplayTime(cue.end),
+                cue.text.replacingOccurrences(of: "\n", with: " ")
+            ))
+            element.setAccessibilityParent(self)
+            let rect = NSRect(
+                x: CGFloat(cue.start) * pxPerSec, y: 0,
+                width: max(1, CGFloat(cue.end - cue.start) * pxPerSec), height: bounds.height
+            )
+            element.setAccessibilityFrameInParentSpace(rect)
+            return element
+        }
     }
 }
