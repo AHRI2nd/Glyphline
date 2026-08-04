@@ -11,10 +11,20 @@
 // distinct treatment so they're never mistaken for each other.
 
 import AppKit
+import SwiftUI
 
 final class CueRowView: NSTableRowView {
     var isActiveCue: Bool = false {
         didSet { if isActiveCue != oldValue { needsDisplay = true } }
+    }
+
+    /// Set when this row's cue overlaps another cue in time — a color from
+    /// GlyphColor.overlapPalette, matching the same cue's region on the
+    /// waveform, so a row and its region can be told apart from their
+    /// neighbors and correlated with each other by color. nil for the common
+    /// case (no overlap): most rows should never carry this.
+    var overlapColor: Color? {
+        didSet { needsDisplay = true }
     }
 
     override var isSelected: Bool {
@@ -42,6 +52,14 @@ final class CueRowView: NSTableRowView {
             bounds.fill()
             NSColor(GlyphColor.signalLight).setFill()
             NSRect(x: 0, y: 0, width: GlyphMetric.spineWidth, height: bounds.height).fill()
+        }
+        // Mirrors the active-cue spine but on the right edge, in the
+        // overlap palette instead of signalLight — "left spine = now,
+        // right spine = clashes with another cue" reads as two distinct
+        // facts rather than competing for the same stripe.
+        if let overlapColor {
+            NSColor(overlapColor).setFill()
+            NSRect(x: bounds.width - GlyphMetric.spineWidth, y: 0, width: GlyphMetric.spineWidth, height: bounds.height).fill()
         }
     }
 }

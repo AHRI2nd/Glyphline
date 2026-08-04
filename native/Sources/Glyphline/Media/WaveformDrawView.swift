@@ -16,14 +16,23 @@
 // matching the original Tauri build's palette.
 
 import AppKit
+import SwiftUI
 import GlyphlineCore
 
 final class WaveformDrawView: NSView {
     var audio: WaveformAudio? { didSet { needsDisplay = true } }
     var pxPerSec: CGFloat = 71 { didSet { needsDisplay = true } }
-    var cues: [Cue] = [] { didSet { needsDisplay = true } }
+    var cues: [Cue] = [] {
+        didSet {
+            overlapSlots = overlapColorSlots(for: cues, paletteSize: GlyphColor.overlapPalette.count)
+            needsDisplay = true
+        }
+    }
     var activeCueId: String? { didSet { needsDisplay = true } }
     var currentTime: Double = 0 { didSet { needsDisplay = true } }
+    /// cue id → overlapPalette index, for cues that overlap another cue —
+    /// recomputed whenever `cues` changes (see overlapColorSlots).
+    private var overlapSlots: [String: Int] = [:]
 
     var onSeek: ((Double) -> Void)?
     /// Cmd/Ctrl+scroll → zoom (delta: +4 per notch in, −4 out). Plain scroll
@@ -251,20 +260,25 @@ final class WaveformDrawView: NSView {
 
     private func drawCueRegions(_ ctx: CGContext) {
         let draggingId = draggingCueId
-        for cue in cues {
+        for (index, cue) in cues.enumerated() {
             let x0 = CGFloat(cue.start) * pxPerSec
             let x1 = CGFloat(cue.end) * pxPerSec
             let rect = CGRect(x: x0, y: 0, width: max(1, x1 - x0), height: bounds.height)
             let active = cue.id == activeCueId
             let hovered = hoverGrab?.id == cue.id
             let dragging = draggingId == cue.id
+            // Overlapping cues get a color from the rotating palette instead
+            // of the plain accent fill, so two regions covering the same
+            // stretch of time no longer look like one indistinguishable blob.
+            let overlapTint: Color? = overlapSlots[cue.id].map { GlyphColor.overlapPalette[$0] }
+            let baseColor = overlapTint ?? GlyphColor.signal
 
-            let fill: CGFloat = dragging ? 0.24 : (active ? 0.16 : (hovered ? 0.12 : 0.07))
-            ctx.setFillColor(NSColor(GlyphColor.signal).withAlphaComponent(fill).cgColor)
+            let fill: CGFloat = dragging ? 0.28 : (active ? 0.20 : (hovered ? 0.16 : (overlapTint != nil ? 0.14 : 0.07)))
+            ctx.setFillColor(NSColor(baseColor).withAlphaComponent(fill).cgColor)
             ctx.fill(rect)
 
             if active || dragging {
-                ctx.setStrokeColor(NSColor(GlyphColor.signal).withAlphaComponent(0.6).cgColor)
+                ctx.setStrokeColor(NSColor(baseColor).withAlphaComponent(0.6).cgColor)
                 ctx.setLineWidth(1)
                 ctx.stroke(rect.insetBy(dx: 0.5, dy: 0.5))
             }
@@ -283,7 +297,30 @@ final class WaveformDrawView: NSView {
                 ctx.addLine(to: CGPoint(x: x, y: bounds.height))
                 ctx.strokePath()
             }
+
+            drawCueNumber(ctx, index + 1, in: rect, tint: overlapTint)
         }
+    }
+
+    /// The cue's 1-based position — the same number shown in the grid's `#`
+    /// column — so a region on the waveform and its row in the grid are
+    /// identifiable as the same cue without having to match colors alone.
+    private func drawCueNumber(_ ctx: CGContext, _ number: Int, in rect: CGRect, tint: Color?) {
+        let attributed = NSAttributedString(string: "\(number)", attributes: [
+            .font: NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .semibold),
+            .foregroundColor: NSColor(GlyphColor.ink),
+        ])
+        let textSize = attributed.size()
+        let hPad: CGFloat = 4, vPad: CGFloat = 2
+        let chipSize = CGSize(width: textSize.width + hPad * 2, height: textSize.height + vPad)
+        // Too narrow to fit a legible chip at this zoom level — skip rather
+        // than draw an illegible smear.
+        guard rect.width >= chipSize.width + 4 else { return }
+        let chipRect = CGRect(x: rect.minX + 2, y: 2, width: chipSize.width, height: chipSize.height)
+        ctx.setFillColor(NSColor(tint ?? GlyphColor.signal).withAlphaComponent(0.9).cgColor)
+        ctx.addPath(CGPath(roundedRect: chipRect, cornerWidth: 3, cornerHeight: 3, transform: nil))
+        ctx.fillPath()
+        attributed.draw(at: CGPoint(x: chipRect.minX + hPad, y: chipRect.minY + vPad / 2))
     }
 
     private var draggingCueId: String? {

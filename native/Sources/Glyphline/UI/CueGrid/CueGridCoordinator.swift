@@ -11,6 +11,9 @@ final class CueGridCoordinator: NSObject, NSTableViewDataSource, NSTableViewDele
     weak var tableView: NSTableView?
 
     private var rows: [Cue] = []
+    /// cue id → overlapPalette index, recomputed alongside `rows` — see
+    /// overlapColorSlots and CueRowView.overlapColor.
+    private var overlapSlots: [String: Int] = [:]
     private var lastActiveCueId: String?
     private var lastSelectedIds: Set<String> = []
     private var isApplyingExternalSelection = false
@@ -42,6 +45,7 @@ final class CueGridCoordinator: NSObject, NSTableViewDataSource, NSTableViewDele
 
     func reload() {
         rows = sortedCues(document.doc.cues)
+        overlapSlots = overlapColorSlots(for: rows, paletteSize: GlyphColor.overlapPalette.count)
         tableView?.reloadData()
         applySelectionFromModel()
     }
@@ -111,7 +115,9 @@ final class CueGridCoordinator: NSObject, NSTableViewDataSource, NSTableViewDele
         let id = NSUserInterfaceItemIdentifier("CueRowView")
         let view = (tableView.makeView(withIdentifier: id, owner: self) as? CueRowView) ?? CueRowView()
         view.identifier = id
-        view.isActiveCue = rows[row].id == lastActiveCueId
+        let cue = rows[row]
+        view.isActiveCue = cue.id == lastActiveCueId
+        view.overlapColor = overlapSlots[cue.id].map { GlyphColor.overlapPalette[$0] }
         return view
     }
 

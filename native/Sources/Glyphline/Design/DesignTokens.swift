@@ -60,6 +60,21 @@ public enum GlyphColor {
     public static let amber = Color(hex: 0xf59e0b)
     /// Validated / saved / no-issues state — emerald-400.
     public static let good = Color(hex: 0x34d399)
+
+    /// Rotating palette for telling overlapping cues apart on the waveform and
+    /// in the cue grid (see `overlapColorSlots`). Deliberately outside the
+    /// red/orange/amber/emerald/indigo already claimed above — those already
+    /// mean "quality problem" and "current/selected" elsewhere in this exact
+    /// app, and reusing them here would contradict that meaning. Only cues
+    /// that actually overlap get a color from this set; everything else stays
+    /// unhighlighted, so the palette reads as "these clash" and nothing else.
+    public static let overlapPalette: [Color] = [
+        Color(hex: 0x22d3ee), // cyan-400
+        Color(hex: 0xe879f9), // fuchsia-400
+        Color(hex: 0x2dd4bf), // teal-400
+        Color(hex: 0xc084fc), // purple-400
+        Color(hex: 0x0ea5e9), // sky-500
+    ]
 }
 
 public enum GlyphFont {
