@@ -12,14 +12,7 @@
 "panelWaveform" = "波形";
 "panelSubtitles" = "字幕";
 "noMedia" = "メディアを開いてください（ファイル ▸ メディアを開く）";
-"pluginManager" = "プラグイン管理";
-"pluginOpen" = "開く";
-"pluginAdd" = "追加";
-"pluginAddNew" = "新しいプラグインを追加 (URL)";
-"pluginName" = "名前";
-"plugins" = "プラグイン";
-"editTags" = "インラインタグ編集…";
-"inlineTagEditor" = "インラインタグ編集 (ASS)";
+"inlineTagEditor" = "インラインタグ編集";
 "tagColor" = "色";
 "tagStructured" = "構造";
 "tagRaw" = "Raw";
@@ -70,7 +63,7 @@
 "shiftTime" = "時間シフト";
 "fixOverlaps" = "重なりを自動修正";
 "removeEmptyCues" = "空の字幕を削除";
-"batchCleanup" = "一括クリーンアップ…";
+"batchCleanup" = "一括クリーンアップ";
 "minGap" = "最小間隔を適用";
 "durationLimits" = "表示時間の制限を適用";
 "secondsSuffix" = "秒";
@@ -83,7 +76,7 @@
 "scopeSelected" = "選択した字幕のみ";
 "removeHearingImpaired" = "聴覚障害者向けテキストを削除";
 "removeHearingImpairedHint" = "[効果音]、(笑)、♪ 歌詞 ♪、話者名: などを削除します。";
-"pointSync" = "ポイント同期…";
+"pointSync" = "ポイント同期";
 "pointSyncHint" = "2つの基準点の現在時間 → 正しい時間を指定すると、全字幕を線形に再タイミングします。一定のずれと進行性のずれ（フレームレート不一致）の両方を修正できます。";
 "pointA" = "ポイント A";
 "pointB" = "ポイント B";
@@ -93,7 +86,7 @@
 "usePlayhead" = "再生位置";
 "pointSyncInvalidTime" = "時間の形式が正しくありません。";
 "pointSyncSamePoints" = "2つの基準点の現在時間が同じため、変換を計算できません。";
-"changeSpeed" = "速度変更…";
+"changeSpeed" = "速度変更";
 "changeSpeedHint" = "すべてのタイムスタンプに倍率を掛けます。フレームレートが異なる映像（例: 23.976↔25fps）に合わせる時に使います。";
 "customFactor" = "カスタム";
 "changeSpeedInvalid" = "0より大きい倍率を入力してください。";
@@ -148,7 +141,7 @@
 "qPresetNetflix" = "Netflix";
 "noCues" = "字幕がありません";
 "emptyHint" = "ファイルを開くか、字幕を追加してください。";
-"findReplace" = "検索・置換…";
+"findReplace" = "検索・置換";
 "findPlaceholder" = "検索する内容";
 "replacePlaceholder" = "置換する内容";
 "matchCase" = "大文字と小文字を区別";
@@ -163,7 +156,6 @@
 "cpsHigh" = "CPS 超過（速すぎ）";
 "tooShort" = "表示時間が短すぎ";
 "tooLong" = "表示時間が長すぎ";
-"confirm" = "OK";
 "cancel" = "キャンセル";
 "close" = "閉じる";
 "newFileConfirm" = "現在の作業を破棄して新規ファイルを作成しますか？未保存の変更は失われます。";
@@ -187,16 +179,12 @@
 "scTimingIn" = "再生位置 → アクティブ字幕の開始（ライブタイミング）";
 "scTimingOut" = "再生位置 → 終了して次の字幕へ";
 "scTimingChain" = "終了＋次の字幕の開始を同時刻に";
-"styles" = "スタイル";
-"styleManager" = "スタイルマネージャ";
+"styleManager" = "スタイル管理";
 "addStyle" = "スタイル追加";
 "deleteStyle" = "削除";
 "styleName" = "名前";
 "font" = "フォント";
 "fontSize" = "サイズ";
-"primaryColour" = "基本色";
-"outlineColour" = "縁取り色";
-"backColour" = "背景/影色";
 "bold" = "太字";
 "italic" = "斜体";
 "outlineWidth" = "縁取り幅";
@@ -220,30 +208,9 @@
 "lossOther" = "その他のタグ";
 
 /* Native-only additions (no Tauri equivalent — AppKit menu/dialog specifics). */
-"menuNewFile" = "新規ファイル";
 "menuOpenSubtitle" = "字幕を開く…";
-"menuOpenMedia" = "メディアを開く…";
-"menuSave" = "保存";
 "menuSaveAs" = "名前を付けて保存…";
-"menuExport" = "書き出し";
 "menuExportTranslation" = "翻訳をエクスポート…";
-"menuPreferences" = "環境設定…";
-"menuHelp" = "Glyphline ヘルプ";
-"menuFindReplace" = "検索・置換…";
-"menuAddCue" = "字幕を追加";
-"menuMerge" = "結合";
-"menuDelete" = "削除";
-"menuPointSync" = "ポイント同期…";
-"menuChangeSpeed" = "速度変更…";
-"menuBatchCleanup" = "一括クリーンアップ…";
-"menuStyleManager" = "スタイル管理…";
-"menuInlineTagEditor" = "インラインタグ編集…";
-"menuEmbeddedAssets" = "埋め込みフォント/グラフィック…";
-"menuRawEditor" = "ソーステキスト編集…";
-"menuStatistics" = "統計…";
-"menuUndo" = "元に戻す";
-"menuRedo" = "やり直し";
-"menuClearRecentFiles" = "リストをクリア";
 "errorTitle" = "エラー";
 "ok" = "OK";
 "exportSmiCp949" = "SAMI · CP949 (.smi)";
@@ -252,9 +219,6 @@
 "mpvMissing" = "mpv がインストールされていません (brew install mpv)";
 "mpvInstalled" = "インストール済み";
 "mediaEngine" = "メディアエンジン (mpv)";
-"waveformPanelTitle" = "波形";
-"videoPanelTitle" = "映像";
-"cuesPanelTitle" = "字幕";
 "colorPrimary" = "本文色";
 "colorOutline" = "縁取り色";
 "colorBack" = "背景色";
@@ -283,7 +247,6 @@
 "dockSplitBottom" = "下に分割";
 
 "spellCheck" = "校正";
-"spellCheckMenu" = "校正…";
 "spellNoIssues" = "✓ 指摘なし";
 "spellIssueCount" = "%@件";
 "spellUnknownWord" = "辞書にありません";

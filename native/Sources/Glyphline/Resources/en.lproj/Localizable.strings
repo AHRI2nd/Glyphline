@@ -12,14 +12,7 @@
 "panelWaveform" = "Waveform";
 "panelSubtitles" = "Subtitles";
 "noMedia" = "Open media first (File ▸ Open Media)";
-"pluginManager" = "Plugin Manager";
-"pluginOpen" = "Open";
-"pluginAdd" = "Add";
-"pluginAddNew" = "Add new plugin (URL)";
-"pluginName" = "Name";
-"plugins" = "Plugins";
-"editTags" = "Edit Inline Tags…";
-"inlineTagEditor" = "Inline Tag Editor (ASS)";
+"inlineTagEditor" = "Edit Inline Tags";
 "tagColor" = "Color";
 "tagStructured" = "Structured";
 "tagRaw" = "Raw";
@@ -70,7 +63,7 @@
 "shiftTime" = "Shift time";
 "fixOverlaps" = "Fix Overlaps";
 "removeEmptyCues" = "Remove Empty Cues";
-"batchCleanup" = "Batch Cleanup…";
+"batchCleanup" = "Batch Cleanup";
 "minGap" = "Apply Minimum Gap";
 "durationLimits" = "Apply Duration Limits";
 "secondsSuffix" = "s";
@@ -83,7 +76,7 @@
 "scopeSelected" = "Selected only";
 "removeHearingImpaired" = "Remove Text for Hearing Impaired";
 "removeHearingImpairedHint" = "Removes [SFX], (laughs), ♪ lyrics ♪, speaker NAME: labels, etc.";
-"pointSync" = "Point Sync…";
+"pointSync" = "Point Sync";
 "pointSyncHint" = "Give the current → correct time of two anchor points; all cues are retimed linearly. Fixes both constant offsets and progressive drift (framerate mismatch).";
 "pointA" = "Point A";
 "pointB" = "Point B";
@@ -93,7 +86,7 @@
 "usePlayhead" = "Playhead";
 "pointSyncInvalidTime" = "Invalid time format.";
 "pointSyncSamePoints" = "The two source times are identical — cannot compute a transform.";
-"changeSpeed" = "Change Speed…";
+"changeSpeed" = "Change Speed";
 "changeSpeedHint" = "Multiplies every timestamp by a ratio. Use to match videos with a different framerate (e.g. 23.976↔25 fps).";
 "customFactor" = "Custom";
 "changeSpeedInvalid" = "Enter a factor greater than 0.";
@@ -148,7 +141,7 @@
 "qPresetNetflix" = "Netflix";
 "noCues" = "No cues";
 "emptyHint" = "Open a file or add a cue to begin.";
-"findReplace" = "Find & Replace…";
+"findReplace" = "Find & Replace";
 "findPlaceholder" = "Find";
 "replacePlaceholder" = "Replace with";
 "matchCase" = "Match case";
@@ -163,12 +156,11 @@
 "cpsHigh" = "CPS too high (too fast)";
 "tooShort" = "Display time too short";
 "tooLong" = "Display time too long";
-"confirm" = "OK";
 "cancel" = "Cancel";
 "close" = "Close";
 "newFileConfirm" = "Discard the current work and start a new file? Unsaved changes will be lost.";
 "chooseExportFormat" = "Choose a format to export";
-"rawEdit" = "Edit raw text";
+"rawEdit" = "Edit Raw Text";
 "rawEditHint" = "Serialized in the current format. Editing and applying re-parses it.";
 "apply" = "Apply";
 "shiftPrompt" = "Seconds to shift. Negative moves earlier.";
@@ -187,16 +179,12 @@
 "scTimingIn" = "Playhead → active cue start (live timing)";
 "scTimingOut" = "Playhead → end, then next cue";
 "scTimingChain" = "End + start next cue at the same time";
-"styles" = "Styles";
 "styleManager" = "Style Manager";
 "addStyle" = "Add style";
 "deleteStyle" = "Delete";
 "styleName" = "Name";
 "font" = "Font";
 "fontSize" = "Size";
-"primaryColour" = "Primary colour";
-"outlineColour" = "Outline colour";
-"backColour" = "Back/shadow colour";
 "bold" = "Bold";
 "italic" = "Italic";
 "outlineWidth" = "Outline width";
@@ -220,30 +208,9 @@
 "lossOther" = "Other tags";
 
 /* Native-only additions (no Tauri equivalent — AppKit menu/dialog specifics). */
-"menuNewFile" = "New File";
 "menuOpenSubtitle" = "Open Subtitle…";
-"menuOpenMedia" = "Open Media…";
-"menuSave" = "Save";
 "menuSaveAs" = "Save As…";
-"menuExport" = "Export";
 "menuExportTranslation" = "Export Translation…";
-"menuPreferences" = "Preferences…";
-"menuHelp" = "Glyphline Help";
-"menuFindReplace" = "Find & Replace…";
-"menuAddCue" = "Add Cue";
-"menuMerge" = "Merge";
-"menuDelete" = "Delete";
-"menuPointSync" = "Point Sync…";
-"menuChangeSpeed" = "Change Speed…";
-"menuBatchCleanup" = "Batch Cleanup…";
-"menuStyleManager" = "Style Manager…";
-"menuInlineTagEditor" = "Edit Inline Tags…";
-"menuEmbeddedAssets" = "Embedded Fonts/Graphics…";
-"menuRawEditor" = "Edit Raw Text…";
-"menuStatistics" = "Statistics…";
-"menuUndo" = "Undo";
-"menuRedo" = "Redo";
-"menuClearRecentFiles" = "Clear List";
 "errorTitle" = "Error";
 "ok" = "OK";
 "exportSmiCp949" = "SAMI · CP949 (.smi)";
@@ -252,9 +219,6 @@
 "mpvMissing" = "mpv is not installed (brew install mpv)";
 "mpvInstalled" = "Installed";
 "mediaEngine" = "Media Engine (mpv)";
-"waveformPanelTitle" = "Waveform";
-"videoPanelTitle" = "Video";
-"cuesPanelTitle" = "Subtitles";
 "colorPrimary" = "Primary color";
 "colorOutline" = "Outline color";
 "colorBack" = "Back color";
@@ -283,7 +247,6 @@
 "dockSplitBottom" = "Split bottom";
 
 "spellCheck" = "Proofreading";
-"spellCheckMenu" = "Proofreading…";
 "spellNoIssues" = "✓ Nothing flagged";
 "spellIssueCount" = "%@ items";
 "spellUnknownWord" = "Not in dictionary";

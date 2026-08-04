@@ -66,3 +66,14 @@ func t(_ key: String) -> String {
 func t(_ key: String, _ args: CVarArg...) -> String {
     String(format: t(key), arguments: args)
 }
+
+/// Label for a command that needs more input before it can finish — i.e. one
+/// that opens a dialog. macOS marks those with a trailing ellipsis.
+///
+/// The ellipsis is added here rather than baked into the strings files so each
+/// concept has exactly ONE name: "일괄 정리" is the panel's title and
+/// `menuLabel("batchCleanup")` is the menu item that opens it. Storing both
+/// spellings separately is what let them drift apart (a panel titled
+/// "스타일 매니저" opened by a menu item called "스타일 관리…").
+@MainActor
+func menuLabel(_ key: String) -> String { t(key) + "…" }

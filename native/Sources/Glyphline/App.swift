@@ -19,17 +19,17 @@ struct GlyphlineApp: App {
         }
         .commands {
             CommandGroup(replacing: .newItem) {
-                Button(t("menuNewFile")) { state.document.newDocument() }
+                Button(t("newFile")) { state.document.newDocument() }
                     .keyboardShortcut("n", modifiers: .command)
                 Button(t("menuOpenSubtitle")) { state.openSubtitlePicker() }
                     .keyboardShortcut("o", modifiers: .command)
                 recentFilesMenu
-                Button(t("menuOpenMedia")) { state.openMediaPicker() }
+                Button(t("openMedia")) { state.openMediaPicker() }
                     .keyboardShortcut("o", modifiers: [.command, .shift])
                 Button(t("closeMedia")) { state.media.closeMedia() }
                     .disabled(state.media.mediaPath == nil)
                 Divider()
-                Button(t("menuSave")) { state.saveDocument() }
+                Button(t("save")) { state.saveDocument() }
                     .keyboardShortcut("s", modifiers: .command)
                 Button(t("menuSaveAs")) { state.saveDocumentAs() }
                     .keyboardShortcut("s", modifiers: [.command, .shift])
@@ -39,42 +39,42 @@ struct GlyphlineApp: App {
                 }
             }
             CommandGroup(replacing: .undoRedo) {
-                Button(t("menuUndo")) { state.document.undo() }
+                Button(t("undo")) { state.document.undo() }
                     .keyboardShortcut("z", modifiers: .command)
                     .disabled(!state.document.canUndo)
-                Button(t("menuRedo")) { state.document.redo() }
+                Button(t("redo")) { state.document.redo() }
                     .keyboardShortcut("z", modifiers: [.command, .shift])
                     .disabled(!state.document.canRedo)
                 Divider()
-                Button(t("menuFindReplace")) { state.activePanel = .findReplace }
+                Button(menuLabel("findReplace")) { state.activePanel = .findReplace }
                     .keyboardShortcut("f", modifiers: .command)
             }
             CommandMenu(t("subtitleMenu")) {
-                Button(t("menuAddCue")) { state.document.addCue() }
+                Button(t("addCue")) { state.document.addCue() }
                     .keyboardShortcut(.return, modifiers: .command)
                 Button(t("splitCue")) { splitActiveCue() }
                     .disabled(state.document.activeCueId == nil)
-                Button(t("menuMerge")) {
+                Button(t("mergeCues")) {
                     state.document.mergeCues(Array(state.document.selectedIds))
                 }
                 .disabled(state.document.selectedIds.count < 2)
-                Button(t("menuDelete")) {
+                Button(t("deleteCue")) {
                     state.document.deleteCues(Array(state.document.selectedIds))
                 }
                 .disabled(state.document.selectedIds.isEmpty)
                 Divider()
-                Button(t("shiftTime")) { state.activePanel = .shiftTime }
-                Button(t("menuPointSync")) { state.activePanel = .pointSync }
-                Button(t("menuChangeSpeed")) { state.activePanel = .changeSpeed }
-                Button(t("menuBatchCleanup")) { state.activePanel = .batchCleanup }
-                Button(t("menuStatistics")) { state.activePanel = .statistics }
-                Button(t("qualityIssues")) { state.activePanel = .qualityIssues }
-                Button(t("spellCheckMenu")) { state.activePanel = .spellCheck }
+                Button(menuLabel("shiftTime")) { state.activePanel = .shiftTime }
+                Button(menuLabel("pointSync")) { state.activePanel = .pointSync }
+                Button(menuLabel("changeSpeed")) { state.activePanel = .changeSpeed }
+                Button(menuLabel("batchCleanup")) { state.activePanel = .batchCleanup }
+                Button(menuLabel("statistics")) { state.activePanel = .statistics }
+                Button(menuLabel("qualityIssues")) { state.activePanel = .qualityIssues }
+                Button(menuLabel("spellCheck")) { state.activePanel = .spellCheck }
                 Divider()
-                Button(t("menuStyleManager")) { state.activePanel = .styleManager }
-                Button(t("menuInlineTagEditor")) { state.activePanel = .inlineTagEditor }
-                Button(t("menuEmbeddedAssets")) { state.activePanel = .embeddedAssets }
-                Button(t("menuRawEditor")) { state.activePanel = .rawEditor }
+                Button(menuLabel("styleManager")) { state.activePanel = .styleManager }
+                Button(menuLabel("inlineTagEditor")) { state.activePanel = .inlineTagEditor }
+                Button(menuLabel("embeddedAssets")) { state.activePanel = .embeddedAssets }
+                Button(menuLabel("rawEdit")) { state.activePanel = .rawEditor }
             }
             // No Space accelerator here — it would block typing spaces in cue
             // text (matches appMenu.ts's playbackMenu).
@@ -92,7 +92,7 @@ struct GlyphlineApp: App {
                     .keyboardShortcut(.rightArrow, modifiers: [.command, .shift])
             }
             CommandGroup(after: .appSettings) {
-                Button(t("menuPreferences")) { state.activePanel = .settings }
+                Button(menuLabel("settings")) { state.activePanel = .settings }
                     .keyboardShortcut(",", modifiers: .command)
             }
             CommandMenu(t("viewMenu")) {
@@ -120,7 +120,7 @@ struct GlyphlineApp: App {
                 }
             }
             CommandGroup(replacing: .help) {
-                Button(t("menuHelp")) { state.activePanel = .help }
+                Button(menuLabel("shortcuts")) { state.activePanel = .help }
             }
         }
     }
@@ -146,7 +146,7 @@ struct GlyphlineApp: App {
                     Button((path as NSString).lastPathComponent) { state.openSubtitlePath(path) }
                 }
                 Divider()
-                Button(t("menuClearRecentFiles")) { state.settings.clearRecentFiles() }
+                Button(t("clearRecentFiles")) { state.settings.clearRecentFiles() }
             }
         }
     }
@@ -154,7 +154,7 @@ struct GlyphlineApp: App {
     /// File ▸ 내보내기 ▸ — a submenu (View), nested inside the File CommandGroup.
     @ViewBuilder
     private var exportMenu: some View {
-        Menu(t("menuExport")) {
+        Menu(t("exportAs")) {
             Button("SubRip (.srt)") { state.exportDocument(format: .srt) }
             Button("WebVTT (.vtt)") { state.exportDocument(format: .vtt) }
             Button("ASS/SSA (.ass)") { state.exportDocument(format: .ass) }

@@ -232,7 +232,7 @@ final class CueGridCoordinator: NSObject, NSTableViewDataSource, NSTableViewDele
         menu.addItem(withTitle: t("ctxDuplicate"), action: #selector(ctxDuplicate), keyEquivalent: "").target = self
         menu.addItem(withTitle: t("splitCue"), action: #selector(ctxSplit), keyEquivalent: "").target = self
         menu.addItem(withTitle: t("mergeCues"), action: #selector(ctxMerge), keyEquivalent: "").target = self
-        menu.addItem(withTitle: t("editTags"), action: #selector(ctxEditTags), keyEquivalent: "").target = self
+        menu.addItem(withTitle: menuLabel("inlineTagEditor"), action: #selector(ctxEditTags), keyEquivalent: "").target = self
         menu.addItem(.separator())
         menu.addItem(withTitle: t("deleteCue"), action: #selector(ctxDelete), keyEquivalent: "").target = self
         return menu

@@ -12,14 +12,7 @@
 "panelWaveform" = "파형";
 "panelSubtitles" = "자막";
 "noMedia" = "미디어를 열어주세요 (파일 ▸ 미디어 열기)";
-"pluginManager" = "플러그인 관리";
-"pluginOpen" = "열기";
-"pluginAdd" = "추가";
-"pluginAddNew" = "새 플러그인 추가 (URL)";
-"pluginName" = "이름";
-"plugins" = "플러그인";
-"editTags" = "인라인 태그 편집…";
-"inlineTagEditor" = "인라인 태그 편집 (ASS)";
+"inlineTagEditor" = "인라인 태그 편집";
 "tagColor" = "색상";
 "tagStructured" = "구조";
 "tagRaw" = "고급(raw)";
@@ -70,7 +63,7 @@
 "shiftTime" = "시간 이동";
 "fixOverlaps" = "겹침 자동 수정";
 "removeEmptyCues" = "빈 자막 삭제";
-"batchCleanup" = "일괄 정리…";
+"batchCleanup" = "일괄 정리";
 "minGap" = "최소 간격 보장";
 "durationLimits" = "표시 시간 제한 적용";
 "secondsSuffix" = "초";
@@ -83,7 +76,7 @@
 "scopeSelected" = "선택한 자막만";
 "removeHearingImpaired" = "청각장애인용 텍스트 제거";
 "removeHearingImpairedHint" = "[효과음], (웃음), ♪ 가사 ♪, 화자 이름: 등을 제거합니다.";
-"pointSync" = "포인트 동기화…";
+"pointSync" = "포인트 동기화";
 "pointSyncHint" = "두 지점의 현재 시간 → 올바른 시간을 지정하면 전체 자막을 선형으로 재타이밍합니다. 일정한 오프셋과 점진적 밀림(프레임레이트 불일치) 모두 수정됩니다.";
 "pointA" = "지점 A";
 "pointB" = "지점 B";
@@ -93,7 +86,7 @@
 "usePlayhead" = "재생 위치";
 "pointSyncInvalidTime" = "시간 형식이 잘못되었습니다.";
 "pointSyncSamePoints" = "두 지점의 현재 시간이 같아 변환을 계산할 수 없습니다.";
-"changeSpeed" = "배속 변경…";
+"changeSpeed" = "배속 변경";
 "changeSpeedHint" = "모든 타임스탬프에 배율을 곱합니다. 프레임레이트가 다른 영상(예: 23.976↔25fps)에 맞출 때 사용하세요.";
 "customFactor" = "직접 입력";
 "changeSpeedInvalid" = "0보다 큰 배율을 입력하세요.";
@@ -148,7 +141,7 @@
 "qPresetNetflix" = "Netflix";
 "noCues" = "자막이 없습니다";
 "emptyHint" = "파일을 열거나 자막을 추가하세요.";
-"findReplace" = "찾기/바꾸기…";
+"findReplace" = "찾기/바꾸기";
 "findPlaceholder" = "찾을 내용";
 "replacePlaceholder" = "바꿀 내용";
 "matchCase" = "대소문자 구분";
@@ -163,12 +156,11 @@
 "cpsHigh" = "CPS 초과 (너무 빠름)";
 "tooShort" = "표시 시간이 너무 짧음";
 "tooLong" = "표시 시간이 너무 김";
-"confirm" = "확인";
 "cancel" = "취소";
 "close" = "닫기";
 "newFileConfirm" = "현재 작업을 버리고 새 파일을 만들까요? 저장되지 않은 변경사항은 사라집니다.";
 "chooseExportFormat" = "내보낼 포맷을 선택하세요";
-"rawEdit" = "원본 텍스트 편집";
+"rawEdit" = "원본 편집";
 "rawEditHint" = "현재 포맷으로 직렬화된 내용입니다. 수정 후 적용하면 다시 파싱됩니다.";
 "apply" = "적용";
 "shiftPrompt" = "이동할 시간(초). 음수는 앞으로 당깁니다.";
@@ -187,16 +179,12 @@
 "scTimingIn" = "재생 위치 → 활성 자막 시작 (실시간 타이밍)";
 "scTimingOut" = "재생 위치 → 종료 후 다음 자막으로";
 "scTimingChain" = "종료 + 다음 자막 시작을 같은 시각으로";
-"styles" = "스타일";
-"styleManager" = "스타일 매니저";
+"styleManager" = "스타일 관리";
 "addStyle" = "스타일 추가";
 "deleteStyle" = "삭제";
 "styleName" = "이름";
 "font" = "폰트";
 "fontSize" = "크기";
-"primaryColour" = "기본 색상";
-"outlineColour" = "외곽선 색상";
-"backColour" = "배경/그림자 색상";
 "bold" = "굵게";
 "italic" = "기울임";
 "outlineWidth" = "외곽선 두께";
@@ -220,30 +208,9 @@
 "lossOther" = "기타 태그";
 
 /* Native-only additions (no Tauri equivalent — AppKit menu/dialog specifics). */
-"menuNewFile" = "새 파일";
 "menuOpenSubtitle" = "자막 열기…";
-"menuOpenMedia" = "미디어 열기…";
-"menuSave" = "저장";
 "menuSaveAs" = "다른 이름으로 저장…";
-"menuExport" = "내보내기";
 "menuExportTranslation" = "번역 내보내기…";
-"menuPreferences" = "환경설정…";
-"menuHelp" = "Glyphline 도움말";
-"menuFindReplace" = "찾기/바꾸기…";
-"menuAddCue" = "자막 추가";
-"menuMerge" = "병합";
-"menuDelete" = "삭제";
-"menuPointSync" = "포인트 동기화…";
-"menuChangeSpeed" = "배속 변경…";
-"menuBatchCleanup" = "일괄 정리…";
-"menuStyleManager" = "스타일 관리…";
-"menuInlineTagEditor" = "인라인 태그 편집…";
-"menuEmbeddedAssets" = "내장 폰트/그래픽…";
-"menuRawEditor" = "원본 편집…";
-"menuStatistics" = "통계…";
-"menuUndo" = "실행 취소";
-"menuRedo" = "다시 실행";
-"menuClearRecentFiles" = "목록 지우기";
 "errorTitle" = "오류";
 "ok" = "확인";
 "exportSmiCp949" = "SAMI · CP949 (.smi)";
@@ -252,9 +219,6 @@
 "mpvMissing" = "mpv가 설치되어 있지 않습니다 (brew install mpv)";
 "mpvInstalled" = "설치됨";
 "mediaEngine" = "미디어 엔진 (mpv)";
-"waveformPanelTitle" = "파형";
-"videoPanelTitle" = "영상";
-"cuesPanelTitle" = "자막";
 "colorPrimary" = "본문 색";
 "colorOutline" = "외곽선 색";
 "colorBack" = "배경 색";
@@ -283,7 +247,6 @@
 "dockSplitBottom" = "아래에 분할";
 
 "spellCheck" = "맞춤법 검사";
-"spellCheckMenu" = "맞춤법 검사…";
 "spellNoIssues" = "✓ 지적 사항 없음";
 "spellIssueCount" = "%@개 항목";
 "spellUnknownWord" = "사전에 없음";
