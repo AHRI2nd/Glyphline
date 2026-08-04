@@ -548,6 +548,28 @@ public final class DocumentModel {
         withCues(doc.cues.map(shift))
     }
 
+    // ── proofreading ignore list ─────────────────────────────────────────────
+
+    /// Words the proofreader skips in this project. Undoable like any other
+    /// document edit — dismissing a warning is a decision the user may want to
+    /// take back.
+    public func ignoreWord(_ word: String) {
+        let trimmed = word.trimmed()
+        guard !trimmed.isEmpty else { return }
+        var list = doc.ignoredWords ?? []
+        guard !list.contains(trimmed) else { return }
+        pushHistory()
+        list.append(trimmed)
+        doc.ignoredWords = list.sorted()
+    }
+
+    public func unignoreWord(_ word: String) {
+        guard var list = doc.ignoredWords, list.contains(word) else { return }
+        pushHistory()
+        list.removeAll { $0 == word }
+        doc.ignoredWords = list.isEmpty ? nil : list
+    }
+
     // ── styles (ASS) ─────────────────────────────────────────────────────────
 
     public func addStyle() {

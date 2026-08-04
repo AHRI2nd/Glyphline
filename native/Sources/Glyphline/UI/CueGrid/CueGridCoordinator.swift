@@ -127,6 +127,15 @@ final class CueGridCoordinator: NSObject, NSTableViewDataSource, NSTableViewDele
         return field
     }
 
+    /// Decodes the (column, cue id) pair packed into a cell's identifier.
+    private func decodeFieldIdentifier(_ field: NSTextField) -> (column: CueColumn, cueId: String)? {
+        guard let raw = field.identifier?.rawValue else { return nil }
+        let parts = raw.split(separator: "\u{1}", maxSplits: 1)
+        guard parts.count == 2,
+              let column = CueColumn.allCases.first(where: { "\($0)" == parts[0] }) else { return nil }
+        return (column, String(parts[1]))
+    }
+
     private func makeFlagView(cue: Cue, prev: Cue?) -> NSView {
         let q = evaluateCue(cue, prev: prev, thresholds: qualityThresholds)
         let container = NSView()
@@ -142,12 +151,30 @@ final class CueGridCoordinator: NSObject, NSTableViewDataSource, NSTableViewDele
 
     // ── Inline edit commit (NSTextFieldDelegate) ────────────────────────────────
 
+    /// Spell checking lives on the field editor (an NSTextView shared per
+    /// window), not on NSTextField, so it has to be configured per editing
+    /// session rather than once at cell construction.
+    func controlTextDidBeginEditing(_ obj: Notification) {
+        guard let field = obj.object as? NSTextField,
+              let (column, _) = decodeFieldIdentifier(field),
+              let editor = field.currentEditor() as? NSTextView else { return }
+        // Only the prose columns. Timecodes, style names and actor names are
+        // codes and identifiers — every value would be flagged.
+        editor.isContinuousSpellCheckingEnabled = (column == .text || column == .translation)
+        // Never let macOS silently rewrite subtitle text: a "correction" applied
+        // behind the translator's back is a wrong subtitle shipped. Underline
+        // and offer, don't change.
+        editor.isAutomaticSpellingCorrectionEnabled = false
+        editor.isAutomaticTextReplacementEnabled = false
+        editor.isGrammarCheckingEnabled = false
+        // Source and translation columns hold different languages, so let the
+        // checker pick per field rather than pinning one language document-wide.
+        NSSpellChecker.shared.automaticallyIdentifiesLanguages = true
+    }
+
     func controlTextDidEndEditing(_ obj: Notification) {
         guard let field = obj.object as? NSTextField,
-              let idStr = field.identifier?.rawValue else { return }
-        let parts = idStr.split(separator: "\u{1}", maxSplits: 1)
-        guard parts.count == 2, let column = CueColumn.allCases.first(where: { "\($0)" == parts[0] }) else { return }
-        let cueId = String(parts[1])
+              let (column, cueId) = decodeFieldIdentifier(field) else { return }
         let value = field.stringValue
 
         switch column {

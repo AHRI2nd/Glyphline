@@ -12,6 +12,7 @@ import GlyphlineCore
 enum ActivePanel: Identifiable {
     case findReplace, batchCleanup, pointSync, changeSpeed, statistics, shiftTime
     case styleManager, embeddedAssets, inlineTagEditor, settings, rawEditor, help, qualityIssues, closeConfirm
+    case spellCheck
 
     var id: Self { self }
 }

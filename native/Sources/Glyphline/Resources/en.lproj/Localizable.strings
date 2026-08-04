@@ -281,3 +281,23 @@
 "dockSplitRight" = "Split right";
 "dockSplitTop" = "Split top";
 "dockSplitBottom" = "Split bottom";
+
+"spellCheck" = "Proofreading";
+"spellCheckMenu" = "Proofreading…";
+"spellNoIssues" = "✓ Nothing flagged";
+"spellIssueCount" = "%@ items";
+"spellUnknownWord" = "Not in dictionary";
+"spellNotationVariant" = "Inconsistent spelling";
+"spellOccurrences" = "%@ places";
+"spellIgnoreInProject" = "Ignore in this project";
+"spellLearnWord" = "Add to dictionary";
+"spellRecheck" = "Check again";
+"spellTextLanguage" = "Source language";
+"spellTranslationLanguage" = "Translation language";
+"spellLangNone" = "Don't check";
+"spellCheckNotationToggle" = "Check spelling consistency";
+"spellNotationHint" = "Finds one word spelled two ways in this document. Needs no dictionary, so it works for Japanese too.";
+"spellDictHint" = "Uses the macOS dictionary. Korean sometimes flags correct words, so treat results as hints. macOS ships no Japanese dictionary.";
+"spellIgnoredWords" = "Ignored words";
+"spellUnignore" = "Stop ignoring";
+"spellVariantOf" = "Also spelled: %@";

@@ -31,6 +31,22 @@ final class AppSettings {
         didSet { UserDefaults.standard.set(autoCheckUpdate, forKey: autoCheckUpdateKey) }
     }
     private let autoCheckUpdateKey = "glyphline.autoCheckUpdate"
+
+    /// Spelling language per column. Empty string = don't dictionary-check
+    /// that column, which is the only correct setting for Japanese (macOS has
+    /// no Japanese spelling dictionary — the notation-variant check still runs).
+    var spellTextLanguage: String {
+        didSet { UserDefaults.standard.set(spellTextLanguage, forKey: spellTextLanguageKey) }
+    }
+    var spellTranslationLanguage: String {
+        didSet { UserDefaults.standard.set(spellTranslationLanguage, forKey: spellTranslationLanguageKey) }
+    }
+    var spellCheckNotation: Bool {
+        didSet { UserDefaults.standard.set(spellCheckNotation, forKey: spellCheckNotationKey) }
+    }
+    private let spellTextLanguageKey = "glyphline.spell.textLanguage"
+    private let spellTranslationLanguageKey = "glyphline.spell.translationLanguage"
+    private let spellCheckNotationKey = "glyphline.spell.checkNotation"
     /// Ephemeral (not persisted) — set by `UpdateCheck` when a newer release exists.
     var availableUpdateVersion: String?
 
@@ -58,6 +74,16 @@ final class AppSettings {
         let savedScale = UserDefaults.standard.double(forKey: uiScaleKey)
         uiScale = savedScale > 0 ? savedScale : 1.0
         autoCheckUpdate = UserDefaults.standard.object(forKey: autoCheckUpdateKey) as? Bool ?? true
+
+        // Default the translation column to the UI language when macOS can
+        // actually check it, and leave the source column off — source text is
+        // most often the language being translated FROM, frequently Japanese,
+        // which has no dictionary.
+        let defaultTranslation = SystemSpellDictionary.isSupported(resolvedLanguage.rawValue)
+            ? resolvedLanguage.rawValue : ""
+        spellTextLanguage = UserDefaults.standard.string(forKey: spellTextLanguageKey) ?? ""
+        spellTranslationLanguage = UserDefaults.standard.string(forKey: spellTranslationLanguageKey) ?? defaultTranslation
+        spellCheckNotation = UserDefaults.standard.object(forKey: spellCheckNotationKey) as? Bool ?? true
 
         if let data = UserDefaults.standard.data(forKey: dockLayoutKey),
            let decoded = try? JSONDecoder().decode(DockNode.self, from: data) {

@@ -69,6 +69,7 @@ struct GlyphlineApp: App {
                 Button(t("menuBatchCleanup")) { state.activePanel = .batchCleanup }
                 Button(t("menuStatistics")) { state.activePanel = .statistics }
                 Button(t("qualityIssues")) { state.activePanel = .qualityIssues }
+                Button(t("spellCheckMenu")) { state.activePanel = .spellCheck }
                 Divider()
                 Button(t("menuStyleManager")) { state.activePanel = .styleManager }
                 Button(t("menuInlineTagEditor")) { state.activePanel = .inlineTagEditor }

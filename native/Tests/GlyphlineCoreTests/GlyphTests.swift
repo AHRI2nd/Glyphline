@@ -33,4 +33,30 @@ struct GlyphTests {
     func invalid() {
         #expect(throws: GlyphError.self) { _ = try parseGlyph("{ not json") }
     }
+
+    @Test("ignoredWords round-trips losslessly")
+    func ignoredWordsRoundTrip() throws {
+        var doc = SubtitleDocument.empty(.ass)
+        doc.cues = [Cue(id: "a", start: 0, end: 1, text: "遊戯")]
+        doc.ignoredWords = ["遊戯", "Yuugi"]
+        let back = try parseGlyph(serializeGlyph(doc))
+        #expect(back == doc)
+        #expect(back.ignoredWords == ["遊戯", "Yuugi"])
+    }
+
+    @Test("files written before ignoredWords existed still load")
+    func backwardCompatible() throws {
+        // No "ignoredWords" key at all — the shape every .glyph saved so far has.
+        let json = #"{"schemaVersion":1,"document":{"format":"srt","cues":[],"meta":{}}}"#
+        let doc = try parseGlyph(json)
+        #expect(doc.ignoredWords == nil)
+    }
+
+    @Test("an unused ignore list adds no key to the file")
+    func nilOmittedFromJSON() throws {
+        let doc = SubtitleDocument.empty(.srt)
+        #expect(doc.ignoredWords == nil)
+        let json = try serializeGlyph(doc)
+        #expect(!json.contains("ignoredWords"))
+    }
 }

@@ -281,3 +281,23 @@
 "dockSplitRight" = "右に分割";
 "dockSplitTop" = "上に分割";
 "dockSplitBottom" = "下に分割";
+
+"spellCheck" = "校正";
+"spellCheckMenu" = "校正…";
+"spellNoIssues" = "✓ 指摘なし";
+"spellIssueCount" = "%@件";
+"spellUnknownWord" = "辞書にありません";
+"spellNotationVariant" = "表記ゆれ";
+"spellOccurrences" = "%@箇所";
+"spellIgnoreInProject" = "このプロジェクトで無視";
+"spellLearnWord" = "辞書に追加";
+"spellRecheck" = "再チェック";
+"spellTextLanguage" = "原文の言語";
+"spellTranslationLanguage" = "翻訳の言語";
+"spellLangNone" = "チェックしない";
+"spellCheckNotationToggle" = "表記ゆれをチェック";
+"spellNotationHint" = "同じ語が文書内で違う表記になっている箇所を探します。辞書が不要なため日本語にも使えます。";
+"spellDictHint" = "macOS の辞書を使います。韓国語は正しい語を指摘することがあるため参考程度にしてください。日本語辞書は macOS が提供していません。";
+"spellIgnoredWords" = "無視中の単語";
+"spellUnignore" = "無視を解除";
+"spellVariantOf" = "別の表記: %@";

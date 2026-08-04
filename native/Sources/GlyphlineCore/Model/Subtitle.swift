@@ -179,6 +179,13 @@ public struct SubtitleDocument: Codable, Equatable, Sendable {
     public var graphics: [AssEmbedded]?   // ASS [Graphics]
     public var cues: [Cue]
     public var meta: [String: String]
+    /// Words the proofreader should leave alone in THIS project — character
+    /// names, place names, invented terms. Kept per-document rather than in the
+    /// system dictionary because one show's cast shouldn't silence warnings in
+    /// another's. `.glyph` only; external formats have nowhere to put it.
+    /// Optional so existing files (which lack the key) decode unchanged and
+    /// files that never use the feature don't grow a field.
+    public var ignoredWords: [String]?
 
     public init(
         format: SubFormat = .srt,
@@ -187,7 +194,8 @@ public struct SubtitleDocument: Codable, Equatable, Sendable {
         fonts: [AssEmbedded]? = nil,
         graphics: [AssEmbedded]? = nil,
         cues: [Cue] = [],
-        meta: [String: String] = [:]
+        meta: [String: String] = [:],
+        ignoredWords: [String]? = nil
     ) {
         self.format = format
         self.frameRate = frameRate
@@ -196,6 +204,7 @@ public struct SubtitleDocument: Codable, Equatable, Sendable {
         self.graphics = graphics
         self.cues = cues
         self.meta = meta
+        self.ignoredWords = ignoredWords
     }
 }
 

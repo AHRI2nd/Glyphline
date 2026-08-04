@@ -281,3 +281,23 @@
 "dockSplitRight" = "오른쪽에 분할";
 "dockSplitTop" = "위에 분할";
 "dockSplitBottom" = "아래에 분할";
+
+"spellCheck" = "맞춤법 검사";
+"spellCheckMenu" = "맞춤법 검사…";
+"spellNoIssues" = "✓ 지적 사항 없음";
+"spellIssueCount" = "%@개 항목";
+"spellUnknownWord" = "사전에 없음";
+"spellNotationVariant" = "표기 흔들림";
+"spellOccurrences" = "%@곳";
+"spellIgnoreInProject" = "이 프로젝트에서 무시";
+"spellLearnWord" = "사전에 추가";
+"spellRecheck" = "다시 검사";
+"spellTextLanguage" = "원문 언어";
+"spellTranslationLanguage" = "번역 언어";
+"spellLangNone" = "검사 안 함";
+"spellCheckNotationToggle" = "표기 흔들림 검사";
+"spellNotationHint" = "같은 말이 문서 안에서 다르게 표기된 곳을 찾습니다. 사전이 필요 없어 일본어에도 적용됩니다.";
+"spellDictHint" = "macOS 사전 기준입니다. 한국어는 정상 단어를 지적하기도 하니 참고용으로 보세요. 일본어 사전은 macOS가 제공하지 않습니다.";
+"spellIgnoredWords" = "무시 중인 단어";
+"spellUnignore" = "무시 해제";
+"spellVariantOf" = "다른 표기: %@";
