@@ -10,10 +10,17 @@ struct CuePane: View {
     let media: MediaModel
     let settings: AppSettings
     var onEditTags: ((Cue) -> Void)?
+    var onOpenSubtitle: () -> Void
 
     var body: some View {
         if document.doc.cues.isEmpty {
-            PanePlaceholder(message: "\(t("noCues")) — \(t("emptyHint"))")
+            PanePlaceholder(
+                icon: "text.bubble", title: t("noCues"), subtitle: t("emptyHint"),
+                actions: [
+                    PlaceholderAction(label: t("menuOpenSubtitle"), prominent: true, action: onOpenSubtitle),
+                    PlaceholderAction(label: t("addCue")) { document.addCue() },
+                ]
+            )
         } else {
             CueGridView(document: document, media: media, settings: settings, onEditTags: onEditTags)
         }

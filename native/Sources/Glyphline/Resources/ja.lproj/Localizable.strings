@@ -139,8 +139,8 @@
 "qMaxLines" = "字幕あたりの最大行数";
 "qPresetDefault" = "デフォルト";
 "qPresetNetflix" = "Netflix";
-"noCues" = "字幕がありません";
-"emptyHint" = "ファイルを開くか、字幕を追加してください。";
+"noCues" = "字幕なし";
+"emptyHint" = "字幕ファイルを開くか、新しい字幕を追加してください。";
 "findReplace" = "検索・置換";
 "findPlaceholder" = "検索する内容";
 "replacePlaceholder" = "置換する内容";
@@ -215,7 +215,9 @@
 "ok" = "OK";
 "exportSmiCp949" = "SAMI · CP949 (.smi)";
 "noMediaShort" = "メディアなし";
-"noMediaHint" = "メディアなし — ファイル ▸ メディアを開く…";
+"noMediaDesc" = "動画または音声ファイルを開いて再生を始めましょう。";
+"mpvMissingDesc" = "brew install mpv コマンドでインストールできます。";
+"audioLoadedTitle" = "音声を再生中";
 "mpvMissing" = "mpv がインストールされていません (brew install mpv)";
 "mpvInstalled" = "インストール済み";
 "mediaEngine" = "メディアエンジン (mpv)";

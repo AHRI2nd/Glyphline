@@ -153,19 +153,33 @@ struct ContentView: View {
             return AnyView(Group {
                 if state.media.mediaPath != nil, state.media.mediaKind == .video {
                     MPVVideoView(media: state.media, document: state.document)
+                } else if state.media.mediaKind == .audio {
+                    // Media IS loaded here — just not a video — so this isn't an
+                    // empty state needing an action, only a status note.
+                    PanePlaceholder(icon: "music.note", title: t("audioLoadedTitle"), subtitle: state.media.mediaName)
                 } else if MPVLibrary.isAvailable {
-                    PanePlaceholder(message: state.media.mediaKind == .audio ? "♪ \(state.media.mediaName ?? "")" : t("noMediaHint"))
+                    PanePlaceholder(
+                        icon: "film", title: t("noMediaShort"), subtitle: t("noMediaDesc"),
+                        actions: [PlaceholderAction(label: t("openMedia"), prominent: true) { state.openMediaPicker() }]
+                    )
                 } else {
-                    PanePlaceholder(message: t("mpvMissing"))
+                    PanePlaceholder(
+                        icon: "exclamationmark.triangle", title: t("mpvMissing"), subtitle: t("mpvMissingDesc"),
+                        actions: [PlaceholderAction(label: menuLabel("settings")) { state.activePanel = .settings }]
+                    )
                 }
             })
         case .waveform:
-            return AnyView(WaveformPane(document: state.document, media: state.media))
+            return AnyView(WaveformPane(document: state.document, media: state.media, onOpenMedia: { state.openMediaPicker() }))
         case .subtitles:
-            return AnyView(CuePane(document: state.document, media: state.media, settings: state.settings, onEditTags: { cue in
-                state.document.setActiveCue(cue.id)
-                state.activePanel = .inlineTagEditor
-            }))
+            return AnyView(CuePane(
+                document: state.document, media: state.media, settings: state.settings,
+                onEditTags: { cue in
+                    state.document.setActiveCue(cue.id)
+                    state.activePanel = .inlineTagEditor
+                },
+                onOpenSubtitle: { state.openSubtitlePicker() }
+            ))
         }
     }
 

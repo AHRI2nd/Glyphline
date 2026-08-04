@@ -139,8 +139,8 @@
 "qMaxLines" = "Max lines per cue";
 "qPresetDefault" = "Default";
 "qPresetNetflix" = "Netflix";
-"noCues" = "No cues";
-"emptyHint" = "Open a file or add a cue to begin.";
+"noCues" = "No Cues";
+"emptyHint" = "Open a subtitle file or add a new cue.";
 "findReplace" = "Find & Replace";
 "findPlaceholder" = "Find";
 "replacePlaceholder" = "Replace with";
@@ -215,7 +215,9 @@
 "ok" = "OK";
 "exportSmiCp949" = "SAMI · CP949 (.smi)";
 "noMediaShort" = "No media";
-"noMediaHint" = "No media — File ▸ Open Media…";
+"noMediaDesc" = "Open a video or audio file to start playing.";
+"mpvMissingDesc" = "Install it with brew install mpv.";
+"audioLoadedTitle" = "Playing Audio";
 "mpvMissing" = "mpv is not installed (brew install mpv)";
 "mpvInstalled" = "Installed";
 "mediaEngine" = "Media Engine (mpv)";

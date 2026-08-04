@@ -139,8 +139,8 @@
 "qMaxLines" = "자막당 최대 줄 수";
 "qPresetDefault" = "기본값";
 "qPresetNetflix" = "Netflix";
-"noCues" = "자막이 없습니다";
-"emptyHint" = "파일을 열거나 자막을 추가하세요.";
+"noCues" = "자막 없음";
+"emptyHint" = "자막 파일을 열거나 새 자막을 추가하세요.";
 "findReplace" = "찾기/바꾸기";
 "findPlaceholder" = "찾을 내용";
 "replacePlaceholder" = "바꿀 내용";
@@ -215,7 +215,9 @@
 "ok" = "확인";
 "exportSmiCp949" = "SAMI · CP949 (.smi)";
 "noMediaShort" = "미디어 없음";
-"noMediaHint" = "미디어 없음 — File ▸ 미디어 열기…";
+"noMediaDesc" = "영상이나 오디오 파일을 열어 재생을 시작하세요.";
+"mpvMissingDesc" = "brew install mpv 명령으로 설치할 수 있습니다.";
+"audioLoadedTitle" = "오디오 재생 중";
 "mpvMissing" = "mpv가 설치되어 있지 않습니다 (brew install mpv)";
 "mpvInstalled" = "설치됨";
 "mediaEngine" = "미디어 엔진 (mpv)";

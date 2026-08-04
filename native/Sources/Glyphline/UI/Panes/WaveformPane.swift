@@ -8,11 +8,18 @@ import GlyphlineCore
 struct WaveformPane: View {
     let document: DocumentModel
     let media: MediaModel
+    var onOpenMedia: () -> Void
     @State private var zoomLevel: Double = 50 // 0–100, log scale — see WaveformScrollView
 
     var body: some View {
         if media.mediaPath == nil {
-            PanePlaceholder(message: t("noMediaShort"))
+            // Same empty-media wording and action as the video pane — both
+            // panes are blocked on the same missing thing, so they should read
+            // as the same state, not two different messages for one cause.
+            PanePlaceholder(
+                icon: "waveform", title: t("noMediaShort"), subtitle: t("noMediaDesc"),
+                actions: [PlaceholderAction(label: t("openMedia"), prominent: true, action: onOpenMedia)]
+            )
         } else {
             VStack(spacing: 0) {
                 HStack(spacing: 6) {
