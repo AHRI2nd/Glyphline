@@ -86,7 +86,15 @@ struct CueGridView: NSViewRepresentable {
             // Column titles and the context menu are plain strings set once at
             // construction — rebuild them so a live language switch (View ▸
             // 언어) actually relocalizes the grid, not just SwiftUI-driven panels.
-            table.menu = context.coordinator.makeContextMenu()
+            // Rebuilding the NSMenu is real work (fresh NSMenuItems + selectors
+            // each time), so it's gated on an actual language change instead of
+            // running on every unrelated update (e.g. a row click) — updateNSView
+            // fires on every activeCueId/selectedIds mutation, not just i18n ones.
+            let langSig = t("ctxPlayHere")
+            if langSig != context.coordinator.lastMenuLangSignature {
+                context.coordinator.lastMenuLangSignature = langSig
+                table.menu = context.coordinator.makeContextMenu()
+            }
         }
         context.coordinator.reload()
     }

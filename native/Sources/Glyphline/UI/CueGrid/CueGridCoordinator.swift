@@ -17,6 +17,19 @@ final class CueGridCoordinator: NSObject, NSTableViewDataSource, NSTableViewDele
     private var lastActiveCueId: String?
     private var lastSelectedIds: Set<String> = []
     private var isApplyingExternalSelection = false
+    /// Thresholds `rows`/`overlapSlots` were last computed against — lets
+    /// reload() skip the expensive rebuild when only selection/active-cue
+    /// changed. Without this, every click ran a full tableView.reloadData()
+    /// (SwiftUI's Observation re-invokes updateNSView → reload() on every
+    /// activeCueId/selectedIds mutation), so a burst of rapid clicks queued
+    /// reload after reload on the main thread faster than they could drain —
+    /// the app appeared frozen, and any in-flight mpv seek visibly lagged far
+    /// behind whatever row was actually clicked last.
+    private var lastReloadedThresholds: QualityThresholds = DEFAULT_THRESHOLDS
+    /// Rebuilding this NSMenu is also non-trivial; only needed when the UI
+    /// language changes, tracked via one cheap localized-string comparison
+    /// instead of unconditionally on every call — see CueGridView.
+    var lastMenuLangSignature: String?
 
     /// Injected by M4 once mpv playback exists; nil until then (I/O/P no-op).
     var playheadProvider: (() -> Double?)?
@@ -39,14 +52,35 @@ final class CueGridCoordinator: NSObject, NSTableViewDataSource, NSTableViewDele
     // ── SwiftUI → AppKit sync ───────────────────────────────────────────────────
 
     func sync(activeCueId: String?, selectedIds: Set<String>) {
+        if activeCueId != lastActiveCueId {
+            refreshActiveRowHighlight(oldId: lastActiveCueId, newId: activeCueId)
+        }
         lastActiveCueId = activeCueId
         lastSelectedIds = selectedIds
     }
 
+    /// Repaints just the two row views whose "active" state changed, instead
+    /// of the full reload() a plain click used to trigger — see
+    /// lastReloadedThresholds' doc comment for why that mattered.
+    private func refreshActiveRowHighlight(oldId: String?, newId: String?) {
+        guard let tableView else { return }
+        for id in Set([oldId, newId].compactMap { $0 }) {
+            guard let idx = rows.firstIndex(where: { $0.id == id }),
+                  let rowView = tableView.rowView(atRow: idx, makeIfNecessary: false) as? CueRowView
+            else { continue }
+            rowView.isActiveCue = (id == newId)
+        }
+    }
+
     func reload() {
-        rows = sortedCues(document.doc.cues)
-        overlapSlots = overlapColorSlots(for: rows, paletteSize: GlyphColor.overlapPalette.count)
-        tableView?.reloadData()
+        let newRows = sortedCues(document.doc.cues)
+        let needsFullReload = newRows != rows || qualityThresholds != lastReloadedThresholds
+        rows = newRows
+        if needsFullReload {
+            lastReloadedThresholds = qualityThresholds
+            overlapSlots = overlapColorSlots(for: rows, paletteSize: GlyphColor.overlapPalette.count)
+            tableView?.reloadData()
+        }
         applySelectionFromModel()
     }
 
