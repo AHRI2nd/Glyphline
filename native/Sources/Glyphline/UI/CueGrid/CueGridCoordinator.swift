@@ -2,6 +2,7 @@
 // menu + I/O/P live timing (ported from ../../../src/components/CueList/*.tsx).
 
 import AppKit
+import SwiftUI
 import GlyphlineCore
 
 @MainActor
@@ -63,29 +64,55 @@ final class CueGridCoordinator: NSObject, NSTableViewDataSource, NSTableViewDele
         guard row < rows.count, let colId = tableColumn?.identifier,
               let column = CueColumn.allCases.first(where: { $0.identifier == colId }) else { return nil }
         let cue = rows[row]
+        // Computed once per row and read by every column below, so a CPS
+        // problem colors the CPS figure, a timing conflict colors the
+        // timecodes, and a line-length problem colors the text itself —
+        // each column shows the specific thing wrong with IT, not a single
+        // undifferentiated "something's wrong" dot.
+        let q = evaluateCue(cue, prev: row > 0 ? rows[row - 1] : nil, thresholds: qualityThresholds)
+        let timingColor: Color = (q.negativeDuration || q.overlapsPrev) ? GlyphColor.warn : GlyphColor.ink
 
         switch column {
         case .flag:
-            return makeFlagView(cue: cue, prev: row > 0 ? rows[row - 1] : nil)
+            return makeFlagView(quality: q)
         case .index:
-            return makeLabel("\(row + 1)", alignment: .right, mono: true, dim: true)
+            return makeLabel("\(row + 1)", alignment: .right, mono: true, color: GlyphColor.quiet)
         case .start:
-            return makeEditableField(cue: cue, column: column, text: formatDisplayTime(cue.start), mono: true, alignment: .right)
+            return makeEditableField(cue: cue, column: column, text: formatDisplayTime(cue.start), mono: true, alignment: .right, color: timingColor)
         case .end:
-            return makeEditableField(cue: cue, column: column, text: formatDisplayTime(cue.end), mono: true, alignment: .right)
+            return makeEditableField(cue: cue, column: column, text: formatDisplayTime(cue.end), mono: true, alignment: .right, color: timingColor)
         case .duration:
             let d = cueDuration(cue)
             let c = cps(cue)
-            return makeLabel(String(format: "%.2fs %.0fcps", d, c), alignment: .right, mono: true, dim: true)
+            return makeLabel(String(format: "%.2fs %.0fcps", d, c), alignment: .right, mono: true, color: durationColor(q))
         case .style:
-            return makeEditableField(cue: cue, column: column, text: cue.style ?? "", mono: false, alignment: .left)
+            return makeEditableField(cue: cue, column: column, text: cue.style ?? "", mono: false, alignment: .left, color: GlyphColor.ink)
         case .actor:
-            return makeEditableField(cue: cue, column: column, text: cue.actor ?? "", mono: false, alignment: .left)
+            return makeEditableField(cue: cue, column: column, text: cue.actor ?? "", mono: false, alignment: .left, color: GlyphColor.ink)
         case .text:
-            return makeEditableField(cue: cue, column: column, text: cue.text, mono: false, alignment: .left)
+            // lineTooLong/tooManyLines are measured against cue.text specifically
+            // (see Quality.swift) — only this column's own text earns the tint.
+            let textColor: Color = (q.lineTooLong || q.tooManyLines) ? GlyphColor.amber : GlyphColor.ink
+            return makeEditableField(cue: cue, column: column, text: cue.text, mono: false, alignment: .left, color: textColor)
         case .translation:
-            return makeEditableField(cue: cue, column: column, text: cue.translation ?? "", mono: false, alignment: .left)
+            return makeEditableField(cue: cue, column: column, text: cue.translation ?? "", mono: false, alignment: .left, color: GlyphColor.ink)
         }
+    }
+
+    private func durationColor(_ q: CueQuality) -> Color {
+        if q.negativeDuration { return GlyphColor.warn }
+        if q.durationTooShort || q.durationTooLong || q.cpsTooHigh { return GlyphColor.amber }
+        return GlyphColor.quiet
+    }
+
+    /// Custom row background/selection/active-spine — see CueRowView.
+    func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? {
+        guard row < rows.count else { return nil }
+        let id = NSUserInterfaceItemIdentifier("CueRowView")
+        let view = (tableView.makeView(withIdentifier: id, owner: self) as? CueRowView) ?? CueRowView()
+        view.identifier = id
+        view.isActiveCue = rows[row].id == lastActiveCueId
+        return view
     }
 
     func tableViewSelectionDidChange(_ notification: Notification) {
@@ -104,23 +131,24 @@ final class CueGridCoordinator: NSObject, NSTableViewDataSource, NSTableViewDele
 
     // ── Cell construction ───────────────────────────────────────────────────────
 
-    private func makeLabel(_ text: String, alignment: NSTextAlignment, mono: Bool, dim: Bool) -> NSView {
+    private func makeLabel(_ text: String, alignment: NSTextAlignment, mono: Bool, color: Color) -> NSView {
         let field = NSTextField(labelWithString: text)
         field.alignment = alignment
         field.font = mono ? NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular) : NSFont.systemFont(ofSize: 12)
-        field.textColor = dim ? .secondaryLabelColor : .labelColor
+        field.textColor = NSColor(color)
         field.lineBreakMode = .byTruncatingTail
         return field
     }
 
     /// Encodes (column, cue id) in the field's identifier so the delegate can
     /// route a commit without a per-row closure allocation dance.
-    private func makeEditableField(cue: Cue, column: CueColumn, text: String, mono: Bool, alignment: NSTextAlignment) -> NSView {
+    private func makeEditableField(cue: Cue, column: CueColumn, text: String, mono: Bool, alignment: NSTextAlignment, color: Color) -> NSView {
         let field = NSTextField(string: text)
         field.isBordered = false
         field.drawsBackground = false
         field.alignment = alignment
         field.font = mono ? NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular) : NSFont.systemFont(ofSize: 12)
+        field.textColor = NSColor(color)
         field.lineBreakMode = .byTruncatingTail
         field.delegate = self
         field.identifier = NSUserInterfaceItemIdentifier("\(column)\u{1}\(cue.id)")
@@ -136,17 +164,33 @@ final class CueGridCoordinator: NSObject, NSTableViewDataSource, NSTableViewDele
         return (column, String(parts[1]))
     }
 
-    private func makeFlagView(cue: Cue, prev: Cue?) -> NSView {
-        let q = evaluateCue(cue, prev: prev, thresholds: qualityThresholds)
+    /// A hard issue (broken/conflicting timing) reads as rose; a soft one
+    /// (a style-guide number exceeded — CPS, duration, line length) reads as
+    /// amber, so the dot's color alone says how urgent the problem is before
+    /// the tooltip even names it.
+    private func makeFlagView(quality q: CueQuality) -> NSView {
         let container = NSView()
-        if hasAnyIssue(q) {
-            let dot = NSView(frame: NSRect(x: 4, y: 9, width: 6, height: 6))
-            dot.wantsLayer = true
-            dot.layer?.backgroundColor = NSColor.systemRed.cgColor
-            dot.layer?.cornerRadius = 3
-            container.addSubview(dot)
-        }
+        guard hasAnyIssue(q) else { return container }
+        let isHardIssue = q.negativeDuration || q.overlapsPrev
+        let dot = NSView(frame: NSRect(x: 4, y: 9, width: 6, height: 6))
+        dot.wantsLayer = true
+        dot.layer?.backgroundColor = NSColor(isHardIssue ? GlyphColor.warn : GlyphColor.amber).cgColor
+        dot.layer?.cornerRadius = 3
+        container.addSubview(dot)
+        container.toolTip = issueSummary(q)
         return container
+    }
+
+    private func issueSummary(_ q: CueQuality) -> String {
+        var items: [String] = []
+        if q.negativeDuration { items.append(t("negativeDuration")) }
+        if q.overlapsPrev { items.append(t("overlap")) }
+        if q.cpsTooHigh { items.append(t("cpsHigh")) }
+        if q.durationTooShort { items.append(t("tooShort")) }
+        if q.durationTooLong { items.append(t("tooLong")) }
+        if q.lineTooLong { items.append(t("lineTooLong")) }
+        if q.tooManyLines { items.append(t("tooManyLines")) }
+        return items.joined(separator: "\n")
     }
 
     // ── Inline edit commit (NSTextFieldDelegate) ────────────────────────────────

@@ -30,7 +30,17 @@ struct MPVVideoView: NSViewRepresentable {
         // Open new media when the path changes.
         if media.mediaPath != context.coordinator.lastPath {
             context.coordinator.lastPath = media.mediaPath
-            if let path = media.mediaPath { media.engine?.open(path: path) }
+            if let path = media.mediaPath {
+                media.engine?.open(path: path)
+                // "loadfile ... replace" drops mpv's whole previous playback
+                // item, subtitle track included (MPVSurfaceView.open resets
+                // its own subsLoaded flag to match). The signature guard below
+                // only reacts to cue text/timing changes, so without this the
+                // push is skipped whenever the video changes but the subtitle
+                // document doesn't — leaving the new video silently playing
+                // with no subtitle track until the next actual cue edit.
+                context.coordinator.lastSubSignature = nil
+            }
         }
         // Debounced subtitle push on cue-timing/text changes.
         let sig = subtitleSignature(document.doc.cues)

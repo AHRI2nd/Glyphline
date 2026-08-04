@@ -45,8 +45,12 @@ struct CueGridView: NSViewRepresentable {
         table.usesAlternatingRowBackgroundColors = false
         table.allowsMultipleSelection = true
         table.rowHeight = 26
-        table.headerView = NSTableHeaderView()
+        table.headerView = CueHeaderView()
         table.style = .plain
+        table.backgroundColor = NSColor(GlyphColor.bg)
+        // Row/selection colors are painted by CueRowView in the app's own
+        // palette instead — see tableView(_:rowViewForRow:).
+        table.selectionHighlightStyle = .none
         table.dataSource = context.coordinator
         table.delegate = context.coordinator
         table.menu = context.coordinator.makeContextMenu()
@@ -103,6 +107,9 @@ struct CueGridView: NSViewRepresentable {
             let existing = table.tableColumn(withIdentifier: col.identifier)
             if isVisible(col), existing == nil {
                 let column = NSTableColumn(identifier: col.identifier)
+                let headerCell = CueHeaderCell(textCell: col.title)
+                headerCell.alignment = col.headerAlignment
+                column.headerCell = headerCell
                 column.title = col.title
                 column.width = col.defaultWidth
                 column.minWidth = col.minWidth
@@ -172,6 +179,17 @@ enum CueColumn: CaseIterable {
         switch self {
         case .start, .end, .style, .actor, .text, .translation: return true
         case .flag, .index, .duration: return false
+        }
+    }
+
+    /// Matches each column's own cell alignment so the header label lines up
+    /// over the values it titles (timecodes are right-aligned digits; the
+    /// flag column has no title at all).
+    var headerAlignment: NSTextAlignment {
+        switch self {
+        case .index, .start, .end, .duration: return .right
+        case .flag: return .center
+        case .style, .actor, .text, .translation: return .left
         }
     }
 }
