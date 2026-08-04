@@ -95,6 +95,15 @@ final class MPVSurfaceView: NSOpenGLView, MediaEngineControlling {
         // auto-load embedded/sidecar subs.
         lib.setString(handle, "sub-auto", "no")
         lib.setString(handle, "sub-visibility", "yes")
+        // mpv's bundled Lua scripts (osc, stats, console, ytdl_hook, …) are all
+        // redundant here — Glyphline has its own Transport/OSD — and loading
+        // them spins up LuaJIT, which JIT-compiles into RWX pages. Hardened
+        // Runtime's code-signing enforcement kills the process the moment that
+        // page executes (SIGKILL, CODESIGNING/"Invalid Page") unless the app
+        // carries the JIT/unsigned-executable-memory entitlement. Since we
+        // don't want any of those scripts anyway, disabling script loading
+        // avoids the crash without widening the entitlement surface.
+        lib.setString(handle, "load-scripts", "no")
         _ = lib.initialize(handle)
     }
 
