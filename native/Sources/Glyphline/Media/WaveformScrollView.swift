@@ -22,6 +22,22 @@ struct WaveformScrollView: NSViewRepresentable {
         drawView.onSeek = { [weak media] t in media?.seek(t) }
         drawView.onZoomWheel = onZoomWheel
 
+        // Direct timing editing on the waveform. Each drag is bracketed by
+        // begin/endInteractive so the whole gesture collapses into one undo
+        // entry while still mutating per frame (the grid and the video's
+        // subtitle overlay follow the drag live).
+        let doc = document
+        drawView.onBeginEdit = { doc.beginInteractive() }
+        drawView.onEndEdit = { doc.endInteractive() }
+        drawView.onSelectCue = { id in doc.setActiveCue(id) }
+        drawView.onAdjustCue = { id, start, end in
+            doc.updateCue(id) { $0.start = start; $0.end = end }
+        }
+        drawView.onCreateCue = { start, end in
+            doc.addCueAt(start: start, end: end)
+            return doc.activeCueId // addCueAt makes the new cue active
+        }
+
         let scroll = NSScrollView()
         scroll.documentView = drawView
         scroll.hasHorizontalScroller = true

@@ -41,6 +41,58 @@ struct DocumentModelUndoRedoTests {
         m.addCue()
         #expect(m.isDirty)
     }
+
+    // A waveform edge-drag mutates on every mouse-move frame; without
+    // coalescing, one gesture would bury real history under dozens of
+    // near-identical entries.
+    @Test("interactive gesture collapses many mutations into one undo entry")
+    func interactiveCoalescing() {
+        let m = DocumentModel()
+        m.loadParsed(SubtitleDocument(cues: [cue("a", 0, 1)]))
+        let before = m.doc.cues[0]
+
+        m.beginInteractive()
+        for step in 1...25 {
+            m.updateCue("a") { $0.end = 1 + Double(step) * 0.05 }
+        }
+        m.endInteractive()
+
+        #expect(m.doc.cues[0].end == 2.25)
+        m.undo()
+        #expect(m.doc.cues[0] == before) // one undo returns to the pre-drag state
+        #expect(!m.canUndo)
+    }
+
+    @Test("mutations after endInteractive get their own undo entries again")
+    func interactiveEndsCleanly() {
+        let m = DocumentModel()
+        m.loadParsed(SubtitleDocument(cues: [cue("a", 0, 1)]))
+
+        m.beginInteractive()
+        m.updateCue("a") { $0.end = 2 }
+        m.updateCue("a") { $0.end = 3 }
+        m.endInteractive()
+        m.updateCue("a") { $0.end = 9 }
+
+        m.undo()
+        #expect(m.doc.cues[0].end == 3) // undoes only the post-gesture edit
+        m.undo()
+        #expect(m.doc.cues[0].end == 1) // then the whole gesture at once
+    }
+
+    @Test("interactive marks the document dirty even on coalesced frames")
+    func interactiveDirty() {
+        let m = DocumentModel()
+        m.loadParsed(SubtitleDocument(cues: [cue("a", 0, 1)]))
+        m.markSaved(path: "/tmp/x.glyph", name: "x.glyph")
+        #expect(!m.isDirty)
+
+        m.beginInteractive()
+        m.updateCue("a") { $0.end = 2 }
+        m.updateCue("a") { $0.end = 3 } // coalesced — must still dirty the doc
+        m.endInteractive()
+        #expect(m.isDirty)
+    }
 }
 
 @Suite("DocumentModel: selection")

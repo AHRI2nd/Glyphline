@@ -49,8 +49,38 @@ public final class DocumentModel {
     public var canUndo: Bool { !history.isEmpty }
     public var canRedo: Bool { !future.isEmpty }
 
+    /// While a continuous gesture is in flight, only its FIRST mutation
+    /// snapshots history — see beginInteractive().
+    private var interactiveActive = false
+    private var interactiveDidSnapshot = false
+
+    /// Coalesces everything until `endInteractive()` into ONE undo entry.
+    ///
+    /// Continuous gestures (dragging a cue edge on the waveform) mutate the
+    /// document on every mouse-move frame so the grid, waveform, and video
+    /// overlay all track live. Without this, one drag would bury the user's
+    /// real history under dozens of near-identical entries, making undo
+    /// useless. Nesting is not supported: a second begin() without an
+    /// intervening end() just continues the current group.
+    public func beginInteractive() {
+        guard !interactiveActive else { return }
+        interactiveActive = true
+        interactiveDidSnapshot = false
+    }
+
+    public func endInteractive() {
+        interactiveActive = false
+    }
+
     /// Snapshot current doc into history before a mutation.
     private func pushHistory() {
+        if interactiveActive {
+            guard !interactiveDidSnapshot else {
+                isDirty = true
+                return
+            }
+            interactiveDidSnapshot = true
+        }
         history.append(doc)
         if history.count > MAX_HISTORY { history.removeFirst(history.count - MAX_HISTORY) }
         future = []
