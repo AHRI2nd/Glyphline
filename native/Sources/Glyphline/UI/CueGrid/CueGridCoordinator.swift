@@ -207,12 +207,20 @@ final class CueGridCoordinator: NSObject, NSTableViewDataSource, NSTableViewDele
     /// Accepts whichever form the grid is currently showing, but also still
     /// accepts the other one — someone pasting a timecode out of another tool
     /// shouldn't have to convert it by hand first.
+    ///
+    /// ONLY a full four-part value counts as a frame timecode. `00:01:23` is
+    /// valid in both notations and means completely different things —
+    /// 1m23s to the clock parser, 1s+23f (≈2s at 24fps) to the frame parser —
+    /// so honouring the shorter form here would silently store a time 42×
+    /// off from what the user typed. Four parts is also exactly what the grid
+    /// displays in frame mode, so nothing legitimate is lost; anything shorter
+    /// is read as a clock time and then snapped to the frame grid.
     private func parseTime(_ text: String) -> Double? {
-        if let frameRate {
-            if let t = parseFrameTimecode(text, fps: frameRate) { return t }
-            return parseTimestampInput(text).map { snapToFrame($0, fps: frameRate) }
-        }
-        return parseTimestampInput(text)
+        guard let frameRate else { return parseTimestampInput(text) }
+        let isFullFrameTimecode = text.trimmingCharacters(in: .whitespaces)
+            .split(separator: ":", omittingEmptySubsequences: false).count == 4
+        if isFullFrameTimecode, let t = parseFrameTimecode(text, fps: frameRate) { return t }
+        return parseTimestampInput(text).map { snapToFrame($0, fps: frameRate) }
     }
 
     private func durationColor(_ q: CueQuality) -> Color {

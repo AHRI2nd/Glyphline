@@ -36,16 +36,14 @@ struct WaveformScrollView: NSViewRepresentable {
         // WaveformDrawView so the view keeps tracking the pointer smoothly —
         // only the value committed to the document is quantized.
         drawView.onAdjustCue = { [weak coordinator = context.coordinator] id, start, end in
-            let fps = coordinator?.frameRate
-            let s = fps.map { snapToFrame(start, fps: $0) } ?? start
-            let e = fps.map { snapToFrame(end, fps: $0) } ?? end
-            doc.updateCue(id) { $0.start = s; $0.end = e }
+            let b = coordinator?.frameRate.map { snapCueBounds(start: start, end: end, fps: $0) }
+                ?? (start: start, end: end)
+            doc.updateCue(id) { $0.start = b.start; $0.end = b.end }
         }
         drawView.onCreateCue = { [weak coordinator = context.coordinator] start, end in
-            let fps = coordinator?.frameRate
-            let s = fps.map { snapToFrame(start, fps: $0) } ?? start
-            let e = fps.map { snapToFrame(end, fps: $0) } ?? end
-            doc.addCueAt(start: s, end: e)
+            let b = coordinator?.frameRate.map { snapCueBounds(start: start, end: end, fps: $0) }
+                ?? (start: start, end: end)
+            doc.addCueAt(start: b.start, end: b.end)
             return doc.activeCueId // addCueAt makes the new cue active
         }
 

@@ -54,6 +54,24 @@ public func snapToFrame(_ seconds: Double, fps: Double) -> Double {
     return Double(frameIndex(seconds, fps: fps)) / fps
 }
 
+/// Snaps both bounds of a cue while keeping it non-empty.
+///
+/// Snapping each edge on its own collapses any cue shorter than one frame to
+/// zero length — both edges round to the same boundary. That's reachable in
+/// normal use: an imported file can contain sub-frame cues, and sliding one
+/// along the waveform preserves its duration rather than re-applying the
+/// drag's minimum. A zero-length cue can't be displayed by any player and
+/// reads as corrupt output, so the end is pushed out by one frame instead.
+/// An already-empty or inverted input is left alone — this fixes quantization,
+/// it doesn't invent duration the user never had.
+public func snapCueBounds(start: Double, end: Double, fps: Double) -> (start: Double, end: Double) {
+    guard fps > 0 else { return (start, end) }
+    let s = snapToFrame(start, fps: fps)
+    var e = snapToFrame(end, fps: fps)
+    if end > start, e <= s { e = s + 1.0 / fps }
+    return (s, e)
+}
+
 /// `HH:MM:SS:FF`, the conventional frame-accurate timecode.
 public func formatFrameTimecode(_ seconds: Double, fps: Double) -> String {
     guard fps > 0 else { return formatDisplayTime(seconds) }

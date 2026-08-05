@@ -94,3 +94,60 @@ struct FrameTimeTests {
         #expect(frameRateLabel(ntsc30) == "29.970")
     }
 }
+
+@Suite("Frame snapping preserves cue duration")
+struct SnapCueBoundsTests {
+    @Test("a sub-frame cue is widened to one frame instead of collapsing")
+    func subFrame() {
+        for fps in COMMON_FRAME_RATES {
+            let b = snapCueBounds(start: 1.0001, end: 1.0002, fps: fps)
+            #expect(b.end > b.start, "collapsed at \(frameRateLabel(fps))")
+            // Exactly one frame wide, not more.
+            #expect(abs((b.end - b.start) - 1.0 / fps) < 1e-9)
+        }
+    }
+
+    @Test("a normal cue keeps both edges exactly on frame boundaries")
+    func normal() {
+        let b = snapCueBounds(start: 1.02, end: 3.47, fps: 25)
+        #expect(b.start == snapToFrame(1.02, fps: 25))
+        #expect(b.end == snapToFrame(3.47, fps: 25))
+        #expect(b.end > b.start)
+    }
+
+    @Test("an already-empty or inverted cue is not given duration")
+    func degenerate() {
+        let empty = snapCueBounds(start: 2, end: 2, fps: 24)
+        #expect(empty.start == empty.end)
+        let inverted = snapCueBounds(start: 3, end: 2, fps: 24)
+        #expect(inverted.end < inverted.start)
+    }
+
+    @Test("fps of zero passes the values through untouched")
+    func zeroFps() {
+        let b = snapCueBounds(start: 1.234, end: 5.678, fps: 0)
+        #expect(b.start == 1.234 && b.end == 5.678)
+    }
+}
+
+@Suite("Timecode notation ambiguity")
+struct TimecodeAmbiguityTests {
+    /// `00:01:23` is legal in BOTH notations and means very different things.
+    /// The grid resolves this by only treating a full four-part value as a
+    /// frame timecode (see CueGridCoordinator.parseTime); this pins the fact
+    /// that drove that rule, so nobody "simplifies" it back later.
+    @Test("a three-part value is 42x apart between the two parsers")
+    func ambiguous() {
+        let asFrames = parseFrameTimecode("00:01:23", fps: 24)
+        let asClock = parseTimestampInput("00:01:23")
+        #expect(asClock == 83)
+        #expect(asFrames != nil)
+        #expect(abs((asFrames ?? 0) - 83) > 80, "the two readings must not be conflated")
+    }
+
+    @Test("a four-part value is unambiguous — only the frame parser accepts it")
+    func unambiguous() {
+        #expect(parseFrameTimecode("00:00:01:12", fps: 24) == 1.5)
+        #expect(parseTimestampInput("00:00:01:12") == nil)
+    }
+}
