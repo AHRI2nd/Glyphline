@@ -111,12 +111,53 @@ func insertingPanel(_ panel: PanelKind, dropZone: DropZone, targetPanel: PanelKi
     }
 }
 
+/// What a drop is measured against.
+///
+/// `.panel` splits the tabset holding that panel, so the new pane only spans
+/// that tabset. `.root` splits the WHOLE dock, which is the only way to get a
+/// pane that runs the full width or height of the window — with tabset-relative
+/// drops alone, a bottom pane could never be wider than whatever tabset it was
+/// dropped on.
+enum DockTarget: Equatable, Hashable {
+    case panel(PanelKind)
+    case root
+}
+
+/// How much of the dock a root-edge drop takes. A full-width strip along an
+/// edge is nearly always a secondary pane (a waveform under the video, say),
+/// so an even split would waste the main area; tabset-relative drops still use
+/// half, where the two panes are peers.
+let DOCK_ROOT_SPLIT_FRACTION: Double = 0.3
+
+/// Wraps the entire layout so `panel` occupies one full edge of the dock.
+func insertingPanelAtRoot(_ panel: PanelKind, zone: DropZone, into node: DockNode) -> DockNode {
+    let fresh = DockNode.tabs(panels: [panel], selected: panel)
+    let f = DOCK_ROOT_SPLIT_FRACTION
+    switch zone {
+    case .center:
+        return node // "tab into the whole dock" has no meaning — edges only
+    case .top:
+        return .split(axis: .vertical, children: [fresh, node], weights: [f, 1 - f])
+    case .bottom:
+        return .split(axis: .vertical, children: [node, fresh], weights: [1 - f, f])
+    case .left:
+        return .split(axis: .horizontal, children: [fresh, node], weights: [f, 1 - f])
+    case .right:
+        return .split(axis: .horizontal, children: [node, fresh], weights: [1 - f, f])
+    }
+}
+
 /// Removes `panel` from its current spot and re-inserts it at `zone` relative
-/// to `targetPanel`. A no-op if dropped onto itself or its own tabset's center.
-func movingPanel(_ panel: PanelKind, toZone zone: DropZone, ofTarget targetPanel: PanelKind, in root: DockNode) -> DockNode {
-    guard panel != targetPanel else { return root }
+/// to `target`. A no-op if dropped onto itself or its own tabset's center.
+func movingPanel(_ panel: PanelKind, toZone zone: DropZone, ofTarget target: DockTarget, in root: DockNode) -> DockNode {
+    if case .panel(let p) = target, panel == p { return root }
     guard let removed = removingPanel(panel, from: root) else { return root }
-    return insertingPanel(panel, dropZone: zone, targetPanel: targetPanel, into: removed)
+    switch target {
+    case .root:
+        return insertingPanelAtRoot(panel, zone: zone, into: removed)
+    case .panel(let p):
+        return insertingPanel(panel, dropZone: zone, targetPanel: p, into: removed)
+    }
 }
 
 /// Replaces the weights of the split node reached by `path` (child-index chain
@@ -153,7 +194,51 @@ let DOCK_DIVIDER_THICKNESS: CGFloat = 6
 /// and which drop zone of it. Mirrors SplitContainer's weight-proportional
 /// layout exactly, so no view frame registration is needed. `nil` when the
 /// point is on a divider or outside `rect`.
-func dockHitTest(_ point: CGPoint, in node: DockNode, rect: CGRect) -> (panels: [PanelKind], selected: PanelKind, zone: DropZone)? {
+/// One resolved drop location.
+struct DockHit: Equatable {
+    var target: DockTarget
+    var zone: DropZone
+    /// Tabs of the tabset under the cursor — empty for a root hit. Used by
+    /// resolveDockDrop to pick a tear-out anchor.
+    var panels: [PanelKind] = []
+    var selected: PanelKind?
+}
+
+/// Outer band that docks against the WHOLE window rather than the pane under
+/// the cursor. Narrow on purpose: it sits on top of the pane's own edge zone,
+/// so anything wider would make ordinary pane-relative drops near a window
+/// edge hard to hit.
+let DOCK_ROOT_EDGE_BAND: CGFloat = 22
+
+/// Top-level hit test. Checks the dock's outer band first — that's the only
+/// path that yields a full-width/height pane — then falls through to the
+/// tabset the cursor is actually over.
+func dockHitTest(_ point: CGPoint, in node: DockNode, rect: CGRect) -> DockHit? {
+    guard rect.contains(point) else { return nil }
+    if let zone = rootEdgeZone(for: point, in: rect) {
+        return DockHit(target: .root, zone: zone)
+    }
+    guard let hit = tabsetHitTest(point, in: node, rect: rect) else { return nil }
+    return DockHit(target: .panel(hit.selected), zone: hit.zone,
+                   panels: hit.panels, selected: hit.selected)
+}
+
+/// Which outer edge `point` is hugging, or nil when it's in the interior.
+/// Corners resolve to whichever edge is nearer, so there's no dead zone.
+func rootEdgeZone(for point: CGPoint, in rect: CGRect) -> DropZone? {
+    let dLeft = point.x - rect.minX
+    let dRight = rect.maxX - point.x
+    let dTop = point.y - rect.minY
+    let dBottom = rect.maxY - point.y
+    let nearest = min(dLeft, dRight, dTop, dBottom)
+    guard nearest < DOCK_ROOT_EDGE_BAND else { return nil }
+    if nearest == dLeft { return .left }
+    if nearest == dRight { return .right }
+    if nearest == dTop { return .top }
+    return .bottom
+}
+
+private func tabsetHitTest(_ point: CGPoint, in node: DockNode, rect: CGRect) -> (panels: [PanelKind], selected: PanelKind, zone: DropZone)? {
     guard rect.contains(point) else { return nil }
     switch node {
     case .tabs(let panels, let selected):
@@ -168,7 +253,7 @@ func dockHitTest(_ point: CGPoint, in node: DockNode, rect: CGRect) -> (panels: 
                 ? CGRect(x: offset, y: rect.minY, width: length, height: rect.height)
                 : CGRect(x: rect.minX, y: offset, width: rect.width, height: length)
             if childRect.contains(point) {
-                return dockHitTest(point, in: child, rect: childRect)
+                return tabsetHitTest(point, in: child, rect: childRect)
             }
             offset += length + DOCK_DIVIDER_THICKNESS
         }
@@ -195,19 +280,27 @@ func dockHitTest(_ point: CGPoint, in node: DockNode, rect: CGRect) -> (panels: 
 ///   identical (idempotent drop), suppress.
 func resolveDockDrop(
     dragged: PanelKind,
-    hit: (panels: [PanelKind], selected: PanelKind, zone: DropZone)?,
+    hit: DockHit?,
     in root: DockNode
-) -> (target: PanelKind, zone: DropZone)? {
+) -> (target: DockTarget, zone: DropZone)? {
     guard let hit else { return nil }
-    let candidate: (target: PanelKind, zone: DropZone)
-    if !hit.panels.contains(dragged) {
-        candidate = (hit.selected, hit.zone)
-    } else if hit.panels.count > 1, hit.zone != .center,
-              let anchor = hit.panels.first(where: { $0 != dragged }) {
-        candidate = (anchor, hit.zone)
-    } else {
-        return nil
+    let candidate: (target: DockTarget, zone: DropZone)
+    switch hit.target {
+    case .root:
+        candidate = (.root, hit.zone)
+    case .panel:
+        guard let selected = hit.selected else { return nil }
+        if !hit.panels.contains(dragged) {
+            candidate = (.panel(selected), hit.zone)
+        } else if hit.panels.count > 1, hit.zone != .center,
+                  let anchor = hit.panels.first(where: { $0 != dragged }) {
+            candidate = (.panel(anchor), hit.zone)
+        } else {
+            return nil
+        }
     }
+    // Same equivalence as before, now covering root drops too: a panel already
+    // occupying that whole edge re-docks to an identical tree, so no preview.
     guard movingPanel(dragged, toZone: candidate.zone, ofTarget: candidate.target, in: root) != root else {
         return nil
     }
@@ -254,6 +347,20 @@ func dockTabsetRect(containing panel: PanelKind, in node: DockNode, rect: CGRect
             offset += length + DOCK_DIVIDER_THICKNESS
         }
         return nil
+    }
+}
+
+/// Preview rect for a root-edge drop: the full-width/height strip the panel
+/// will occupy, sized to match DOCK_ROOT_SPLIT_FRACTION so the highlight is
+/// the shape you actually get.
+func dockRootZoneRect(_ zone: DropZone, in r: CGRect) -> CGRect {
+    let f = CGFloat(DOCK_ROOT_SPLIT_FRACTION)
+    switch zone {
+    case .center: return r
+    case .top: return CGRect(x: r.minX, y: r.minY, width: r.width, height: r.height * f)
+    case .bottom: return CGRect(x: r.minX, y: r.maxY - r.height * f, width: r.width, height: r.height * f)
+    case .left: return CGRect(x: r.minX, y: r.minY, width: r.width * f, height: r.height)
+    case .right: return CGRect(x: r.maxX - r.width * f, y: r.minY, width: r.width * f, height: r.height)
     }
 }
 

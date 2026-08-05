@@ -168,7 +168,7 @@ final class AppSettings {
 
     // ── Dock layout mutations ───────────────────────────────────────────────────
 
-    func moveDockPanel(_ panel: PanelKind, toZone zone: DropZone, ofTarget target: PanelKind) {
+    func moveDockPanel(_ panel: PanelKind, toZone zone: DropZone, ofTarget target: DockTarget) {
         dockLayout = movingPanel(panel, toZone: zone, ofTarget: target, in: dockLayout)
     }
 

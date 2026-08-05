@@ -7,6 +7,9 @@ import GlyphlineCore
 
 struct BatchCleanupPanel: View {
     let document: DocumentModel
+    /// Line rebreaking reuses the SAME limits the quality check flags against,
+    /// so "fix" and "complain" can never disagree about what too long means.
+    let settings: AppSettings
     @Environment(\.dismiss) private var dismiss
 
     @State private var results: [String: Int] = [:]
@@ -15,6 +18,10 @@ struct BatchCleanupPanel: View {
     @State private var maxDur = String(DEFAULT_THRESHOLDS.maxDuration)
     @State private var caseMode: CaseMode = .sentence
     @State private var caseScope: EditScope = .all
+    @State private var breakStyle: LineBreakStyle = .auto
+    // Off by default: each rule rewrites text, so the user opts in to exactly
+    // the ones they want rather than discovering a sweeping change afterwards.
+    @State private var tidyRules: Set<TidyRule> = []
 
     var body: some View {
         PanelShell(title: t("batchCleanup"), width: 480) {
@@ -58,6 +65,26 @@ struct BatchCleanupPanel: View {
                     }
                 }
 
+                row(t("autoBreakLines"), key: "autoBreak", hint: t("autoBreakLinesHint")) {
+                    document.rebreakLines(
+                        maxLineLength: settings.quality.maxLineLength,
+                        maxLines: settings.quality.maxLines,
+                        style: breakStyle
+                    )
+                } accessory: {
+                    Picker("", selection: $breakStyle) {
+                        Text(t("breakStyleAuto")).tag(LineBreakStyle.auto)
+                        Text(t("breakStyleSpaced")).tag(LineBreakStyle.spaced)
+                        Text(t("breakStyleCJK")).tag(LineBreakStyle.cjk)
+                    }
+                    .labelsHidden()
+                    .frame(width: 110)
+                }
+
+                row(t("unbreakLines"), key: "unbreak", hint: t("unbreakLinesHint")) {
+                    document.unbreakAllLines()
+                }
+
                 row(t("removeHearingImpaired"), key: "hi", hint: t("removeHearingImpairedHint")) {
                     document.removeHearingImpaired()
                 }
@@ -67,6 +94,9 @@ struct BatchCleanupPanel: View {
                 }
 
                 row(t("mergeSameTimecodes"), key: "sameTime") { document.mergeSameTimecodes() }
+
+                Divider()
+                tidySection
             }
         } footer: {
             Spacer()
@@ -74,7 +104,34 @@ struct BatchCleanupPanel: View {
         }
     }
 
+    /// The typography rules. Grouped under one Apply because they're normally
+    /// run together as a single "clean this file up" pass, and each one on its
+    /// own undo step would make backing out a cleanup tedious.
     @ViewBuilder
+    private var tidySection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(t("tidyText")).font(GlyphFont.display(11)).foregroundStyle(GlyphColor.quiet)
+                Spacer()
+                if let n = results["tidy"] {
+                    Text(t("qualityIssuesCount", "\(n)"))
+                        .font(GlyphFont.data(11))
+                        .foregroundStyle(n > 0 ? GlyphColor.good : GlyphColor.quiet)
+                }
+                Button(t("apply")) { results["tidy"] = document.tidyText(rules: Array(tidyRules)) }
+                    .buttonStyle(.bordered).controlSize(.small)
+                    .disabled(tidyRules.isEmpty)
+            }
+            ForEach(TidyRule.allCases, id: \.self) { rule in
+                Toggle(t(rule.labelKey), isOn: Binding(
+                    get: { tidyRules.contains(rule) },
+                    set: { on in if on { tidyRules.insert(rule) } else { tidyRules.remove(rule) } }
+                ))
+                .toggleStyle(.checkbox).font(GlyphFont.body(12))
+            }
+        }
+    }
+
     private func row(
         _ label: String, key: String, hint: String? = nil,
         action: @escaping () -> Int,
@@ -97,6 +154,21 @@ struct BatchCleanupPanel: View {
             Button(t("apply")) { results[key] = action() }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
+        }
+    }
+}
+
+
+extension TidyRule {
+    /// Localised name. Kept here rather than in GlyphlineCore so the core stays
+    /// free of any presentation concern.
+    var labelKey: String {
+        switch self {
+        case .spacing: return "tidySpacing"
+        case .spaceAfterPunctuation: return "tidySpaceAfterPunct"
+        case .dialogueDashes: return "tidyDashes"
+        case .ocrCapitalI: return "tidyOcrI"
+        case .ellipsis: return "tidyEllipsis"
         }
     }
 }

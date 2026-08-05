@@ -187,7 +187,7 @@ struct ContentView: View {
     private func panelView(_ panel: ActivePanel) -> some View {
         switch panel {
         case .findReplace: FindReplacePanel(document: state.document)
-        case .batchCleanup: BatchCleanupPanel(document: state.document)
+        case .batchCleanup: BatchCleanupPanel(document: state.document, settings: state.settings)
         case .pointSync: PointSyncPanel(document: state.document, media: state.media)
         case .changeSpeed: ChangeSpeedPanel(document: state.document)
         case .statistics: StatisticsPanel(document: state.document)
@@ -195,6 +195,9 @@ struct ContentView: View {
         case .qualityIssues: QualityIssuesPanel(document: state.document, settings: state.settings)
         case .spellCheck: SpellCheckPanel(document: state.document, settings: state.settings)
         case .translationCheck: TranslationCheckPanel(document: state.document, settings: state.settings)
+        case .compareFiles:
+            CompareFilesPanel(document: state.document, media: state.media) { state.lastError = $0 }
+        case .karaokeTiming: KaraokeTimingPanel(document: state.document, media: state.media)
         case .closeConfirm: CloseConfirmPanel(state: state)
         case .styleManager: StyleManagerPanel(document: state.document)
         case .embeddedAssets: EmbeddedAssetsPanel(document: state.document)

@@ -13,7 +13,7 @@ import Foundation
 
 /// External subtitle formats (the native project format is `.glyph`).
 public enum SubFormat: String, Codable, Sendable, CaseIterable {
-    case srt, vtt, ass, smi, sbv, lrc, txt
+    case srt, vtt, ass, smi, sbv, lrc, txt, ttml
 }
 
 /// The native project file extension.

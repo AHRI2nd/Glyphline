@@ -300,6 +300,89 @@ public final class DocumentModel {
         return changed
     }
 
+    /// Rebreak over-long cues into balanced lines. The counterpart to the
+    /// quality check's "line too long" / "too many lines" flags, which until
+    /// now reported problems the app gave you no way to fix.
+    @discardableResult
+    public func rebreakLines(maxLineLength: Int, maxLines: Int, style: LineBreakStyle = .auto, ids: [String]? = nil) -> Int {
+        let scope = ids.map { set in doc.cues.filter { Set(set).contains($0.id) } } ?? doc.cues
+        return applyTextPatches(rebreakCues(scope, maxLineLength: maxLineLength, maxLines: maxLines, style: style))
+    }
+
+    /// Collapse every cue back onto one line.
+    @discardableResult
+    public func unbreakAllLines(ids: [String]? = nil) -> Int {
+        let scope = ids.map { set in doc.cues.filter { Set(set).contains($0.id) } } ?? doc.cues
+        return applyTextPatches(unbreakCues(scope))
+    }
+
+    /// Applies id→text edits as ONE undo entry. Shared by the text-rewriting
+    /// batch actions so they can't drift apart in history behaviour.
+    @discardableResult
+    private func applyTextPatches(_ patches: [String: String]) -> Int {
+        guard !patches.isEmpty else { return 0 }
+        pushHistory()
+        withCues(doc.cues.map { cue in
+            guard let text = patches[cue.id] else { return cue }
+            var c = cue; c.text = text; return c
+        })
+        return patches.count
+    }
+
+    // ── karaoke / word-level timing ────────────────────────────────────────
+
+    /// Creates evenly spaced tokens for a cue — the starting point for timing.
+    public func generateTokens(for id: String) {
+        guard let cue = doc.cues.first(where: { $0.id == id }) else { return }
+        let tokens = makeEvenTokens(for: cue)
+        guard !tokens.isEmpty else { return }
+        updateCue(id) { $0.tokens = tokens }
+    }
+
+    public func clearTokens(for id: String) {
+        guard doc.cues.first(where: { $0.id == id })?.tokens != nil else { return }
+        updateCue(id) { $0.tokens = nil }
+    }
+
+    /// Drags the boundary between two tokens. Interactive by design: the whole
+    /// drag lands as one undo entry via begin/endInteractive, like the waveform.
+    public func moveTokenBoundary(for id: String, index: Int, to time: Double) {
+        guard let cue = doc.cues.first(where: { $0.id == id }), let tokens = cue.tokens else { return }
+        let next = GlyphlineCore.moveTokenBoundary(tokens, index: index, to: time)
+        guard next != tokens else { return }
+        updateCue(id) { $0.tokens = next }
+    }
+
+    /// Append another document's cues, shifted by `offset`. One undo entry.
+    @discardableResult
+    public func appendDocument(_ other: SubtitleDocument, offset: Double) -> Int {
+        guard !other.cues.isEmpty else { return 0 }
+        pushHistory()
+        doc = GlyphlineCore.appendDocument(doc, other, offset: offset)
+        return other.cues.count
+    }
+
+    /// Drops every cue at or after `time` from THIS document and returns them
+    /// as a separate one for the caller to save. Splitting is destructive to
+    /// the open document, so it goes through history like any other edit.
+    public func splitOffTail(at time: Double, rebase: Bool) -> SubtitleDocument {
+        let parts = GlyphlineCore.splitDocument(doc, at: time, rebaseSecond: rebase)
+        guard !parts.second.cues.isEmpty else { return parts.second }
+        pushHistory()
+        doc = parts.first
+        selectedIds = []
+        activeCueId = sortedCues(doc.cues).last?.id
+        return parts.second
+    }
+
+    /// Apply mechanical typography fixes (see TextTidy). One undo entry for the
+    /// whole selection of rules, so a cleanup pass is a single step to reverse.
+    @discardableResult
+    public func tidyText(rules: [TidyRule], ids: [String]? = nil) -> Int {
+        let scope = ids.map { set in doc.cues.filter { Set(set).contains($0.id) } } ?? doc.cues
+        return applyTextPatches(tidyCues(scope, rules: rules))
+    }
+
     /// Strip bracket/parenthesis annotations, e.g. "(door slams)", "[music]".
     @discardableResult
     public func removeHearingImpaired() -> Int {

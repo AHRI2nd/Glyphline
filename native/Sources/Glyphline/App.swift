@@ -88,9 +88,11 @@ struct GlyphlineApp: App {
                 Button(menuLabel("qualityIssues")) { state.activePanel = .qualityIssues }
                 Button(menuLabel("spellCheck")) { state.activePanel = .spellCheck }
                 Button(menuLabel("translationCheck")) { state.activePanel = .translationCheck }
+                Button(menuLabel("compareFiles")) { state.activePanel = .compareFiles }
                 Divider()
                 Button(menuLabel("styleManager")) { state.activePanel = .styleManager }
                 Button(menuLabel("inlineTagEditor")) { state.activePanel = .inlineTagEditor }
+                Button(menuLabel("karaokeTiming")) { state.activePanel = .karaokeTiming }
                 Button(menuLabel("embeddedAssets")) { state.activePanel = .embeddedAssets }
                 Button(menuLabel("rawEdit")) { state.activePanel = .rawEditor }
             }
@@ -185,6 +187,7 @@ struct GlyphlineApp: App {
             Button("SubRip (.srt)") { state.exportDocument(format: .srt) }
             Button("WebVTT (.vtt)") { state.exportDocument(format: .vtt) }
             Button("ASS/SSA (.ass)") { state.exportDocument(format: .ass) }
+            Button("TTML/DFXP (.ttml)") { state.exportDocument(format: .ttml) }
             Button("SAMI (.smi)") { state.exportDocument(format: .smi) }
             Button(t("exportSmiCp949")) { state.exportDocument(format: .smi, encodingLabel: "cp949") }
             Divider()

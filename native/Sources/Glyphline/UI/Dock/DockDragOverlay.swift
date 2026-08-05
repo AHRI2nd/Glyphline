@@ -26,7 +26,12 @@ struct DockDragOverlay: View {
 
     private var targetRect: CGRect? {
         guard let target = dragState.hoverTarget else { return nil }
-        return dockTabsetRect(containing: target, in: layout, rect: CGRect(origin: .zero, size: dockSize))
+        switch target {
+        case .root:
+            return CGRect(origin: .zero, size: dockSize)
+        case .panel(let panel):
+            return dockTabsetRect(containing: panel, in: layout, rect: CGRect(origin: .zero, size: dockSize))
+        }
     }
 
     var body: some View {
@@ -40,11 +45,15 @@ struct DockDragOverlay: View {
                     .frame(width: targetRect.width, height: targetRect.height)
                     .offset(x: targetRect.minX, y: targetRect.minY)
 
-                let zr = dockZoneRect(zone, in: targetRect).insetBy(dx: 5, dy: 5)
+                // A root drop spans a whole edge, so its highlight uses the
+                // root fraction rather than the half a pane-relative split takes.
+                let isRoot = dragState.hoverTarget == .root
+                let zr = (isRoot ? dockRootZoneRect(zone, in: targetRect)
+                                 : dockZoneRect(zone, in: targetRect)).insetBy(dx: 5, dy: 5)
                 RoundedRectangle(cornerRadius: 6)
                     .fill(GlyphColor.accent.opacity(0.28))
                     .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(GlyphColor.accentHover, lineWidth: 2))
-                    .overlay(OutcomeLabel(zone: zone))
+                    .overlay(OutcomeLabel(zone: zone, isRoot: isRoot))
                     .frame(width: zr.width, height: zr.height)
                     .offset(x: zr.minX, y: zr.minY)
             }
@@ -60,6 +69,10 @@ struct DockDragOverlay: View {
 /// side, so the two signals layer instead of repeating each other.
 private struct OutcomeLabel: View {
     let zone: DropZone
+    /// Root drops span a full window edge — a materially different outcome
+    /// from splitting the pane under the cursor, so it gets its own wording
+    /// rather than reusing "split left/right/top/bottom".
+    let isRoot: Bool
 
     var body: some View {
         HStack(spacing: 6) {
@@ -76,6 +89,10 @@ private struct OutcomeLabel: View {
     }
 
     private var icon: String {
+        if isRoot {
+            return zone == .left || zone == .right
+                ? "rectangle.lefthalf.inset.filled" : "rectangle.bottomhalf.inset.filled"
+        }
         switch zone {
         case .center: return "rectangle.stack"
         case .left, .right: return "rectangle.split.2x1"
@@ -84,6 +101,14 @@ private struct OutcomeLabel: View {
     }
 
     private var labelKey: String {
+        if isRoot {
+            switch zone {
+            case .left: return "dockDockLeftFull"
+            case .right: return "dockDockRightFull"
+            case .top: return "dockDockTopFull"
+            case .bottom, .center: return "dockDockBottomFull"
+            }
+        }
         switch zone {
         case .center: return "dockMergeAsTab"
         case .left: return "dockSplitLeft"

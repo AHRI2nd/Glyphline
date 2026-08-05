@@ -299,3 +299,49 @@
 "tcDivergentHint" = "Finds identical source lines translated differently in this document. Needs no setup and can't false-positive.";
 "tcGlossaryHint" = "Where the source contains a term, checks that its translation contains the wording you chose. Untranslated cues are skipped.";
 "tcAddFromCue" = "Add from active cue";
+
+"dockDockLeftFull" = "Dock to full left";
+"dockDockRightFull" = "Dock to full right";
+"dockDockTopFull" = "Dock across the top";
+"dockDockBottomFull" = "Dock across the bottom";
+
+"autoBreakLines" = "Auto-break lines";
+"autoBreakLinesHint" = "Rebreaks cues that exceed the quality thresholds (chars per line, lines per cue) into evenly sized lines.";
+"unbreakLines" = "Join into one line";
+"unbreakLinesHint" = "Collapses multi-line cues back onto a single line.";
+"breakStyleAuto" = "Auto";
+"breakStyleSpaced" = "At spaces";
+"breakStyleCJK" = "Between characters (JA)";
+
+"tidyText" = "Tidy typography";
+"tidySpacing" = "Remove stray spaces";
+"tidySpaceAfterPunct" = "Add missing space after punctuation";
+"tidyDashes" = "Normalise dialogue dashes (- )";
+"tidyOcrI" = "Fix OCR capital I → l";
+"tidyEllipsis" = "Normalise ellipsis to …";
+
+"compareFiles" = "Compare & Join Files";
+"compareAgainst" = "Compare against";
+"compareChooseFile" = "Choose file…";
+"compareHint" = "Open another version to see what changed. The current document is not modified.";
+"compareIdentical" = "✓ The two files are identical";
+"compareTruncated" = "%@ more not shown";
+"diffAdded" = "Added";
+"diffRemoved" = "Removed";
+"diffTextChanged" = "Text";
+"diffRetimed" = "Timing";
+"diffChanged" = "Both";
+"appendFile" = "Append another file";
+"appendChooseFile" = "Choose file…";
+"appendGap" = "Gap";
+"appendHint" = "Adds the chosen file's cues after the last cue here — for joining part 1 and part 2 of a feature.";
+"splitAtPlayhead" = "Split at the playhead";
+"splitSaveTail" = "Save second half…";
+"splitHint" = "Moves cues after the playhead out of this document into a separate file. A cue straddling the point stays in the first half.";
+
+"karaokeTiming" = "Karaoke Timing";
+"karaokeGenerate" = "Split into syllables";
+"karaokeRegenerate" = "Split again";
+"karaokeClear" = "Remove timing";
+"karaokeNoTokens" = "No syllable timing yet. Use 'Split into syllables' for an even starting point, then drag the boundaries.";
+"karaokeHint" = "Drag the line between blocks to move a syllable boundary. One drag is one undo step. Saved as ASS \\k tags and in .glyph.";

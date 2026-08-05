@@ -19,6 +19,9 @@ public let EXTERNAL_ADAPTERS: [FormatAdapter] = [
     FormatAdapter(id: .sbv, label: "YouTube (.sbv)", extensions: ["sbv"], parse: parseSbv, serialize: serializeSbv),
     FormatAdapter(id: .lrc, label: "LRC Lyrics (.lrc)", extensions: ["lrc"], parse: parseLrc, serialize: serializeLrc),
     FormatAdapter(id: .txt, label: "Plain Text (.txt)", extensions: ["txt"], parse: parseTxt, serialize: serializeTxt),
+    // .xml is listed last so a bare .xml opens as TTML only when nothing more
+    // specific claimed it — the extension is generic, the others are not.
+    FormatAdapter(id: .ttml, label: "TTML/DFXP (.ttml)", extensions: ["ttml", "dfxp", "xml"], parse: parseTtml, serialize: serializeTtml),
 ]
 
 /// Every extension we can open, including the native project file.

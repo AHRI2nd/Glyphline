@@ -299,3 +299,49 @@
 "tcDivergentHint" = "文書内で同一の原文が違う訳になっている箇所を探します。設定不要で誤検出がありません。";
 "tcGlossaryHint" = "原文にその用語がある場合、訳に指定した語が含まれるか確認します。未翻訳の字幕は対象外です。";
 "tcAddFromCue" = "アクティブ字幕から追加";
+
+"dockDockLeftFull" = "左側全体に配置";
+"dockDockRightFull" = "右側全体に配置";
+"dockDockTopFull" = "上部全体に配置";
+"dockDockBottomFull" = "下部全体に配置";
+
+"autoBreakLines" = "自動改行";
+"autoBreakLinesHint" = "品質チェック基準（1行の文字数・行数）を超える字幕を、長さの揃った複数行に分け直します。";
+"unbreakLines" = "1行にまとめる";
+"unbreakLinesHint" = "複数行の字幕を1行に戻します。";
+"breakStyleAuto" = "自動";
+"breakStyleSpaced" = "スペースで区切る";
+"breakStyleCJK" = "文字単位（禁則処理）";
+
+"tidyText" = "表記の整理";
+"tidySpacing" = "不要なスペースを削除";
+"tidySpaceAfterPunct" = "句読点の後にスペースを追加";
+"tidyDashes" = "対話ハイフンを統一 (- )";
+"tidyOcrI" = "OCR の大文字 I → l を修正";
+"tidyEllipsis" = "三点リーダを … に統一";
+
+"compareFiles" = "ファイル比較・結合";
+"compareAgainst" = "比較するファイル";
+"compareChooseFile" = "ファイルを選択…";
+"compareHint" = "別バージョンの字幕を開いて変更点を確認します。現在の文書は変更されません。";
+"compareIdentical" = "✓ 2つのファイルは同一です";
+"compareTruncated" = "他 %@件は省略";
+"diffAdded" = "追加";
+"diffRemoved" = "削除";
+"diffTextChanged" = "本文";
+"diffRetimed" = "時間";
+"diffChanged" = "両方";
+"appendFile" = "別ファイルを追加";
+"appendChooseFile" = "ファイルを選択…";
+"appendGap" = "間隔";
+"appendHint" = "選んだファイルの字幕を現在の最後の字幕の後ろに追加します。前後編を1つにまとめる時に使います。";
+"splitAtPlayhead" = "再生位置で分割";
+"splitSaveTail" = "後半を保存…";
+"splitHint" = "再生位置より後の字幕を現在の文書から切り離して別ファイルに保存します。またがる字幕は前半に残ります。";
+
+"karaokeTiming" = "カラオケタイミング";
+"karaokeGenerate" = "音節に分割";
+"karaokeRegenerate" = "分割し直す";
+"karaokeClear" = "タイミングを削除";
+"karaokeNoTokens" = "音節タイミングがまだありません。「音節に分割」で均等に分けてから境界をドラッグしてください。";
+"karaokeHint" = "ブロック間の縦線をドラッグして音節の境界を調整します。1回のドラッグが取り消し1段階です。ASS の \\k タグと .glyph に保存されます。";

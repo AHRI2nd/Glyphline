@@ -19,14 +19,14 @@ final class DockDragState {
     var draggingPanel: PanelKind?
     /// Cursor position in the dock area's coordinate space (drives the ghost chip).
     var cursor: CGPoint = .zero
-    /// The tabset under the cursor (by its unique selected panel) and the drop
-    /// zone within it — drives the single zone preview.
-    var hoverTarget: PanelKind?
+    /// What the drop is measured against (a tabset, or the whole dock for an
+    /// outer-edge drop) and the zone within it — drives the single zone preview.
+    var hoverTarget: DockTarget?
     var hoverZone: DropZone?
 
     var isDragging: Bool { draggingPanel != nil }
 
-    func update(panel: PanelKind, cursor: CGPoint, hit: (target: PanelKind, zone: DropZone)?) {
+    func update(panel: PanelKind, cursor: CGPoint, hit: (target: DockTarget, zone: DropZone)?) {
         draggingPanel = panel
         self.cursor = cursor
         hoverTarget = hit?.target

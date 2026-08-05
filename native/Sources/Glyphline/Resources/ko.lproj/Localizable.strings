@@ -299,3 +299,49 @@
 "tcDivergentHint" = "문서 안에서 똑같은 원문이 서로 다르게 번역된 곳을 찾습니다. 설정이 필요 없고 오탐이 없습니다.";
 "tcGlossaryHint" = "원문에 이 용어가 있으면 번역에도 지정한 말이 있는지 확인합니다. 아직 번역하지 않은 자막은 건너뜁니다.";
 "tcAddFromCue" = "활성 자막에서 추가";
+
+"dockDockLeftFull" = "왼쪽 전체에 배치";
+"dockDockRightFull" = "오른쪽 전체에 배치";
+"dockDockTopFull" = "위쪽 전체에 배치";
+"dockDockBottomFull" = "아래쪽 전체에 배치";
+
+"autoBreakLines" = "줄바꿈 자동 정리";
+"autoBreakLinesHint" = "품질 검사 기준(줄당 글자 수·줄 수)을 넘는 자막을 길이가 고른 여러 줄로 다시 나눕니다.";
+"unbreakLines" = "한 줄로 합치기";
+"unbreakLinesHint" = "여러 줄인 자막을 한 줄로 되돌립니다.";
+"breakStyleAuto" = "자동";
+"breakStyleSpaced" = "띄어쓰기 기준";
+"breakStyleCJK" = "글자 기준 (일본어)";
+
+"tidyText" = "표기 정리";
+"tidySpacing" = "불필요한 공백 정리";
+"tidySpaceAfterPunct" = "문장부호 뒤 공백 넣기";
+"tidyDashes" = "대화 하이픈 통일 (- )";
+"tidyOcrI" = "OCR 대문자 I → l 교정";
+"tidyEllipsis" = "말줄임표 … 로 통일";
+
+"compareFiles" = "파일 비교·합치기";
+"compareAgainst" = "비교할 파일";
+"compareChooseFile" = "파일 선택…";
+"compareHint" = "다른 버전의 자막 파일을 열어 무엇이 바뀌었는지 확인합니다. 현재 문서는 변경되지 않습니다.";
+"compareIdentical" = "✓ 두 파일이 동일합니다";
+"compareTruncated" = "이하 %@건 생략";
+"diffAdded" = "추가";
+"diffRemoved" = "삭제";
+"diffTextChanged" = "내용";
+"diffRetimed" = "시간";
+"diffChanged" = "둘 다";
+"appendFile" = "다른 파일 이어붙이기";
+"appendChooseFile" = "파일 선택…";
+"appendGap" = "간격";
+"appendHint" = "선택한 파일의 자막을 현재 마지막 자막 뒤에 이어 붙입니다. 2부작을 하나로 합칠 때 사용합니다.";
+"splitAtPlayhead" = "재생 위치에서 나누기";
+"splitSaveTail" = "뒷부분 저장…";
+"splitHint" = "재생 위치 이후의 자막을 현재 문서에서 떼어내 별도 파일로 저장합니다. 걸쳐 있는 자막은 앞부분에 남습니다.";
+
+"karaokeTiming" = "가라오케 타이밍";
+"karaokeGenerate" = "음절 나누기";
+"karaokeRegenerate" = "다시 나누기";
+"karaokeClear" = "타이밍 제거";
+"karaokeNoTokens" = "아직 음절 타이밍이 없습니다. '음절 나누기'로 균등하게 나눈 뒤 경계를 끌어 맞추세요.";
+"karaokeHint" = "블록 사이의 세로선을 끌어 음절 경계를 조정합니다. 한 번의 드래그는 실행 취소 한 단계입니다. ASS의 \\k 태그와 .glyph에 저장됩니다.";
