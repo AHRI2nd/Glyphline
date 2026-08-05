@@ -13,6 +13,22 @@ final class CueTableView: NSTableView {
     var onTimingKey: ((Character) -> Void)?
     /// Delete/Backspace on the selected rows — the standard macOS list gesture.
     var onDeleteSelection: (() -> Void)?
+    /// Double-click on the empty area below the last row.
+    var onDoubleClickEmptyArea: (() -> Void)?
+
+    override func mouseDown(with event: NSEvent) {
+        // Only the blank area past the last row. Clicks that land on a row hit
+        // that row's NSTextField first and never reach here, so this can't
+        // steal a double-click meant to place the caret in a cell.
+        if event.clickCount == 2 {
+            let point = convert(event.locationInWindow, from: nil)
+            if row(at: point) < 0 {
+                onDoubleClickEmptyArea?()
+                return
+            }
+        }
+        super.mouseDown(with: event)
+    }
 
     override func keyDown(with event: NSEvent) {
         if let chars = event.charactersIgnoringModifiers?.lowercased(), chars.count == 1,

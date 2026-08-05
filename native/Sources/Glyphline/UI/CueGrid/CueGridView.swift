@@ -64,6 +64,24 @@ struct CueGridView: NSViewRepresentable {
             guard let document, !document.selectedIds.isEmpty else { return }
             document.deleteCues(Array(document.selectedIds))
         }
+        // Double-click below the last row → a new cue at the playhead, then
+        // straight into typing it. Same 2s default and duration clamp as the
+        // transport's "Cue here" button, so both routes place an identical cue.
+        table.onDoubleClickEmptyArea = { [weak media, weak document, weak coordinator = context.coordinator] in
+            guard let document else { return }
+            if let media, media.mediaPath != nil {
+                let start = media.currentTime
+                let end = media.duration > 0 ? min(start + 2, media.duration) : start + 2
+                let bounds = coordinator?.frameRate.map { snapCueBounds(start: start, end: end, fps: $0) }
+                    ?? (start: start, end: end)
+                document.addCueAt(start: bounds.start, end: bounds.end)
+            } else {
+                // No playhead to place it at — fall back to appending after the
+                // last cue, which is what ⌘Return does.
+                document.addCue()
+            }
+            coordinator?.beginEditingActiveCueText()
+        }
 
         let scroll = NSScrollView()
         scroll.documentView = table

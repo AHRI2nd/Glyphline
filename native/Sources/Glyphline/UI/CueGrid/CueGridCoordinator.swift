@@ -125,6 +125,22 @@ final class CueGridCoordinator: NSObject, NSTableViewDataSource, NSTableViewDele
         tableView.scrollRowToVisible(idx)
     }
 
+    /// Puts the caret in the newly added cue's Text cell. Deferred to the next
+    /// runloop turn because the row doesn't exist until SwiftUI has pushed the
+    /// document change back through updateNSView → reload().
+    func beginEditingActiveCueText() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self, let tableView,
+                  let id = document.activeCueId,
+                  let row = rows.firstIndex(where: { $0.id == id }),
+                  let column = tableView.tableColumns.firstIndex(where: {
+                      $0.identifier == CueColumn.text.identifier
+                  })
+            else { return }
+            tableView.editColumn(column, row: row, with: nil, select: true)
+        }
+    }
+
     /// `force` re-renders cells even when the model is unchanged. Needed when
     /// the CELLS have diverged from the model without the model moving — the
     /// rejected-timecode path below leaves the user's unparseable text sitting
