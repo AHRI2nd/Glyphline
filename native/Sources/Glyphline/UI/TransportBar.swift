@@ -6,6 +6,8 @@ import GlyphlineCore
 struct TransportBar: View {
     let media: MediaModel
     let document: DocumentModel
+    /// Non-nil when new cues should snap to frames (View ▸ 프레임 타임코드).
+    var frameRate: Double?
 
     var body: some View {
         VStack(spacing: 6) {
@@ -77,11 +79,10 @@ struct TransportBar: View {
         media.playRegion(cueId: cue.id, start: cue.start, end: cue.end)
     }
 
-    /// Ported from Transport.tsx's addCueAtPlayhead: a 2s cue starting at the
-    /// playhead, clamped to the media's duration.
+    /// Delegates to the shared rule in CueCreation.swift so this button, ⌘Return
+    /// and the grid's double-click all place a cue identically.
     private func addCueAtPlayhead() {
-        let end = media.duration > 0 ? min(media.currentTime + 2, media.duration) : media.currentTime + 2
-        document.addCueAt(start: media.currentTime, end: end)
+        Glyphline.addCueAtPlayhead(document: document, media: media, frameRate: frameRate)
     }
 }
 

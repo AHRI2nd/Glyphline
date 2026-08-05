@@ -50,8 +50,15 @@ struct GlyphlineApp: App {
                     .keyboardShortcut("f", modifiers: .command)
             }
             CommandMenu(t("subtitleMenu")) {
-                Button(t("addCue")) { state.document.addCue() }
-                    .keyboardShortcut(.return, modifiers: .command)
+                Button(t("addCue")) {
+                    addCueAtPlayhead(
+                        document: state.document, media: state.media,
+                        frameRate: state.settings.frameMode
+                            ? state.settings.effectiveFrameRate(detected: state.media.detectedFrameRate)
+                            : nil
+                    )
+                }
+                .keyboardShortcut(.return, modifiers: .command)
                 // Split/merge/delete/duplicate are the operations a timing pass
                 // repeats hundreds of times; they had no accelerators at all.
                 // ⌘S/⌘⇧S (save/save as) are taken, hence ⌘⌥S for split.

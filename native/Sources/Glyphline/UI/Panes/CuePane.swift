@@ -18,7 +18,14 @@ struct CuePane: View {
                 icon: "text.bubble", title: t("noCues"), subtitle: t("emptyHint"),
                 actions: [
                     PlaceholderAction(label: t("menuOpenSubtitle"), prominent: true, action: onOpenSubtitle),
-                    PlaceholderAction(label: t("addCue")) { document.addCue() },
+                    PlaceholderAction(label: t("addCue")) {
+                        addCueAtPlayhead(
+                            document: document, media: media,
+                            frameRate: settings.frameMode
+                                ? settings.effectiveFrameRate(detected: media.detectedFrameRate)
+                                : nil
+                        )
+                    },
                 ]
             )
         } else {

@@ -105,7 +105,13 @@ struct ContentView: View {
             .coordinateSpace(name: DOCK_COORDINATE_SPACE)
             .padding(GlyphMetric.paneSpacing)
 
-            TransportBar(media: state.media, document: state.document)
+            TransportBar(
+                media: state.media,
+                document: state.document,
+                frameRate: state.settings.frameMode
+                    ? state.settings.effectiveFrameRate(detected: state.media.detectedFrameRate)
+                    : nil
+            )
         }
         .frame(minWidth: 900, minHeight: 600)
         .background(GlyphColor.bg)
