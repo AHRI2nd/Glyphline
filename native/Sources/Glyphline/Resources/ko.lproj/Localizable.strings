@@ -274,3 +274,10 @@
 "scNudgeCue" = "선택한 자막 전체를 0.1초 이동 (파형)";
 "scNudgeStart" = "시작 지점을 0.1초 이동 (파형)";
 "scNudgeEnd" = "종료 지점을 0.1초 이동 (파형)";
+
+"frameTimecode" = "프레임 타임코드";
+"frameRate" = "프레임 레이트";
+"frameRateAuto" = "영상에서 자동";
+"frameRateHint" = "타임코드를 HH:MM:SS:FF로 표시하고, 편집한 시간을 프레임 경계에 맞춥니다. 영상에서 감지한 값을 쓰거나 직접 지정하세요.";
+"frameRateNone" = "감지된 프레임 레이트 없음 — 직접 지정하세요.";
+"frameRateDetected" = "영상에서 감지: %@";

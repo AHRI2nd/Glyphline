@@ -13,6 +13,8 @@ struct WaveformScrollView: NSViewRepresentable {
     let document: DocumentModel
     let media: MediaModel
     let zoomLevel: Double // 0–100, log scale (see WaveformPane)
+    /// Non-nil when edits should land on frame boundaries (View ▸ 프레임 타임코드).
+    var frameRate: Double?
     var onZoomWheel: (Double) -> Void = { _ in }
 
     func makeCoordinator() -> Coordinator { Coordinator() }
@@ -30,11 +32,20 @@ struct WaveformScrollView: NSViewRepresentable {
         drawView.onBeginEdit = { doc.beginInteractive() }
         drawView.onEndEdit = { doc.endInteractive() }
         drawView.onSelectCue = { id in doc.setActiveCue(id) }
-        drawView.onAdjustCue = { id, start, end in
-            doc.updateCue(id) { $0.start = start; $0.end = end }
+        // Snapping lives at the drag's exit point rather than inside
+        // WaveformDrawView so the view keeps tracking the pointer smoothly —
+        // only the value committed to the document is quantized.
+        drawView.onAdjustCue = { [weak coordinator = context.coordinator] id, start, end in
+            let fps = coordinator?.frameRate
+            let s = fps.map { snapToFrame(start, fps: $0) } ?? start
+            let e = fps.map { snapToFrame(end, fps: $0) } ?? end
+            doc.updateCue(id) { $0.start = s; $0.end = e }
         }
-        drawView.onCreateCue = { start, end in
-            doc.addCueAt(start: start, end: end)
+        drawView.onCreateCue = { [weak coordinator = context.coordinator] start, end in
+            let fps = coordinator?.frameRate
+            let s = fps.map { snapToFrame(start, fps: $0) } ?? start
+            let e = fps.map { snapToFrame(end, fps: $0) } ?? end
+            doc.addCueAt(start: s, end: e)
             return doc.activeCueId // addCueAt makes the new cue active
         }
 
@@ -55,6 +66,7 @@ struct WaveformScrollView: NSViewRepresentable {
         let coordinator = context.coordinator
         guard let drawView = coordinator.drawView else { return }
         drawView.onZoomWheel = onZoomWheel
+        coordinator.frameRate = frameRate
 
         if media.mediaPath != coordinator.lastPath {
             coordinator.lastPath = media.mediaPath
@@ -89,6 +101,9 @@ struct WaveformScrollView: NSViewRepresentable {
     @MainActor
     final class Coordinator {
         weak var drawView: WaveformDrawView?
+        /// Read by the drag callbacks above; kept on the coordinator so they
+        /// see the live value instead of the one captured at makeNSView time.
+        var frameRate: Double?
         weak var scrollView: NSScrollView?
         var lastPath: String?
         var lastAudio: WaveformAudio?

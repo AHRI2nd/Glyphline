@@ -128,6 +128,10 @@ struct GlyphlineApp: App {
                     get: { state.settings.showActor },
                     set: { state.settings.showActor = $0 }
                 ))
+                Toggle(t("frameTimecode"), isOn: Binding(
+                    get: { state.settings.frameMode },
+                    set: { state.settings.frameMode = $0 }
+                ))
                 Divider()
                 Menu(t("language")) {
                     Picker("", selection: Binding(

@@ -46,6 +46,10 @@ final class MediaModel {
         guard let loopCueId else { return nil }
         return loopBoundsProvider?(loopCueId)
     }
+    /// Frame rate mpv read from the loaded file, or nil when nothing is loaded
+    /// (or it's audio-only). AppSettings.effectiveFrameRate turns this plus the
+    /// user's override into the rate the UI actually times against.
+    private(set) var detectedFrameRate: Double?
     var error: String?
 
     func loadMedia(_ path: String) {
@@ -53,6 +57,7 @@ final class MediaModel {
         mediaKind = Self.kind(of: path)
         mediaName = (path as NSString).lastPathComponent
         currentTime = 0; duration = 0; isPlaying = false; loopCueId = nil; error = nil
+        detectedFrameRate = nil
         engine?.open(path: path)
     }
 
@@ -60,12 +65,17 @@ final class MediaModel {
         engine?.stop()
         mediaPath = nil; mediaKind = nil; mediaName = nil
         currentTime = 0; duration = 0; isPlaying = false; loopCueId = nil; error = nil
+        detectedFrameRate = nil
     }
 
     /// Called by the poll timer — mpv is the source of truth for these three.
     /// Also drives loop playback: when the region's end is reached, jump back to
     /// its start (~80ms poll granularity means a slight overshoot — fine for review).
-    func applyPolled(time: Double?, duration: Double?, paused: Bool?) {
+    func applyPolled(time: Double?, duration: Double?, paused: Bool?, fps: Double? = nil) {
+        // Only accept a plausible rate — mpv reports 0/NaN before the first
+        // frame is decoded, and letting that through would zero out the frame
+        // grid mid-session.
+        if let fps, fps.isFinite, fps > 1, fps < 1000 { detectedFrameRate = fps }
         if let time {
             currentTime = time
             if let loop = loopRegion, time >= loop.end { engine?.seek(loop.start) }

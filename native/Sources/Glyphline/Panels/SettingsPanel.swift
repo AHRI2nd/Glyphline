@@ -6,7 +6,43 @@ import GlyphlineCore
 
 struct SettingsPanel: View {
     let settings: AppSettings
+    let media: MediaModel
     @Environment(\.dismiss) private var dismiss
+
+    /// Frame rate section: the picker sets an override, and the line under it
+    /// says what's actually in force — otherwise "From video" gives no way to
+    /// tell whether anything was detected at all.
+    @ViewBuilder
+    private var frameRateSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(t("frameRate")).font(GlyphFont.body(12))
+                Spacer()
+                Picker("", selection: Binding(
+                    get: { settings.frameRateOverride },
+                    set: { settings.frameRateOverride = $0 }
+                )) {
+                    Text(t("frameRateAuto")).tag(0.0)
+                    ForEach(COMMON_FRAME_RATES, id: \.self) { fps in
+                        Text(frameRateLabel(fps)).tag(fps)
+                    }
+                }
+                .labelsHidden()
+                .frame(width: 140)
+            }
+            if settings.frameRateOverride == 0 {
+                if let detected = media.detectedFrameRate {
+                    Text(t("frameRateDetected", frameRateLabel(detected)))
+                        .font(GlyphFont.body(10)).foregroundStyle(GlyphColor.quiet)
+                } else {
+                    Text(t("frameRateNone"))
+                        .font(GlyphFont.body(10)).foregroundStyle(GlyphColor.amber)
+                }
+            }
+            Text(t("frameRateHint"))
+                .font(GlyphFont.body(10)).foregroundStyle(GlyphColor.quiet)
+        }
+    }
 
     var body: some View {
         PanelShell(title: t("settings"), width: 380) {
@@ -52,6 +88,8 @@ struct SettingsPanel: View {
                         get: { settings.quality.maxLines }, set: { settings.quality.maxLines = $0 }))
                 }
 
+                Divider()
+                frameRateSection
                 Divider()
 
                 VStack(alignment: .leading, spacing: 4) {

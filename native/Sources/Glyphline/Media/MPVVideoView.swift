@@ -18,8 +18,8 @@ struct MPVVideoView: NSViewRepresentable {
             fallback.layer?.backgroundColor = NSColor.black.cgColor
             return fallback
         }
-        surface.onPoll = { [weak media] time, duration, paused in
-            DispatchQueue.main.async { media?.applyPolled(time: time, duration: duration, paused: paused) }
+        surface.onPoll = { [weak media] time, duration, paused, fps in
+            DispatchQueue.main.async { media?.applyPolled(time: time, duration: duration, paused: paused, fps: fps) }
         }
         media.engine = surface
         context.coordinator.surface = surface

@@ -274,3 +274,10 @@
 "scNudgeCue" = "選択した字幕全体を0.1秒移動 (波形)";
 "scNudgeStart" = "開始位置を0.1秒移動 (波形)";
 "scNudgeEnd" = "終了位置を0.1秒移動 (波形)";
+
+"frameTimecode" = "フレームタイムコード";
+"frameRate" = "フレームレート";
+"frameRateAuto" = "動画から自動";
+"frameRateHint" = "タイムコードを HH:MM:SS:FF で表示し、編集した時間をフレーム境界に合わせます。動画から検出した値を使うか、ここで指定してください。";
+"frameRateNone" = "フレームレートを検出できません — ここで指定してください。";
+"frameRateDetected" = "動画から検出: %@";

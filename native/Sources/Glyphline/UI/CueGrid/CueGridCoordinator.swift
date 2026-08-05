@@ -35,6 +35,9 @@ final class CueGridCoordinator: NSObject, NSTableViewDataSource, NSTableViewDele
     var playheadProvider: (() -> Double?)?
     /// Live from Settings ▸ 품질 검사 기준 (default until the panel changes it).
     var qualityThresholds: QualityThresholds = DEFAULT_THRESHOLDS
+    /// Non-nil when the grid should show/accept HH:MM:SS:FF instead of seconds
+    /// (View ▸ 프레임 타임코드, and only once a rate is actually known).
+    var frameRate: Double?
     /// Called when a cue becomes active via click or arrow-key navigation
     /// (mirrors CueRow.tsx: selecting a row seeks the playhead to its start).
     var onRowActivated: ((Cue) -> Void)?
@@ -174,9 +177,9 @@ final class CueGridCoordinator: NSObject, NSTableViewDataSource, NSTableViewDele
         case .index:
             return makeLabel("\(row + 1)", alignment: .right, mono: true, color: GlyphColor.quiet)
         case .start:
-            return makeEditableField(cue: cue, column: column, text: formatDisplayTime(cue.start), mono: true, alignment: .right, color: timingColor)
+            return makeEditableField(cue: cue, column: column, text: displayTime(cue.start), mono: true, alignment: .right, color: timingColor)
         case .end:
-            return makeEditableField(cue: cue, column: column, text: formatDisplayTime(cue.end), mono: true, alignment: .right, color: timingColor)
+            return makeEditableField(cue: cue, column: column, text: displayTime(cue.end), mono: true, alignment: .right, color: timingColor)
         case .duration:
             let d = cueDuration(cue)
             let c = cps(cue)
@@ -193,6 +196,23 @@ final class CueGridCoordinator: NSObject, NSTableViewDataSource, NSTableViewDele
         case .translation:
             return makeEditableField(cue: cue, column: column, text: cue.translation ?? "", mono: false, alignment: .left, color: GlyphColor.ink)
         }
+    }
+
+    /// Frame timecode when a rate is in play, else the millisecond form.
+    private func displayTime(_ seconds: Double) -> String {
+        guard let frameRate else { return formatDisplayTime(seconds) }
+        return formatFrameTimecode(seconds, fps: frameRate)
+    }
+
+    /// Accepts whichever form the grid is currently showing, but also still
+    /// accepts the other one — someone pasting a timecode out of another tool
+    /// shouldn't have to convert it by hand first.
+    private func parseTime(_ text: String) -> Double? {
+        if let frameRate {
+            if let t = parseFrameTimecode(text, fps: frameRate) { return t }
+            return parseTimestampInput(text).map { snapToFrame($0, fps: frameRate) }
+        }
+        return parseTimestampInput(text)
     }
 
     private func durationColor(_ q: CueQuality) -> Color {
@@ -332,10 +352,10 @@ final class CueGridCoordinator: NSObject, NSTableViewDataSource, NSTableViewDele
 
         switch column {
         case .start:
-            guard let t = parseTimestampInput(value) else { reload(force: true); return }
+            guard let t = parseTime(value) else { reload(force: true); return }
             document.updateCue(cueId) { $0.start = t }
         case .end:
-            guard let t = parseTimestampInput(value) else { reload(force: true); return }
+            guard let t = parseTime(value) else { reload(force: true); return }
             document.updateCue(cueId) { $0.end = t }
         case .style:
             document.updateCue(cueId) { $0.style = value.isEmpty ? nil : value }
@@ -353,8 +373,11 @@ final class CueGridCoordinator: NSObject, NSTableViewDataSource, NSTableViewDele
     // ── I/O/P live timing (ported from CueList.tsx keydown handler) ────────────
 
     func handleTimingKey(_ key: Character) {
-        guard let tNow = playheadProvider?(), let activeId = document.activeCueId,
+        guard let rawNow = playheadProvider?(), let activeId = document.activeCueId,
               let idx = rows.firstIndex(where: { $0.id == activeId }) else { return }
+        // The playhead lands wherever decode happened to stop; a boundary set
+        // from it is only frame-exact if we quantize it here.
+        let tNow = frameRate.map { snapToFrame(rawNow, fps: $0) } ?? rawNow
         let active = rows[idx]
         let next = idx + 1 < rows.count ? rows[idx + 1] : nil
 

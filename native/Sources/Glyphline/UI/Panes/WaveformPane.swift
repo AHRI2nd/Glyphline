@@ -40,6 +40,8 @@ struct WaveformPane: View {
 
                 WaveformScrollView(
                     document: document, media: media, zoomLevel: zoomLevel,
+                    frameRate: settings.frameMode
+                        ? settings.effectiveFrameRate(detected: media.detectedFrameRate) : nil,
                     onZoomWheel: { delta in settings.waveformZoom = min(100, max(0, zoomLevel + delta)) }
                 )
             }

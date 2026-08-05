@@ -198,7 +198,7 @@ struct ContentView: View {
         case .styleManager: StyleManagerPanel(document: state.document)
         case .embeddedAssets: EmbeddedAssetsPanel(document: state.document)
         case .inlineTagEditor: InlineTagEditorPanel(document: state.document)
-        case .settings: SettingsPanel(settings: state.settings)
+        case .settings: SettingsPanel(settings: state.settings, media: state.media)
         case .rawEditor: RawEditorPanel(document: state.document)
         case .help: HelpPanel()
         }

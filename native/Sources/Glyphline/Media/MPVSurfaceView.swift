@@ -53,7 +53,7 @@ final class MPVSurfaceView: NSOpenGLView, MediaEngineControlling {
 
     /// Pushed every ~80ms with mpv's time-pos/duration/pause (mirrors lib.rs's
     /// poll thread — libmpv's push-event API isn't wired here for simplicity).
-    var onPoll: ((Double?, Double?, Bool?) -> Void)?
+    var onPoll: ((Double?, Double?, Bool?, Double?) -> Void)?
 
     /// `mpvFrame` (not `frame`) avoids colliding with NSView's non-failable
     /// `init(frame:)` — this initializer must stay failable (mpv may be missing).
@@ -224,7 +224,11 @@ final class MPVSurfaceView: NSOpenGLView, MediaEngineControlling {
                 self.onPoll?(
                     self.lib.getDouble(mpv, "time-pos"),
                     self.lib.getDouble(mpv, "duration"),
-                    self.lib.getFlag(mpv, "pause")
+                    self.lib.getFlag(mpv, "pause"),
+                    // container-fps is the rate declared by the file itself,
+                    // which is what a deliverable's timecode is reckoned in.
+                    // estimated-vf-fps would drift with decode timing.
+                    self.lib.getDouble(mpv, "container-fps")
                 )
             }
         }

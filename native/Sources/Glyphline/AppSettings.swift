@@ -62,6 +62,29 @@ final class AppSettings {
         didSet { UserDefaults.standard.set(waveformZoom, forKey: waveformZoomKey) }
     }
     private let waveformZoomKey = "glyphline.waveformZoom"
+
+    /// Show timecodes as HH:MM:SS:FF and snap edits to frame boundaries.
+    /// Off by default: without a video loaded there's no rate to trust, and
+    /// non-broadcast work is happier in seconds.
+    var frameMode: Bool {
+        didSet { UserDefaults.standard.set(frameMode, forKey: frameModeKey) }
+    }
+    /// Manual frame rate, used when nothing was detected from the video or the
+    /// user needs to override it (e.g. timing against a 25fps deliverable while
+    /// previewing a 23.976 screener). 0 = follow the video.
+    var frameRateOverride: Double {
+        didSet { UserDefaults.standard.set(frameRateOverride, forKey: frameRateOverrideKey) }
+    }
+    private let frameModeKey = "glyphline.frameMode"
+    private let frameRateOverrideKey = "glyphline.frameRateOverride"
+
+    /// The rate to actually time against: the user's override wins, else what
+    /// mpv read from the file, else nil (no frame grid — callers fall back to
+    /// seconds rather than inventing a rate).
+    func effectiveFrameRate(detected: Double?) -> Double? {
+        if frameRateOverride > 0 { return frameRateOverride }
+        return detected
+    }
     private let spellTextLanguageKey = "glyphline.spell.textLanguage"
     private let spellTranslationLanguageKey = "glyphline.spell.translationLanguage"
     private let spellCheckNotationKey = "glyphline.spell.checkNotation"
@@ -109,6 +132,8 @@ final class AppSettings {
         spellTranslationLanguage = UserDefaults.standard.string(forKey: spellTranslationLanguageKey) ?? defaultTranslation
         spellCheckNotation = UserDefaults.standard.object(forKey: spellCheckNotationKey) as? Bool ?? true
         waveformZoom = UserDefaults.standard.object(forKey: waveformZoomKey) as? Double ?? 50
+        frameMode = UserDefaults.standard.object(forKey: frameModeKey) as? Bool ?? false
+        frameRateOverride = UserDefaults.standard.object(forKey: frameRateOverrideKey) as? Double ?? 0
 
         if let data = UserDefaults.standard.data(forKey: dockLayoutKey),
            let decoded = try? JSONDecoder().decode(DockNode.self, from: data) {

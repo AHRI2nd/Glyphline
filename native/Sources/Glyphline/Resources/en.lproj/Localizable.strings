@@ -274,3 +274,10 @@
 "scNudgeCue" = "Slide the selected cue by 0.1s (waveform)";
 "scNudgeStart" = "Move the start by 0.1s (waveform)";
 "scNudgeEnd" = "Move the end by 0.1s (waveform)";
+
+"frameTimecode" = "Frame Timecode";
+"frameRate" = "Frame rate";
+"frameRateAuto" = "From video";
+"frameRateHint" = "Shows timecodes as HH:MM:SS:FF and snaps edited times to frame boundaries. Uses the rate detected from the video, or one you set here.";
+"frameRateNone" = "No frame rate detected — set one here.";
+"frameRateDetected" = "Detected from video: %@";
