@@ -34,7 +34,16 @@ public func parseAss(_ raw: String) -> SubtitleDocument {
     var styleFormat = DEFAULT_STYLE_FORMAT
     var eventFormat = DEFAULT_EVENT_FORMAT
     var scriptInfo: [String] = []
-    var otherSections: [String] = []
+    // Unknown sections are split by where they sat relative to [Events]:
+    // Aegisub writes [Aegisub Project Garbage] before it and [Aegisub Extradata]
+    // after it, and dumping both in one bucket at EOF moved the first one and —
+    // worse — left Comment: lines stranded under a foreign section header, so a
+    // second open/save dropped them entirely.
+    var extraBefore: [String] = []
+    var extraAfter: [String] = []
+    var comments: [String] = []
+    var seenEvents = false
+    var inUnknownSection = false
     var fonts: [AssEmbedded] = []
     var graphics: [AssEmbedded] = []
 
@@ -56,9 +65,11 @@ public func parseAss(_ raw: String) -> SubtitleDocument {
         if let g = firstMatchGroups(#"^\[(.+)\]$"#, trimmed), let name = g[1] {
             flushEmbed() // a new section ends any open embedded file
             section = name.lowercased()
-            if section != "script info", !section.contains("styles"),
-               section != "events", section != "fonts", section != "graphics" {
-                otherSections.append(line)
+            if section == "events" { seenEvents = true }
+            inUnknownSection = section != "script info" && !section.contains("styles")
+                && section != "events" && section != "fonts" && section != "graphics"
+            if inUnknownSection {
+                if seenEvents { extraAfter.append(line) } else { extraBefore.append(line) }
             }
             continue
         }
@@ -98,16 +109,25 @@ public func parseAss(_ raw: String) -> SubtitleDocument {
                     doc.cues.append(cue)
                 }
             } else if !trimmed.isEmpty {
-                otherSections.append(line) // Comment: / other event lines — verbatim
+                comments.append(line) // Comment: / other event lines — verbatim
             }
             continue
+        }
+
+        // Any other section: keep its BODY too. Previously only the header
+        // survived, so Aegisub's linked audio/video paths and extradata were
+        // silently dropped on every save.
+        if inUnknownSection, !trimmed.isEmpty {
+            if seenEvents { extraAfter.append(line) } else { extraBefore.append(line) }
         }
     }
 
     flushEmbed() // close any embedded file open at EOF
 
     if !scriptInfo.isEmpty { doc.meta["assScriptInfo"] = scriptInfo.joined(separator: "\n") }
-    if !otherSections.isEmpty { doc.meta["assExtra"] = otherSections.joined(separator: "\n") }
+    if !extraBefore.isEmpty { doc.meta["assExtraBefore"] = extraBefore.joined(separator: "\n") }
+    if !extraAfter.isEmpty { doc.meta["assExtraAfter"] = extraAfter.joined(separator: "\n") }
+    if !comments.isEmpty { doc.meta["assComments"] = comments.joined(separator: "\n") }
     if !fonts.isEmpty { doc.fonts = fonts }
     if !graphics.isEmpty { doc.graphics = graphics }
     doc.meta["assStyleFormat"] = styleFormat.joined(separator: ", ")
@@ -131,17 +151,61 @@ public func serializeAss(_ doc: SubtitleDocument) -> String {
     for st in styles { parts.append("Style: \(serializeStyle(st, styleFormat))") }
     parts.append("")
 
+    // Sections that were between the styles and [Events] on the way in
+    // (Aegisub Project Garbage lives here) go back in the same place.
+    if let before = doc.meta["assExtraBefore"] {
+        parts.append(before)
+        parts.append("")
+    }
+
     // Embedded files before [Events] (verbatim → lossless).
     emitEmbedded(&parts, "[Fonts]", "fontname", doc.fonts)
     emitEmbedded(&parts, "[Graphics]", "filename", doc.graphics)
 
     parts.append("[Events]")
     parts.append("Format: \(eventFormat.joined(separator: ", "))")
-    for cue in sortedCues(doc.cues) {
-        parts.append("Dialogue: \(serializeDialogue(cue, eventFormat))")
+    parts.append(contentsOf: eventLines(doc, eventFormat))
+
+    if let after = doc.meta["assExtraAfter"] {
+        parts.append("")
+        parts.append(after)
     }
-    if let extra = doc.meta["assExtra"] { parts.append(extra) }
     return parts.joined(separator: "\n") + "\n"
+}
+
+/// Dialogue lines plus any preserved Comment:/other event lines, merged in time
+/// order. Comments MUST be emitted inside [Events] — parked at end of file they
+/// landed under whatever section header came last, and re-parsing that put them
+/// in an unknown section where they were dropped for good.
+private func eventLines(_ doc: SubtitleDocument, _ eventFormat: [String]) -> [String] {
+    let dialogue = sortedCues(doc.cues).map {
+        (time: $0.start, line: "Dialogue: \(serializeDialogue($0, eventFormat))")
+    }
+    let comments = (doc.meta["assComments"]?.components(separatedBy: "\n") ?? [])
+        .filter { !$0.trimmed().isEmpty }
+        .map { (time: commentStartTime($0, eventFormat) ?? .greatestFiniteMagnitude, line: $0) }
+
+    guard !comments.isEmpty else { return dialogue.map(\.line) }
+    // Stable merge: a comment sharing a time with a dialogue line stays after
+    // it, matching how a karaoke template written above its first line reads
+    // back with the same relative ordering.
+    return (dialogue + comments)
+        .enumerated()
+        .sorted { a, b in
+            a.element.time != b.element.time ? a.element.time < b.element.time : a.offset < b.offset
+        }
+        .map(\.element.line)
+}
+
+/// Start time of a preserved event line, read positionally from the same
+/// Format: row the dialogue uses. nil when it isn't an event row at all.
+private func commentStartTime(_ line: String, _ format: [String]) -> Double? {
+    guard let colon = line.firstIndex(of: ":") else { return nil }
+    let body = String(line[line.index(after: colon)...])
+    guard let startIdx = format.firstIndex(of: "Start") else { return nil }
+    let fields = body.components(separatedBy: ",")
+    guard startIdx < fields.count else { return nil }
+    return parseAssTime(fields[startIdx].trimmed())
 }
 
 private func emitEmbedded(_ parts: inout [String], _ header: String, _ key: String, _ files: [AssEmbedded]?) {

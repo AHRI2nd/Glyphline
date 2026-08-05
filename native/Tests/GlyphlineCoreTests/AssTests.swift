@@ -141,3 +141,79 @@ struct AssTagTests {
         #expect(categorizeTag("zzz") == .other)
     }
 }
+
+@Suite("ASS: sections and comments survive round trips")
+struct AssRoundTripFidelityTests {
+    /// A realistic Aegisub file: unknown sections on BOTH sides of [Events]
+    /// (Project Garbage before, Extradata after) plus Comment: lines
+    /// interleaved with Dialogue.
+    private let src = """
+    [Script Info]
+    Title: Probe
+    PlayResX: 1920
+
+    [Aegisub Project Garbage]
+    Last Style Storage: Default
+    Audio File: ../audio.wav
+    Video File: ../video.mkv
+
+    [V4+ Styles]
+    Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+    Style: Default,Arial,48,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,2,0,2,10,10,10,1
+
+    [Events]
+    Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+    Comment: 0,0:00:00.00,0:00:05.00,Default,,0,0,0,,template line
+    Dialogue: 0,0:00:01.00,0:00:03.00,Default,,0,0,0,,Hello
+    Comment: 0,0:00:03.00,0:00:04.00,Default,,0,0,0,,disabled line
+    Dialogue: 0,0:00:04.00,0:00:06.00,Default,,0,0,0,,World
+
+    [Aegisub Extradata]
+    Data: 1,_aegi_perspective_ambient_plane,e30=
+    """
+
+    @Test("unknown section bodies are kept, not just their headers")
+    func unknownSectionBodies() {
+        let out = serializeAss(parseAss(src))
+        for kept in ["Last Style Storage: Default", "Audio File: ../audio.wav",
+                     "Video File: ../video.mkv", "Data: 1,_aegi_perspective_ambient_plane,e30="] {
+            #expect(out.contains(kept), "lost: \(kept)")
+        }
+    }
+
+    @Test("comments come back inside [Events], not after a later section")
+    func commentsStayInEvents() {
+        let out = serializeAss(parseAss(src))
+        let eventsAt = out.range(of: "[Events]")!.lowerBound
+        let extradataAt = out.range(of: "[Aegisub Extradata]")!.lowerBound
+        for comment in ["template line", "disabled line"] {
+            let at = out.range(of: comment)!.lowerBound
+            #expect(at > eventsAt && at < extradataAt, "\(comment) escaped [Events]")
+        }
+    }
+
+    @Test("comments are interleaved with dialogue in time order")
+    func commentOrdering() {
+        let out = serializeAss(parseAss(src))
+        let order = ["template line", "Hello", "disabled line", "World"]
+        var cursor = out.startIndex
+        for item in order {
+            guard let r = out.range(of: item, range: cursor..<out.endIndex) else {
+                Issue.record("\(item) missing or out of order"); return
+            }
+            cursor = r.upperBound
+        }
+    }
+
+    @Test("a second round trip loses nothing further — the output is stable")
+    func idempotent() {
+        let once = serializeAss(parseAss(src))
+        let twice = serializeAss(parseAss(once))
+        // Re-parsing our own output used to strand comments in an unknown
+        // section and drop them; the file must now be a fixed point.
+        #expect(once == twice)
+        #expect(twice.contains("template line"))
+        #expect(twice.contains("Audio File: ../audio.wav"))
+        #expect(twice.components(separatedBy: "Dialogue:").count - 1 == 2)
+    }
+}
