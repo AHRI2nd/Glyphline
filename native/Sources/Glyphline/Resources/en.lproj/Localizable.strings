@@ -345,3 +345,7 @@
 "karaokeClear" = "Remove timing";
 "karaokeNoTokens" = "No syllable timing yet. Use 'Split into syllables' for an even starting point, then drag the boundaries.";
 "karaokeHint" = "Drag the line between blocks to move a syllable boundary. One drag is one undo step. Saved as ASS \\k tags and in .glyph.";
+"showCueEditor" = "Show Cue Editor";
+"waveformExtracting" = "Building waveform…";
+"waveformFailed" = "Couldn't build the waveform";
+"recoveryPickHint" = "Pick which snapshot to restore — newest first.";

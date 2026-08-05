@@ -36,6 +36,8 @@ final class AppState {
     var activePanel: ActivePanel?
     var pendingExport: PendingExport?
     var recovery: AutosaveData?
+    /// Snapshots older than `recovery`, offered as alternatives in the sheet.
+    var olderRecoveries: [AutosaveData] = []
     var lastError: String?
 
     private var autosave: AutosaveService!
@@ -58,8 +60,10 @@ final class AppState {
             return (cue.start, cue.end)
         }
         autosave.start()
-        if let pending = AutosaveService.checkPending(), !pending.glyph.isEmpty {
-            recovery = pending
+        let snapshots = AutosaveService.pendingSnapshots().filter { !$0.glyph.isEmpty }
+        if let newest = snapshots.first {
+            recovery = newest
+            olderRecoveries = Array(snapshots.dropFirst())
         }
         if settings.autoCheckUpdate {
             Task { [weak self] in
@@ -157,8 +161,8 @@ final class AppState {
 
     // ── Recovery ─────────────────────────────────────────────────────────────────
 
-    func restoreRecovery() {
-        guard let recovery else { return }
+    func restoreRecovery(_ chosen: AutosaveData? = nil) {
+        guard let recovery = chosen ?? recovery else { return }
         do {
             let doc = try parseGlyph(recovery.glyph)
             document.restoreDoc(doc, filePath: recovery.filePath, fileName: recovery.fileName)
@@ -167,11 +171,13 @@ final class AppState {
         }
         AutosaveService.clear()
         self.recovery = nil
+        olderRecoveries = []
     }
 
     func discardRecovery() {
         AutosaveService.clear()
         recovery = nil
+        olderRecoveries = []
     }
 
     // ── Media ────────────────────────────────────────────────────────────────────

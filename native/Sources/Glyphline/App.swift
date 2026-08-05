@@ -123,6 +123,10 @@ struct GlyphlineApp: App {
                 Divider()
                 Button(t("resetLayout")) { state.settings.resetDockLayout() }
                 Divider()
+                Toggle(t("showCueEditor"), isOn: Binding(
+                    get: { state.settings.showCueEditor },
+                    set: { state.settings.showCueEditor = $0 }
+                ))
                 Toggle(t("showTranslation"), isOn: Binding(
                     get: { state.settings.showTranslation },
                     set: { state.settings.showTranslation = $0 }

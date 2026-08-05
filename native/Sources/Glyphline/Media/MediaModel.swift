@@ -52,12 +52,22 @@ final class MediaModel {
     private(set) var detectedFrameRate: Double?
     var error: String?
 
+    /// Waveform extraction status. Extraction runs for seconds on a feature —
+    /// without this the pane just sat empty and there was no way to tell work
+    /// in progress from a silent failure (the error only reached the log).
+    enum WaveformStatus: Equatable {
+        case idle, extracting, ready
+        case failed(String)
+    }
+    var waveformStatus: WaveformStatus = .idle
+
     func loadMedia(_ path: String) {
         mediaPath = path
         mediaKind = Self.kind(of: path)
         mediaName = (path as NSString).lastPathComponent
         currentTime = 0; duration = 0; isPlaying = false; loopCueId = nil; error = nil
         detectedFrameRate = nil
+        waveformStatus = .idle
         engine?.open(path: path)
     }
 
@@ -66,6 +76,7 @@ final class MediaModel {
         mediaPath = nil; mediaKind = nil; mediaName = nil
         currentTime = 0; duration = 0; isPlaying = false; loopCueId = nil; error = nil
         detectedFrameRate = nil
+        waveformStatus = .idle
     }
 
     /// Called by the poll timer — mpv is the source of truth for these three.

@@ -136,7 +136,8 @@ struct ContentView: View {
         .sheet(item: Binding(get: { state.recovery }, set: { _ in })) { data in
             RecoveryPanel(
                 data: data,
-                onRestore: { state.restoreRecovery() },
+                older: state.olderRecoveries,
+                onRestore: { state.restoreRecovery($0) },
                 onDiscard: { state.discardRecovery() }
             )
         }

@@ -11,6 +11,13 @@ import GlyphlineCore
 final class AppSettings {
     var quality: QualityThresholds = DEFAULT_THRESHOLDS
     var showTranslation = false
+    /// The multi-line editor under the grid. On by default: the grid alone
+    /// can't show or accept a line break, so hiding it would leave no way to
+    /// do the most common subtitle edit there is.
+    var showCueEditor: Bool {
+        didSet { UserDefaults.standard.set(showCueEditor, forKey: showCueEditorKey) }
+    }
+    private let showCueEditorKey = "glyphline.showCueEditor"
     var showActor = false
 
     var language: AppLang {
@@ -137,6 +144,7 @@ final class AppSettings {
         spellTranslationLanguage = UserDefaults.standard.string(forKey: spellTranslationLanguageKey) ?? defaultTranslation
         spellCheckNotation = UserDefaults.standard.object(forKey: spellCheckNotationKey) as? Bool ?? true
         waveformZoom = UserDefaults.standard.object(forKey: waveformZoomKey) as? Double ?? 50
+        showCueEditor = UserDefaults.standard.object(forKey: showCueEditorKey) as? Bool ?? true
         checkDivergentTranslations = UserDefaults.standard.object(forKey: checkDivergentKey) as? Bool ?? true
         frameMode = UserDefaults.standard.object(forKey: frameModeKey) as? Bool ?? false
         frameRateOverride = UserDefaults.standard.object(forKey: frameRateOverrideKey) as? Double ?? 0

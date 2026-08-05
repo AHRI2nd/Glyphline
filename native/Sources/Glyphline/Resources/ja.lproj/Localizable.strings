@@ -345,3 +345,7 @@
 "karaokeClear" = "タイミングを削除";
 "karaokeNoTokens" = "音節タイミングがまだありません。「音節に分割」で均等に分けてから境界をドラッグしてください。";
 "karaokeHint" = "ブロック間の縦線をドラッグして音節の境界を調整します。1回のドラッグが取り消し1段階です。ASS の \\k タグと .glyph に保存されます。";
+"showCueEditor" = "字幕編集ボックスを表示";
+"waveformExtracting" = "波形を生成中…";
+"waveformFailed" = "波形を生成できませんでした";
+"recoveryPickHint" = "復元する時点を選んでください。新しい順です。";

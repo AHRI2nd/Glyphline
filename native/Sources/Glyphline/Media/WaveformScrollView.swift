@@ -56,7 +56,7 @@ struct WaveformScrollView: NSViewRepresentable {
 
         context.coordinator.drawView = drawView
         context.coordinator.scrollView = scroll
-        if let path = media.mediaPath { context.coordinator.loadAudio(path: path) }
+        if let path = media.mediaPath { context.coordinator.loadAudio(path: path, media: media) }
         return scroll
     }
 
@@ -68,7 +68,7 @@ struct WaveformScrollView: NSViewRepresentable {
 
         if media.mediaPath != coordinator.lastPath {
             coordinator.lastPath = media.mediaPath
-            if let path = media.mediaPath { coordinator.loadAudio(path: path) }
+            if let path = media.mediaPath { coordinator.loadAudio(path: path, media: media) }
             else { drawView.audio = nil }
         }
 
@@ -107,9 +107,10 @@ struct WaveformScrollView: NSViewRepresentable {
         var lastAudio: WaveformAudio?
         private var loadTask: Task<Void, Never>?
 
-        func loadAudio(path: String) {
+        func loadAudio(path: String, media: MediaModel) {
             loadTask?.cancel()
-            loadTask = Task { [weak self] in
+            media.waveformStatus = .extracting
+            loadTask = Task { [weak self, weak media] in
                 guard let self else { return }
                 do {
                     let wavURL = try await WaveformExtractor.extract(path: path)
@@ -118,8 +119,15 @@ struct WaveformScrollView: NSViewRepresentable {
                     guard !Task.isCancelled else { return }
                     self.lastAudio = audio
                     self.drawView?.audio = audio
+                    media?.waveformStatus = .ready
                 } catch {
+                    guard !Task.isCancelled else { return }
                     NSLog("[waveform] extraction/decode failed: \(error)")
+                    // Surfaced in the pane rather than only the log — see
+                    // MediaModel.WaveformStatus.
+                    media?.waveformStatus = .failed(
+                        (error as? WaveformExtractor.ExtractError) == .mpvNotFound
+                            ? t("mpvMissing") : t("waveformFailed"))
                 }
             }
         }

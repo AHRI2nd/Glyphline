@@ -345,3 +345,7 @@
 "karaokeClear" = "타이밍 제거";
 "karaokeNoTokens" = "아직 음절 타이밍이 없습니다. '음절 나누기'로 균등하게 나눈 뒤 경계를 끌어 맞추세요.";
 "karaokeHint" = "블록 사이의 세로선을 끌어 음절 경계를 조정합니다. 한 번의 드래그는 실행 취소 한 단계입니다. ASS의 \\k 태그와 .glyph에 저장됩니다.";
+"showCueEditor" = "자막 편집 상자 표시";
+"waveformExtracting" = "파형 만드는 중…";
+"waveformFailed" = "파형을 만들지 못했습니다";
+"recoveryPickHint" = "복구할 시점을 고르세요. 최근 저장본부터 순서대로입니다.";

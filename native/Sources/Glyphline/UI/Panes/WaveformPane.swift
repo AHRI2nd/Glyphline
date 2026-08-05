@@ -38,13 +38,48 @@ struct WaveformPane: View {
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
 
-                WaveformScrollView(
-                    document: document, media: media, zoomLevel: zoomLevel,
-                    frameRate: settings.frameMode
-                        ? settings.effectiveFrameRate(detected: media.detectedFrameRate) : nil,
-                    onZoomWheel: { delta in settings.waveformZoom = min(100, max(0, zoomLevel + delta)) }
-                )
+                // Status sits over the waveform rather than replacing it: on a
+                // media change the previous waveform stays visible while the new
+                // one extracts, which reads as "working" instead of "broken".
+                ZStack {
+                    WaveformScrollView(
+                        document: document,
+                        media: media,
+                        zoomLevel: zoomLevel,
+                        frameRate: settings.frameMode
+                            ? settings.effectiveFrameRate(detected: media.detectedFrameRate)
+                            : nil,
+                        onZoomWheel: { delta in
+                            settings.waveformZoom = min(100, max(0, zoomLevel + delta))
+                        }
+                    )
+                    waveformStatusOverlay
+                }
             }
+        }
+    }
+
+    @ViewBuilder
+    private var waveformStatusOverlay: some View {
+        switch media.waveformStatus {
+        case .extracting:
+            HStack(spacing: 8) {
+                ProgressView().controlSize(.small)
+                Text(t("waveformExtracting"))
+                    .font(GlyphFont.body(11)).foregroundStyle(GlyphColor.quiet)
+            }
+            .padding(.horizontal, 12).padding(.vertical, 8)
+            .background(GlyphColor.surface.opacity(0.92), in: Capsule())
+        case .failed(let message):
+            HStack(spacing: 6) {
+                Image(systemName: "exclamationmark.triangle")
+                    .font(.system(size: 11)).foregroundStyle(GlyphColor.amber)
+                Text(message).font(GlyphFont.body(11)).foregroundStyle(GlyphColor.quiet)
+            }
+            .padding(.horizontal, 12).padding(.vertical, 8)
+            .background(GlyphColor.surface.opacity(0.92), in: Capsule())
+        case .idle, .ready:
+            EmptyView()
         }
     }
 

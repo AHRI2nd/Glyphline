@@ -22,7 +22,12 @@ struct CuePane: View {
                 ]
             )
         } else {
-            CueGridView(document: document, media: media, settings: settings, onEditTags: onEditTags)
+            VStack(spacing: 0) {
+                CueGridView(document: document, media: media, settings: settings, onEditTags: onEditTags)
+                if settings.showCueEditor {
+                    CueEditorBox(document: document, settings: settings)
+                }
+            }
         }
     }
 }
