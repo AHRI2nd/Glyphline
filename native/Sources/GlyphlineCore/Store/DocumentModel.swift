@@ -578,6 +578,34 @@ public final class DocumentModel {
         doc.ignoredWords = list.sorted()
     }
 
+    // ── glossary (translation consistency) ────────────────────────────────────
+
+    /// Adds or replaces the mapping for `source`. Undoable and marks the
+    /// document dirty, because the glossary ships inside the .glyph file.
+    public func upsertGlossaryEntry(source: String, target: String, note: String? = nil) {
+        let src = source.trimmed()
+        let tgt = target.trimmed()
+        guard !src.isEmpty, !tgt.isEmpty else { return }
+        var list = doc.glossary ?? []
+        let entry = GlossaryEntry(source: src, target: tgt, note: note?.trimmed().isEmpty == false ? note?.trimmed() : nil)
+        if let i = list.firstIndex(where: { $0.source == src }) {
+            guard list[i] != entry else { return }
+            pushHistory()
+            list[i] = entry
+        } else {
+            pushHistory()
+            list.append(entry)
+        }
+        doc.glossary = list.sorted { $0.source < $1.source }
+    }
+
+    public func removeGlossaryEntry(source: String) {
+        guard var list = doc.glossary, list.contains(where: { $0.source == source }) else { return }
+        pushHistory()
+        list.removeAll { $0.source == source }
+        doc.glossary = list.isEmpty ? nil : list
+    }
+
     public func unignoreWord(_ word: String) {
         guard var list = doc.ignoredWords, list.contains(word) else { return }
         pushHistory()

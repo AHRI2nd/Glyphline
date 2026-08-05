@@ -75,6 +75,11 @@ final class AppSettings {
     var frameRateOverride: Double {
         didSet { UserDefaults.standard.set(frameRateOverride, forKey: frameRateOverrideKey) }
     }
+    /// Whether the translation check includes the repeated-source scan.
+    var checkDivergentTranslations: Bool {
+        didSet { UserDefaults.standard.set(checkDivergentTranslations, forKey: checkDivergentKey) }
+    }
+    private let checkDivergentKey = "glyphline.checkDivergentTranslations"
     private let frameModeKey = "glyphline.frameMode"
     private let frameRateOverrideKey = "glyphline.frameRateOverride"
 
@@ -132,6 +137,7 @@ final class AppSettings {
         spellTranslationLanguage = UserDefaults.standard.string(forKey: spellTranslationLanguageKey) ?? defaultTranslation
         spellCheckNotation = UserDefaults.standard.object(forKey: spellCheckNotationKey) as? Bool ?? true
         waveformZoom = UserDefaults.standard.object(forKey: waveformZoomKey) as? Double ?? 50
+        checkDivergentTranslations = UserDefaults.standard.object(forKey: checkDivergentKey) as? Bool ?? true
         frameMode = UserDefaults.standard.object(forKey: frameModeKey) as? Bool ?? false
         frameRateOverride = UserDefaults.standard.object(forKey: frameRateOverrideKey) as? Double ?? 0
 

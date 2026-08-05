@@ -194,6 +194,7 @@ struct ContentView: View {
         case .shiftTime: ShiftTimePanel(document: state.document)
         case .qualityIssues: QualityIssuesPanel(document: state.document, settings: state.settings)
         case .spellCheck: SpellCheckPanel(document: state.document, settings: state.settings)
+        case .translationCheck: TranslationCheckPanel(document: state.document, settings: state.settings)
         case .closeConfirm: CloseConfirmPanel(state: state)
         case .styleManager: StyleManagerPanel(document: state.document)
         case .embeddedAssets: EmbeddedAssetsPanel(document: state.document)

@@ -87,6 +87,7 @@ struct GlyphlineApp: App {
                 Button(menuLabel("statistics")) { state.activePanel = .statistics }
                 Button(menuLabel("qualityIssues")) { state.activePanel = .qualityIssues }
                 Button(menuLabel("spellCheck")) { state.activePanel = .spellCheck }
+                Button(menuLabel("translationCheck")) { state.activePanel = .translationCheck }
                 Divider()
                 Button(menuLabel("styleManager")) { state.activePanel = .styleManager }
                 Button(menuLabel("inlineTagEditor")) { state.activePanel = .inlineTagEditor }

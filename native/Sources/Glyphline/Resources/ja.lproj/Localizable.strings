@@ -281,3 +281,21 @@
 "frameRateHint" = "タイムコードを HH:MM:SS:FF で表示し、編集した時間をフレーム境界に合わせます。動画から検出した値を使うか、ここで指定してください。";
 "frameRateNone" = "フレームレートを検出できません — ここで指定してください。";
 "frameRateDetected" = "動画から検出: %@";
+
+"translationCheck" = "翻訳チェック";
+"tcNoIssues" = "✓ 指摘なし";
+"tcDivergent" = "同じ原文で訳が異なる";
+"tcGlossaryMismatch" = "用語集と不一致";
+"tcExpected" = "指定した訳: %@";
+"tcVariants" = "訳 %@種類";
+"tcMissCount" = "%@箇所が不一致";
+"tcGlossary" = "用語集";
+"tcGlossaryEmpty" = "登録された用語がありません。人名・地名など、常に同じ訳にすべき語を追加してください。";
+"tcSourceTerm" = "原文の用語";
+"tcTargetTerm" = "訳";
+"tcAddTerm" = "追加";
+"tcRemoveTerm" = "削除";
+"tcCheckDivergent" = "同じ原文の訳ゆれをチェック";
+"tcDivergentHint" = "文書内で同一の原文が違う訳になっている箇所を探します。設定不要で誤検出がありません。";
+"tcGlossaryHint" = "原文にその用語がある場合、訳に指定した語が含まれるか確認します。未翻訳の字幕は対象外です。";
+"tcAddFromCue" = "アクティブ字幕から追加";

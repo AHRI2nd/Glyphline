@@ -281,3 +281,21 @@
 "frameRateHint" = "타임코드를 HH:MM:SS:FF로 표시하고, 편집한 시간을 프레임 경계에 맞춥니다. 영상에서 감지한 값을 쓰거나 직접 지정하세요.";
 "frameRateNone" = "감지된 프레임 레이트 없음 — 직접 지정하세요.";
 "frameRateDetected" = "영상에서 감지: %@";
+
+"translationCheck" = "번역 검사";
+"tcNoIssues" = "✓ 지적 사항 없음";
+"tcDivergent" = "같은 원문, 다른 번역";
+"tcGlossaryMismatch" = "용어집과 다름";
+"tcExpected" = "지정한 번역: %@";
+"tcVariants" = "번역 %@가지";
+"tcMissCount" = "%@곳 불일치";
+"tcGlossary" = "용어집";
+"tcGlossaryEmpty" = "등록된 용어가 없습니다. 인물명·지명처럼 항상 같게 번역해야 하는 말을 추가하세요.";
+"tcSourceTerm" = "원문 용어";
+"tcTargetTerm" = "번역";
+"tcAddTerm" = "추가";
+"tcRemoveTerm" = "삭제";
+"tcCheckDivergent" = "같은 원문의 번역 불일치 검사";
+"tcDivergentHint" = "문서 안에서 똑같은 원문이 서로 다르게 번역된 곳을 찾습니다. 설정이 필요 없고 오탐이 없습니다.";
+"tcGlossaryHint" = "원문에 이 용어가 있으면 번역에도 지정한 말이 있는지 확인합니다. 아직 번역하지 않은 자막은 건너뜁니다.";
+"tcAddFromCue" = "활성 자막에서 추가";

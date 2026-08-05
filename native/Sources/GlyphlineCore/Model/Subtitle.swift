@@ -186,6 +186,11 @@ public struct SubtitleDocument: Codable, Equatable, Sendable {
     /// Optional so existing files (which lack the key) decode unchanged and
     /// files that never use the feature don't grow a field.
     public var ignoredWords: [String]?
+    /// Source→translation term mappings checked by TermConsistency. Per-project
+    /// for the same reason as `ignoredWords`: one show's cast list is wrong for
+    /// another's. Optional so existing files decode unchanged and documents
+    /// that never use it don't grow the key.
+    public var glossary: [GlossaryEntry]?
 
     public init(
         format: SubFormat = .srt,
@@ -195,7 +200,8 @@ public struct SubtitleDocument: Codable, Equatable, Sendable {
         graphics: [AssEmbedded]? = nil,
         cues: [Cue] = [],
         meta: [String: String] = [:],
-        ignoredWords: [String]? = nil
+        ignoredWords: [String]? = nil,
+        glossary: [GlossaryEntry]? = nil
     ) {
         self.format = format
         self.frameRate = frameRate
@@ -205,6 +211,7 @@ public struct SubtitleDocument: Codable, Equatable, Sendable {
         self.cues = cues
         self.meta = meta
         self.ignoredWords = ignoredWords
+        self.glossary = glossary
     }
 }
 

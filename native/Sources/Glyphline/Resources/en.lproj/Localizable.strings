@@ -281,3 +281,21 @@
 "frameRateHint" = "Shows timecodes as HH:MM:SS:FF and snaps edited times to frame boundaries. Uses the rate detected from the video, or one you set here.";
 "frameRateNone" = "No frame rate detected — set one here.";
 "frameRateDetected" = "Detected from video: %@";
+
+"translationCheck" = "Translation Check";
+"tcNoIssues" = "✓ Nothing flagged";
+"tcDivergent" = "Same source, different translations";
+"tcGlossaryMismatch" = "Doesn't match the glossary";
+"tcExpected" = "Expected: %@";
+"tcVariants" = "%@ translations";
+"tcMissCount" = "%@ mismatches";
+"tcGlossary" = "Glossary";
+"tcGlossaryEmpty" = "No terms yet. Add the ones that must always be translated the same way — names, places, invented terms.";
+"tcSourceTerm" = "Source term";
+"tcTargetTerm" = "Translation";
+"tcAddTerm" = "Add";
+"tcRemoveTerm" = "Remove";
+"tcCheckDivergent" = "Check for inconsistent translations";
+"tcDivergentHint" = "Finds identical source lines translated differently in this document. Needs no setup and can't false-positive.";
+"tcGlossaryHint" = "Where the source contains a term, checks that its translation contains the wording you chose. Untranslated cues are skipped.";
+"tcAddFromCue" = "Add from active cue";
