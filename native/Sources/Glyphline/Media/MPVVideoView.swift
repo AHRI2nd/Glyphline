@@ -8,6 +8,7 @@ import GlyphlineCore
 struct MPVVideoView: NSViewRepresentable {
     let media: MediaModel
     let document: DocumentModel
+    let settings: AppSettings
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
@@ -40,13 +41,35 @@ struct MPVVideoView: NSViewRepresentable {
                 // document doesn't — leaving the new video silently playing
                 // with no subtitle track until the next actual cue edit.
                 context.coordinator.lastSubSignature = nil
+                // Restores position/pause state after this coordinator's
+                // surface was just (re)created rather than reused — the case
+                // that matters is detaching the video into its own window and
+                // re-docking it: each move tears down the old MPVSurfaceView
+                // and its mpv instance and builds a fresh one (see its deinit
+                // note on this being an expected, already-handled lifecycle),
+                // which otherwise restarted playback from 0:00. For an
+                // ordinary "open a different file" call this is a no-op:
+                // loadMedia() already reset currentTime/isPlaying to
+                // 0/false BEFORE this runs, so seeking to 0 and pausing here
+                // just re-states what mpv already defaults to. Queuing a seek
+                // right after loadfile (rather than waiting for confirmation
+                // the file is ready) is standard, well-documented mpv usage —
+                // it queues the command against the load in progress.
+                media.engine?.seek(media.currentTime)
+                media.engine?.setPause(!media.isPlaying)
             }
         }
-        // Debounced subtitle push on cue-timing/text changes.
-        let sig = subtitleSignature(document.doc.cues)
+        // Debounced subtitle push on cue-timing/text changes. The safe-guide
+        // flag joins the signature because the guides ride in on the same ASS
+        // push — without it, toggling them wouldn't reach mpv until the next
+        // cue edit.
+        let posPreview = media.positionPreview
+        let sig = "\(settings.showSafeGuides)|\(posPreview?.x ?? -1),\(posPreview?.y ?? -1)|"
+            + subtitleSignature(document.doc.cues)
         if sig != context.coordinator.lastSubSignature {
             context.coordinator.lastSubSignature = sig
-            context.coordinator.scheduleSubtitlePush(document: document, media: media)
+            context.coordinator.scheduleSubtitlePush(
+                document: document, media: media, safeGuides: settings.showSafeGuides, positionPreview: posPreview)
         }
     }
 
@@ -62,9 +85,14 @@ struct MPVVideoView: NSViewRepresentable {
         var lastSubSignature: String?
         private var pushTask: Task<Void, Never>?
 
-        func scheduleSubtitlePush(document: DocumentModel, media: MediaModel) {
+        func scheduleSubtitlePush(
+            document: DocumentModel, media: MediaModel, safeGuides: Bool,
+            positionPreview: (x: Double, y: Double)?
+        ) {
             pushTask?.cancel()
-            let doc = document.doc
+            let base = document.doc
+            let guided = safeGuides ? withSafeAreaGuides(base, duration: media.duration) : base
+            let doc = positionPreview.map { withPositionPreview(guided, x: $0.x, y: $0.y) } ?? guided
             pushTask = Task { [weak media] in
                 try? await Task.sleep(for: .milliseconds(300))
                 guard !Task.isCancelled else { return }

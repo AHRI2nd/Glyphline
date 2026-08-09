@@ -24,7 +24,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        guard let state, state.document.isDirty else { return .terminateNow }
+        // Checks every open tab, not just the active one — with multiple
+        // documents open, unsaved work in a background tab is just as real
+        // as unsaved work in the front one.
+        guard let state, state.anyTabDirty else { return .terminateNow }
         state.activePanel = .closeConfirm
         return .terminateLater
     }

@@ -349,3 +349,191 @@
 "waveformExtracting" = "Building waveform…";
 "waveformFailed" = "Couldn't build the waveform";
 "recoveryPickHint" = "Pick which snapshot to restore — newest first.";
+"panelsMenu" = "Panels";
+
+"overview" = "Overview";
+"overviewGaps" = "%@ gaps";
+"overviewNoGaps" = "No long gaps.";
+"actorList" = "Speakers";
+"actorListEmpty" = "No cues have a speaker set.";
+"actorListHint" = "Near-identical names sitting together mean the spelling drifted.";
+"actorLineCount" = "%@ lines";
+"historyPanel" = "History";
+"historyHint" = "Click a step to go back to that state.";
+"historyCurrent" = "Current";
+"historyStepsBack" = "%@ steps back";
+"historyCueCount" = "%@ cues";
+
+"outputOptions" = "Export format";
+"exportEncoding" = "Encoding";
+"exportCRLF" = "Use CRLF line endings (Windows/broadcast)";
+"exportBOM" = "Write a UTF-8 BOM";
+"outputOptionsHint" = "Applies to saving and exporting. Match what your delivery target requires. The .glyph project file is always UTF-8.";
+"reopenWithEncoding" = "Reopen With Encoding";
+"errEncodingMismatch" = "The file can't be read as %@.";
+
+"style_bold" = "Bold (⌘⌥B)";
+"style_italic" = "Italic (⌘⌥I)";
+"style_underline" = "Underline (⌘⌥U)";
+
+"audioTrack" = "Audio Track";
+"noAudioTracks" = "No audio tracks";
+
+"exportRange" = "Export Range";
+"scopeTimeRange" = "Time range";
+"scopeSelectedCount" = "Exports the %@ selected cues.";
+"scopeSelectedNone" = "Nothing is selected. Pick cues in the subtitle list first.";
+"scopeTimeRangeHint" = "Cues straddling a boundary are included whole, never trimmed.";
+"from" = "From";
+"to" = "To";
+"useCurrentTime" = "Playhead";
+"rebaseToZero" = "Shift so the excerpt starts at 0";
+"rebaseToZeroHint" = "Use when the result goes against a trimmed clip. Leave off if it goes back on the original timeline.";
+"exportRangeMatch" = "%@ cues will be exported";
+"export" = "Export";
+
+"safeGuides" = "Broadcast Safe Guides";
+
+"detectSceneCuts" = "Detect Shot Changes";
+"detectingSceneCuts" = "Detecting…";
+"sceneCutCount" = "%@ cuts";
+"redetectSceneCuts" = "Re-detect";
+"ffmpegMissing" = "ffmpeg not installed (brew install ffmpeg)";
+"sceneCutFailed" = "Shot-change detection failed";
+"crossesCut" = "Crosses cut";
+
+"timingPostProcess" = "Timing Post-Process";
+"leadInOut" = "Lead-in / Lead-out";
+"leadInOutHint" = "Gives text a beat before it appears and after it leaves, without crossing into a neighboring cue.";
+"bridgeSmallGaps" = "Bridge Small Gaps";
+"bridgeSmallGapsHint" = "Extends a cue to meet the next one when the gap is at or under the threshold, removing flicker.";
+"snapToSceneCuts" = "Snap to Shot Changes";
+"snapToSceneCutsNeedsDetect" = "Run shot-change detection in the waveform pane first.";
+
+"tcStartOffset" = "Start Timecode";
+"tcDropFrame" = "Drop-frame notation";
+"tcDropFrameHint" = "Applies to the timecode shown/entered in the grid (29.97/59.94 only). Doesn't affect actual edit timing or export formats.";
+"tcDropFrameUnavailable" = "Drop-frame only applies at 29.97/59.94 frame rates.";
+
+"autoSpot" = "Auto-Spot from Silence…";
+"autoSpotNeedsWaveform" = "The waveform needs to be loaded first (check that the Waveform pane is showing).";
+"autoSpotHint" = "Creates a blank cue over every stretch that looks like speech, skipping spans that already have a cue. Volume threshold, not speech recognition.";
+"autoSpotThreshold" = "Threshold";
+"autoSpotMinSilence" = "Min. Silence Gap";
+"autoSpotMinSpeech" = "Min. Segment Length";
+"autoSpotPadding" = "Padding";
+"autoSpotPreviewCount" = "%@ segments detected";
+"autoSpotAdded" = "Added %@ cues";
+"autoSpotApply" = "Add Cues";
+
+"batchConvert" = "Batch Convert…";
+"batchConvertRun" = "Start Conversion";
+"batchConvertFiles" = "Input Files";
+"batchConvertNoFiles" = "No files selected";
+"batchConvertFileCount" = "%@ files";
+"batchConvertChooseFolder" = "Choose Folder…";
+"batchConvertChooseFiles" = "Choose Files…";
+"batchConvertOutputFolder" = "Output Folder";
+"batchConvertSameFolder" = "Same as source";
+"batchConvertUseSameFolder" = "Reset";
+"choose" = "Choose…";
+"batchConvertBinaryFormatNote" = "This format ignores the text-encoding choice.";
+"batchConvertCleanup" = "Cleanup (optional)";
+"batchConvertResult" = "%@/%@ files done";
+
+"deliveryProfile" = "Delivery Profile";
+"deliveryProfileChoose" = "Choose a profile…";
+"deliveryProfileSave" = "Save…";
+"deliveryProfileDelete" = "Delete";
+"deliveryProfileSavePrompt" = "Save the current thresholds under this name.";
+"deliveryProfileName" = "Profile name";
+"fontCoverage" = "Font Glyph Check";
+"fontCoverageMissing" = "%@: missing characters — %@";
+"fontCoverageUnparseable" = "%@: couldn't parse this font, skipping the check";
+
+"qcReportExport" = "Export QC Report";
+"qcReportExportCSV" = "Export as CSV";
+"qcReportExportHTML" = "Export as HTML";
+
+"customRules" = "Custom Rules…";
+"customRulesHint" = "Save regex find/replace rules for reuse. Applied top to bottom.";
+"customRulesEmpty" = "No saved rules yet.";
+"customRulesAdd" = "Add Rule";
+"customRulesNewName" = "New rule";
+"customRulesName" = "Rule name";
+"customRulesPattern" = "Pattern";
+"customRulesReplacement" = "Replacement";
+"customRulesCaseInsensitive" = "Case-insensitive";
+"customRulesInvalidPattern" = "Invalid regular expression";
+"customRulesApply" = "Apply";
+"customRulesApplied" = "%@ cues changed";
+
+"resampleResolution" = "Resample Resolution…";
+"resampleCurrentRes" = "Current: %@×%@";
+"resampleTarget" = "Target Resolution";
+"resamplePresets" = "Presets";
+"resampleWidth" = "Width";
+"resampleHeight" = "Height";
+"resampleKeepAspect" = "Keep aspect ratio";
+"resampleHint" = "Scales style font size/outline/shadow/margins and \\pos/\\move/\\org/\\fs/\\bord/\\shad tags together. \\p drawing/\\clip coordinates aren't covered.";
+
+"fontCollectorRun" = "Collect Fonts (%@)";
+"fontCollectorAdded" = "Embedded %@ font(s)";
+"fontCollectorNotFound" = "Not found on this system: %@";
+
+"closeTab" = "Close Tab";
+"nextTab" = "Next Tab";
+"previousTab" = "Previous Tab";
+"tabCloseDirtyTitle" = "Unsaved Changes";
+"tabCloseDirtyBody" = "Close \"%@\" without saving?";
+"tabCloseDiscard" = "Don't Save";
+
+"spectrogram" = "Spectrogram";
+"spectrogramHint" = "Shows a frequency spectrogram instead of the amplitude waveform — easier to spot a speech onset buried under background sound.";
+
+"burnIn" = "Burn-In Encode…";
+"burnInHint" = "Creates a copy of the video with the current subtitles baked in — a review file that shows subtitles in any player.";
+"burnInNeedsVideo" = "Open a video first (audio-only files aren't supported).";
+"burnInStart" = "Start Encoding";
+"burnInDone" = "Done: %@";
+
+"detachVideoWindow" = "Detach Video Window";
+"videoWindowTitle" = "Video";
+"redockVideo" = "Re-dock";
+"videoDetachedTitle" = "Video is in a separate window";
+"videoDetachedDesc" = "Move it to another monitor while you work.";
+
+"activityWindowTitle" = "Activity";
+"activityEmpty" = "No background jobs running or finished.";
+"activityClearFinished" = "Clear Finished";
+
+"miniPlayerWindowTitle" = "Mini Player";
+"miniPlayerNoMedia" = "No media open";
+
+"dashboardWindowTitle" = "Project Dashboard";
+"dashboardTabCount" = "%@ tabs";
+"dashboardCueCount" = "%@";
+"dashboardSaveAll" = "Save All";
+
+"sharedGlossaryWindowTitle" = "Shared Glossary";
+"sharedGlossaryEmpty" = "No shared terms yet.";
+"sharedGlossaryNote" = "Note (optional)";
+"tcOpenSharedGlossary" = "Open Shared Glossary";
+"tcSharedGlossaryApplied" = "%@ shared glossary term(s) also checked.";
+
+"tornOffWindowTitle" = "Panel";
+"dragToMerge" = "Drag back onto the main window to re-dock";
+
+"deliveryPipeline" = "Generate Delivery Package";
+"deliveryPipelineRun" = "Run";
+"deliveryPipelineInput" = "Input";
+"deliveryPipelineChooseFolder" = "Choose Folder…";
+"deliveryPipelineOutputFolder" = "Output Folder";
+"deliveryPipelineNoOutput" = "Not chosen";
+"deliveryPipelinePairCount" = "%@ files, %@ paired with video";
+"deliveryPipelineFormats" = "Export Formats";
+"deliveryPipelineFeatures" = "Include";
+"deliveryPipelineBurnIn" = "Burn-in review video";
+"deliveryPipelineQC" = "QC report";
+"deliveryPipelineFonts" = "Font collection";
+"deliveryPipelineResult" = "%@/%@ items done";

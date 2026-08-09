@@ -94,6 +94,8 @@ struct CueGridView: NSViewRepresentable {
         context.coordinator.qualityThresholds = settings.quality
         context.coordinator.frameRate = settings.frameMode
             ? settings.effectiveFrameRate(detected: media.detectedFrameRate) : nil
+        context.coordinator.timecodeOffsetSec = document.doc.timecodeStartOffsetSec
+        context.coordinator.timecodeDropFrame = document.doc.timecodeDropFrame
         context.coordinator.onEditTags = onEditTags
         if let table = nsView.documentView as? NSTableView {
             syncColumns(table, settings: settings)

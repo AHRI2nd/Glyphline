@@ -38,6 +38,10 @@ final class CueGridCoordinator: NSObject, NSTableViewDataSource, NSTableViewDele
     /// Non-nil when the grid should show/accept HH:MM:SS:FF instead of seconds
     /// (View ▸ 프레임 타임코드, and only once a rate is actually known).
     var frameRate: Double?
+    /// Document-level broadcast timecode settings (SubtitleDocument.meta) —
+    /// see DropFrameTimecode.swift. Both default to off/zero.
+    var timecodeOffsetSec: Double = 0
+    var timecodeDropFrame: Bool = false
     /// Called when a cue becomes active via click or arrow-key navigation
     /// (mirrors CueRow.tsx: selecting a row seeks the playhead to its start).
     var onRowActivated: ((Cue) -> Void)?
@@ -217,7 +221,8 @@ final class CueGridCoordinator: NSObject, NSTableViewDataSource, NSTableViewDele
     /// Frame timecode when a rate is in play, else the millisecond form.
     private func displayTime(_ seconds: Double) -> String {
         guard let frameRate else { return formatDisplayTime(seconds) }
-        return formatFrameTimecode(seconds, fps: frameRate)
+        return GlyphlineCore.displayTimecode(seconds, fps: frameRate,
+                                             offsetSec: timecodeOffsetSec, dropFrame: timecodeDropFrame)
     }
 
     /// Accepts whichever form the grid is currently showing, but also still
@@ -234,8 +239,12 @@ final class CueGridCoordinator: NSObject, NSTableViewDataSource, NSTableViewDele
     private func parseTime(_ text: String) -> Double? {
         guard let frameRate else { return parseTimestampInput(text) }
         let isFullFrameTimecode = text.trimmingCharacters(in: .whitespaces)
-            .split(separator: ":", omittingEmptySubsequences: false).count == 4
-        if isFullFrameTimecode, let t = parseFrameTimecode(text, fps: frameRate) { return t }
+            .split(whereSeparator: { $0 == ":" || $0 == ";" }).count == 4
+        if isFullFrameTimecode,
+           let t = GlyphlineCore.parseDisplayTimecode(text, fps: frameRate,
+                                                       offsetSec: timecodeOffsetSec, dropFrame: timecodeDropFrame) {
+            return t
+        }
         return parseTimestampInput(text).map { snapToFrame($0, fps: frameRate) }
     }
 

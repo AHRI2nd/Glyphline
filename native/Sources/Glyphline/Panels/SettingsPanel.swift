@@ -7,7 +7,10 @@ import GlyphlineCore
 struct SettingsPanel: View {
     let settings: AppSettings
     let media: MediaModel
+    let document: DocumentModel
     @Environment(\.dismiss) private var dismiss
+    @State private var showingSaveProfile = false
+    @State private var newProfileName = ""
 
     /// Frame rate section: the picker sets an override, and the line under it
     /// says what's actually in force — otherwise "From video" gives no way to
@@ -40,6 +43,68 @@ struct SettingsPanel: View {
                 }
             }
             Text(t("frameRateHint"))
+                .font(GlyphFont.body(10)).foregroundStyle(GlyphColor.quiet)
+
+            Divider().padding(.vertical, 2)
+            broadcastTimecodeControls
+        }
+    }
+
+    /// Per-document, not app-wide (see DropFrameTimecode.swift) — every
+    /// broadcast master this project touches may want a different house start.
+    @ViewBuilder
+    private var broadcastTimecodeControls: some View {
+        let fps = settings.effectiveFrameRate(detected: media.detectedFrameRate)
+        HStack {
+            Text(t("tcStartOffset")).font(GlyphFont.body(12))
+            Spacer()
+            TextField("00:00:00:00", text: Binding(
+                get: {
+                    guard let fps else { return formatDisplayTime(document.doc.timecodeStartOffsetSec) }
+                    return formatFrameTimecode(document.doc.timecodeStartOffsetSec, fps: fps)
+                },
+                set: { text in
+                    let v = fps.flatMap { parseFrameTimecode(text, fps: $0) } ?? parseTimestampInput(text)
+                    if let v { document.setTimecodeStartOffsetSec(v) }
+                }
+            ))
+            .font(GlyphFont.data(12)).textFieldStyle(.roundedBorder).frame(width: 110)
+        }
+        Toggle(t("tcDropFrame"), isOn: Binding(
+            get: { document.doc.timecodeDropFrame },
+            set: { document.setTimecodeDropFrame($0) }
+        ))
+        .toggleStyle(.checkbox).font(GlyphFont.body(12))
+        .disabled(!(fps.map(isDropFrameCandidate) ?? false))
+        Text(fps.map(isDropFrameCandidate) == true ? t("tcDropFrameHint") : t("tcDropFrameUnavailable"))
+            .font(GlyphFont.body(10)).foregroundStyle(GlyphColor.quiet)
+    }
+
+    /// Delivery-format options. Grouped because they're chosen together for a
+    /// target ("this client wants CP949 + CRLF") rather than one at a time.
+    @ViewBuilder
+    private var outputSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(t("outputOptions")).font(GlyphFont.display(11)).foregroundStyle(GlyphColor.quiet)
+            HStack {
+                Text(t("exportEncoding")).font(GlyphFont.body(12))
+                Spacer()
+                Picker("", selection: Binding(
+                    get: { settings.exportEncoding }, set: { settings.exportEncoding = $0 }
+                )) {
+                    ForEach(TextEncoding.selectableLabels, id: \.self) { label in
+                        Text(TextEncoding.displayName(forLabel: label)).tag(label)
+                    }
+                }
+                .labelsHidden().frame(width: 150)
+            }
+            Toggle(t("exportCRLF"), isOn: Binding(
+                get: { settings.exportCRLF }, set: { settings.exportCRLF = $0 }
+            )).toggleStyle(.checkbox).font(GlyphFont.body(12))
+            Toggle(t("exportBOM"), isOn: Binding(
+                get: { settings.exportBOM }, set: { settings.exportBOM = $0 }
+            )).toggleStyle(.checkbox).font(GlyphFont.body(12))
+            Text(t("outputOptionsHint"))
                 .font(GlyphFont.body(10)).foregroundStyle(GlyphColor.quiet)
         }
     }
@@ -86,8 +151,11 @@ struct SettingsPanel: View {
                         get: { settings.quality.maxLineLength }, set: { settings.quality.maxLineLength = $0 }))
                     thresholdIntField(t("qMaxLines"), value: Binding(
                         get: { settings.quality.maxLines }, set: { settings.quality.maxLines = $0 }))
+                    deliveryProfileControls
                 }
 
+                Divider()
+                outputSection
                 Divider()
                 frameRateSection
                 Divider()
@@ -113,6 +181,54 @@ struct SettingsPanel: View {
         } footer: {
             Spacer()
             Button(t("close")) { dismiss() }.keyboardShortcut(.cancelAction)
+        }
+    }
+
+    /// Save the CURRENT threshold values (whatever's in the fields above,
+    /// including manual tweaks) under a client/show name, and switch between
+    /// saved ones — the picker only needs a name; the numbers ride along.
+    @ViewBuilder
+    private var deliveryProfileControls: some View {
+        HStack {
+            Picker(t("deliveryProfile"), selection: Binding(
+                get: { "" },
+                set: { name in
+                    guard let profile = settings.deliveryProfiles.first(where: { $0.name == name }) else { return }
+                    settings.quality = profile.thresholds
+                }
+            )) {
+                Text(t("deliveryProfileChoose")).tag("")
+                ForEach(settings.deliveryProfiles) { profile in
+                    Text(profile.name).tag(profile.name)
+                }
+            }
+            .labelsHidden().frame(width: 140)
+            Button(t("deliveryProfileSave")) { showingSaveProfile = true }.controlSize(.small)
+            if !settings.deliveryProfiles.isEmpty {
+                Menu(t("deliveryProfileDelete")) {
+                    ForEach(settings.deliveryProfiles) { profile in
+                        Button(profile.name) { settings.deleteDeliveryProfile(name: profile.name) }
+                    }
+                }
+                .menuStyle(.borderlessButton).frame(width: 90).controlSize(.small)
+            }
+        }
+        .popover(isPresented: $showingSaveProfile) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(t("deliveryProfileSavePrompt")).font(GlyphFont.body(12))
+                TextField(t("deliveryProfileName"), text: $newProfileName)
+                    .textFieldStyle(.roundedBorder).frame(width: 200)
+                HStack {
+                    Spacer()
+                    Button(t("save")) {
+                        settings.saveDeliveryProfile(name: newProfileName, thresholds: settings.quality)
+                        newProfileName = ""
+                        showingSaveProfile = false
+                    }
+                    .disabled(newProfileName.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
+            .padding(12)
         }
     }
 

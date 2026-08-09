@@ -420,3 +420,47 @@ struct DocumentModelDeleteSelectionTests {
         #expect(m.selectedIds.isEmpty)
     }
 }
+
+@Suite("DocumentModel: history introspection")
+struct DocumentModelHistoryTests {
+    @Test("entries run oldest-first and end at the current state")
+    func entries() {
+        let m = DocumentModel()
+        m.addCue(); m.addCue()
+        let entries = m.historyEntries
+        #expect(entries.count == 3)             // two snapshots + now
+        #expect(entries.last?.isCurrent == true)
+        #expect(entries.last?.cueCount == 2)
+        #expect(entries.first?.cueCount == 0)   // the empty document we started from
+        #expect(entries.map(\.stepsBack) == [2, 1, 0])
+    }
+
+    @Test("jumping back N steps equals N undos and keeps redo working")
+    func jump() {
+        let m = DocumentModel()
+        m.addCue(); m.addCue(); m.addCue()
+        m.jumpToHistory(stepsBack: 2)
+        #expect(m.doc.cues.count == 1)
+        #expect(m.canRedo, "redo must still be reachable after a jump")
+        m.redo()
+        #expect(m.doc.cues.count == 2)
+    }
+
+    @Test("jumping further than history allows stops at the oldest state")
+    func jumpClamped() {
+        let m = DocumentModel()
+        m.addCue()
+        m.jumpToHistory(stepsBack: 99)
+        #expect(m.doc.cues.isEmpty)
+        #expect(!m.canUndo)
+    }
+
+    @Test("a zero or negative jump does nothing")
+    func jumpNoop() {
+        let m = DocumentModel()
+        m.addCue()
+        m.jumpToHistory(stepsBack: 0)
+        m.jumpToHistory(stepsBack: -3)
+        #expect(m.doc.cues.count == 1)
+    }
+}

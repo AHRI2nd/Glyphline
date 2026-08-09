@@ -54,10 +54,50 @@ struct SubtitleFileIOTests {
 
         var doc = SubtitleDocument.empty(.smi)
         doc.cues = [Cue(id: "a", start: 1, end: 3, text: "안녕하세요")]
-        try SubtitleFileIO.export(doc, format: .smi, to: path, encodingLabel: "cp949")
+        try SubtitleFileIO.export(doc, format: .smi, to: path,
+                                  options: TextOutputOptions(encodingLabel: "cp949"))
 
         let bytes = try Data(contentsOf: URL(fileURLWithPath: path))
         let decoded = String(data: bytes, encoding: TextEncoding.cp949)
         #expect(decoded?.contains("안녕하세요") == true)
+    }
+
+    // Regression coverage for a bug the code-review pass found: SCC (plain
+    // ASCII with a literal header real decoders match byte-for-byte) was
+    // falling through to the general writeText path, so a UTF-16 delivery
+    // setting silently corrupted it with interleaved null bytes and a BOM
+    // setting broke the header. STL already had this exemption; SCC didn't.
+    @Test("export ignores the general encoding/BOM options for STL, writing raw ASCII-safe bytes")
+    func exportSTLIgnoresEncodingOptions() throws {
+        let path = tempPath("out.stl")
+        defer { try? FileManager.default.removeItem(atPath: path) }
+
+        var doc = SubtitleDocument(format: .stl)
+        doc.cues = [Cue(id: "a", start: 1, end: 3, text: "Hello")]
+        // A UTF-16 + BOM option set, exactly what would corrupt this format
+        // if it were routed through the general text path.
+        try SubtitleFileIO.export(doc, format: .stl, to: path,
+                                  options: TextOutputOptions(encodingLabel: "utf-16le", writeBOM: true))
+
+        let bytes = try Data(contentsOf: URL(fileURLWithPath: path))
+        #expect(bytes.count == 1024 + 128) // GSI + one TTI block, no BOM prefix
+        #expect(bytes.prefix(3) == Data("437".utf8))
+    }
+
+    @Test("export ignores the general encoding/BOM options for SCC, writing plain UTF-8")
+    func exportSCCIgnoresEncodingOptions() throws {
+        let path = tempPath("out.scc")
+        defer { try? FileManager.default.removeItem(atPath: path) }
+
+        var doc = SubtitleDocument(format: .scc)
+        doc.cues = [Cue(id: "a", start: 1, end: 3, text: "Hello")]
+        try SubtitleFileIO.export(doc, format: .scc, to: path,
+                                  options: TextOutputOptions(encodingLabel: "utf-16le", writeBOM: true))
+
+        let bytes = try Data(contentsOf: URL(fileURLWithPath: path))
+        // A UTF-16-corrupted file would not decode as UTF-8 at all, let alone
+        // start with the literal header real SCC decoders require.
+        let text = String(data: bytes, encoding: .utf8)
+        #expect(text?.hasPrefix("Scenarist_SCC V1.0") == true)
     }
 }

@@ -37,7 +37,7 @@ struct SpellCheckPanel: View {
         } footer: {
             Button(t("spellRecheck")) { run() }
             Spacer()
-            Button(t("close")) { dismiss() }.keyboardShortcut(.cancelAction)
+            PanelCloseButton()
         }
         .onAppear { if !hasRun { run() } }
     }

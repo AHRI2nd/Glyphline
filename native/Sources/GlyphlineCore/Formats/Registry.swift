@@ -22,6 +22,8 @@ public let EXTERNAL_ADAPTERS: [FormatAdapter] = [
     // .xml is listed last so a bare .xml opens as TTML only when nothing more
     // specific claimed it — the extension is generic, the others are not.
     FormatAdapter(id: .ttml, label: "TTML/DFXP (.ttml)", extensions: ["ttml", "dfxp", "xml"], parse: parseTtml, serialize: serializeTtml),
+    FormatAdapter(id: .stl, label: "EBU-STL (.stl)", extensions: ["stl"], parse: parseStl, serialize: serializeStl),
+    FormatAdapter(id: .scc, label: "Scenarist SCC (.scc)", extensions: ["scc"], parse: parseScc, serialize: serializeScc),
 ]
 
 /// Every extension we can open, including the native project file.

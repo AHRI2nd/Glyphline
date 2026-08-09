@@ -349,3 +349,191 @@
 "waveformExtracting" = "波形を生成中…";
 "waveformFailed" = "波形を生成できませんでした";
 "recoveryPickHint" = "復元する時点を選んでください。新しい順です。";
+"panelsMenu" = "パネル";
+
+"overview" = "文書の概観";
+"overviewGaps" = "空白区間 %@箇所";
+"overviewNoGaps" = "長い空白区間はありません。";
+"actorList" = "話者";
+"actorListEmpty" = "話者が設定された字幕がありません。";
+"actorListHint" = "似た名前が並んでいる場合は表記がゆれています。";
+"actorLineCount" = "%@行";
+"historyPanel" = "作業履歴";
+"historyHint" = "戻したい時点をクリックするとその状態に戻ります。";
+"historyCurrent" = "現在";
+"historyStepsBack" = "%@段階前";
+"historyCueCount" = "字幕 %@";
+
+"outputOptions" = "書き出し形式";
+"exportEncoding" = "エンコーディング";
+"exportCRLF" = "改行を CRLF にする（Windows・放送）";
+"exportBOM" = "UTF-8 BOM を付ける";
+"outputOptionsHint" = "保存・書き出しに適用されます。納品先の要求に合わせてください。.glyph プロジェクトファイルは常に UTF-8 です。";
+"reopenWithEncoding" = "エンコーディングを指定して開き直す";
+"errEncodingMismatch" = "このエンコーディングではファイルを読めません: %@";
+
+"style_bold" = "太字 (⌘⌥B)";
+"style_italic" = "斜体 (⌘⌥I)";
+"style_underline" = "下線 (⌘⌥U)";
+
+"audioTrack" = "オーディオトラック";
+"noAudioTracks" = "オーディオトラックなし";
+
+"exportRange" = "範囲を指定して書き出し";
+"scopeTimeRange" = "時間範囲";
+"scopeSelectedCount" = "選択中の字幕 %@ 件を書き出します。";
+"scopeSelectedNone" = "字幕が選択されていません。先に字幕リストで選択してください。";
+"scopeTimeRangeHint" = "境界にまたがる字幕は切り詰めず、そのまま含めます。";
+"from" = "開始";
+"to" = "終了";
+"useCurrentTime" = "再生位置";
+"rebaseToZero" = "0 秒から始まるように時間をずらす";
+"rebaseToZeroHint" = "切り出したクリップに合わせる場合に使います。元のタイムラインに戻すならオフのままに。";
+"exportRangeMatch" = "字幕 %@ 件を書き出します";
+"export" = "書き出し";
+
+"safeGuides" = "放送セーフガイド";
+
+"detectSceneCuts" = "カット検出";
+"detectingSceneCuts" = "検出中…";
+"sceneCutCount" = "カット %@ 件";
+"redetectSceneCuts" = "再検出";
+"ffmpegMissing" = "ffmpeg 未インストール (brew install ffmpeg)";
+"sceneCutFailed" = "カット検出に失敗しました";
+"crossesCut" = "カットをまたぐ";
+
+"timingPostProcess" = "タイミング後処理";
+"leadInOut" = "リードイン / リードアウト";
+"leadInOutHint" = "表示前・終了後に余裕を持たせます。隣接する字幕には食い込みません。";
+"bridgeSmallGaps" = "短い間隔を接合";
+"bridgeSmallGapsHint" = "しきい値以下の間隔を次の字幕の開始まで延長し、ちらつきをなくします。";
+"snapToSceneCuts" = "カットにスナップ";
+"snapToSceneCutsNeedsDetect" = "先に波形パネルでカット検出を実行してください。";
+
+"tcStartOffset" = "開始タイムコード";
+"tcDropFrame" = "ドロップフレーム表記";
+"tcDropFrameHint" = "グリッドに表示・入力されるタイムコードに適用されます（29.97/59.94専用）。実際の編集時間や書き出し形式には影響しません。";
+"tcDropFrameUnavailable" = "ドロップフレームは29.97/59.94のフレームレートでのみ使用できます。";
+
+"autoSpot" = "無音ベース自動スポッティング…";
+"autoSpotNeedsWaveform" = "先に波形を読み込んでください（波形パネルが表示されているか確認）。";
+"autoSpotHint" = "発話らしい区間ごとに空の字幕を作成します。すでに字幕がある区間はスキップされます。音声認識ではなく音量しきい値による判定です。";
+"autoSpotThreshold" = "しきい値";
+"autoSpotMinSilence" = "最小無音間隔";
+"autoSpotMinSpeech" = "最小区間長";
+"autoSpotPadding" = "余白（パディング）";
+"autoSpotPreviewCount" = "%@ 区間を検出";
+"autoSpotAdded" = "%@ 件の字幕を追加しました";
+"autoSpotApply" = "字幕を追加";
+
+"batchConvert" = "一括変換…";
+"batchConvertRun" = "変換開始";
+"batchConvertFiles" = "入力ファイル";
+"batchConvertNoFiles" = "ファイル未選択";
+"batchConvertFileCount" = "%@ ファイル";
+"batchConvertChooseFolder" = "フォルダを選択…";
+"batchConvertChooseFiles" = "ファイルを選択…";
+"batchConvertOutputFolder" = "出力フォルダ";
+"batchConvertSameFolder" = "元と同じフォルダ";
+"batchConvertUseSameFolder" = "リセット";
+"choose" = "選択…";
+"batchConvertBinaryFormatNote" = "この形式ではテキストエンコーディングの選択は適用されません。";
+"batchConvertCleanup" = "一括整理（任意）";
+"batchConvertResult" = "%@/%@ ファイル完了";
+
+"deliveryProfile" = "納品プロファイル";
+"deliveryProfileChoose" = "プロファイルを選択…";
+"deliveryProfileSave" = "保存…";
+"deliveryProfileDelete" = "削除";
+"deliveryProfileSavePrompt" = "現在のしきい値をこの名前で保存します。";
+"deliveryProfileName" = "プロファイル名";
+"fontCoverage" = "フォント文字チェック";
+"fontCoverageMissing" = "%@: 不足している文字 — %@";
+"fontCoverageUnparseable" = "%@: フォントを解析できないためチェックをスキップします";
+
+"qcReportExport" = "QCレポートを書き出す";
+"qcReportExportCSV" = "CSVで書き出す";
+"qcReportExportHTML" = "HTMLで書き出す";
+
+"customRules" = "カスタムルール…";
+"customRulesHint" = "正規表現の検索/置換ルールを保存して再利用します。上から順に適用されます。";
+"customRulesEmpty" = "保存されたルールはありません。";
+"customRulesAdd" = "ルールを追加";
+"customRulesNewName" = "新しいルール";
+"customRulesName" = "ルール名";
+"customRulesPattern" = "パターン";
+"customRulesReplacement" = "置換後";
+"customRulesCaseInsensitive" = "大文字小文字を無視";
+"customRulesInvalidPattern" = "正規表現が正しくありません";
+"customRulesApply" = "適用";
+"customRulesApplied" = "%@ 件の字幕を変更しました";
+
+"resampleResolution" = "解像度リサンプル…";
+"resampleCurrentRes" = "現在: %@×%@";
+"resampleTarget" = "目標解像度";
+"resamplePresets" = "プリセット";
+"resampleWidth" = "幅";
+"resampleHeight" = "高さ";
+"resampleKeepAspect" = "アスペクト比を維持";
+"resampleHint" = "スタイルのフォントサイズ・輪郭・影・マージンと \\pos/\\move/\\org/\\fs/\\bord/\\shad タグをまとめて調整します。\\p 描画・\\clip 座標は対象外です。";
+
+"fontCollectorRun" = "フォントを収集 (%@)";
+"fontCollectorAdded" = "%@ 個のフォントを埋め込みました";
+"fontCollectorNotFound" = "システムに見つかりません: %@";
+
+"closeTab" = "タブを閉じる";
+"nextTab" = "次のタブ";
+"previousTab" = "前のタブ";
+"tabCloseDirtyTitle" = "未保存の変更があります";
+"tabCloseDirtyBody" = "「%@」を保存せずに閉じますか？";
+"tabCloseDiscard" = "保存しない";
+
+"spectrogram" = "スペクトログラム";
+"spectrogramHint" = "振幅波形の代わりに周波数スペクトログラムを表示します。背景音に埋もれた発話の始まりを見つけやすくなります。";
+
+"burnIn" = "字幕焼き込みエンコード…";
+"burnInHint" = "現在の字幕を焼き込んだ動画のコピーを作成します。どのプレーヤーでも字幕が表示される確認用ファイルです。";
+"burnInNeedsVideo" = "先に動画を開いてください（音声のみのファイルは非対応です）。";
+"burnInStart" = "エンコード開始";
+"burnInDone" = "完了: %@";
+
+"detachVideoWindow" = "映像ウィンドウを分離";
+"videoWindowTitle" = "映像";
+"redockVideo" = "再ドッキング";
+"videoDetachedTitle" = "映像は別ウィンドウに表示中";
+"videoDetachedDesc" = "別のモニターに移動して作業できます。";
+
+"activityWindowTitle" = "作業状況";
+"activityEmpty" = "実行中または完了したバックグラウンド作業はありません。";
+"activityClearFinished" = "完了項目をクリア";
+
+"miniPlayerWindowTitle" = "ミニプレーヤー";
+"miniPlayerNoMedia" = "開いているメディアがありません";
+
+"dashboardWindowTitle" = "プロジェクトダッシュボード";
+"dashboardTabCount" = "タブ %@個";
+"dashboardCueCount" = "%@個";
+"dashboardSaveAll" = "すべて保存";
+
+"sharedGlossaryWindowTitle" = "共有用語集";
+"sharedGlossaryEmpty" = "登録された共有用語がありません。";
+"sharedGlossaryNote" = "メモ（任意）";
+"tcOpenSharedGlossary" = "共有用語集を開く";
+"tcSharedGlossaryApplied" = "共有用語集 %@件も一緒にチェックされます。";
+
+"tornOffWindowTitle" = "パネル";
+"dragToMerge" = "メインウィンドウにドラッグすると再ドッキングされます";
+
+"deliveryPipeline" = "納品パッケージ作成";
+"deliveryPipelineRun" = "実行";
+"deliveryPipelineInput" = "入力";
+"deliveryPipelineChooseFolder" = "フォルダを選択…";
+"deliveryPipelineOutputFolder" = "出力フォルダ";
+"deliveryPipelineNoOutput" = "未選択";
+"deliveryPipelinePairCount" = "%@個のファイル、%@個が映像とマッチ";
+"deliveryPipelineFormats" = "書き出す形式";
+"deliveryPipelineFeatures" = "含める項目";
+"deliveryPipelineBurnIn" = "焼き込み検証用動画";
+"deliveryPipelineQC" = "QCレポート";
+"deliveryPipelineFonts" = "フォント収集";
+"deliveryPipelineResult" = "%@/%@ 項目完了";

@@ -52,6 +52,11 @@ final class MediaModel {
     private(set) var detectedFrameRate: Double?
     var error: String?
 
+    /// The loaded file's audio streams and which one is playing. Populated from
+    /// the poll loop, since mpv only knows them once the file is open.
+    private(set) var audioTracks: [AudioTrack] = []
+    private(set) var currentAudioTrackId: Int64?
+
     /// Waveform extraction status. Extraction runs for seconds on a feature —
     /// without this the pane just sat empty and there was no way to tell work
     /// in progress from a silent failure (the error only reached the log).
@@ -60,6 +65,23 @@ final class MediaModel {
         case failed(String)
     }
     var waveformStatus: WaveformStatus = .idle
+    /// The decoded downsampled audio backing the waveform, exposed here (not
+    /// just inside WaveformScrollView's private coordinator) so other features
+    /// — auto-spotting — can read the same samples without a second decode.
+    var waveformAudio: WaveformAudio?
+    /// Live \pos(x,y) crosshair while InlineTagEditorPanel has a position tag
+    /// selected — see PositionPreview.swift. nil the rest of the time.
+    var positionPreview: (x: Double, y: Double)?
+
+    /// Shot-change timestamps for the loaded file — empty until the user runs
+    /// detection (it decodes the whole file, so it's opt-in, not automatic).
+    private(set) var sceneCuts: [Double] = []
+    enum SceneCutStatus: Equatable {
+        case idle, detecting, ready
+        case failed(String)
+    }
+    var sceneCutStatus: SceneCutStatus = .idle
+    private var sceneCutTask: Task<Void, Never>?
 
     func loadMedia(_ path: String) {
         mediaPath = path
@@ -67,7 +89,10 @@ final class MediaModel {
         mediaName = (path as NSString).lastPathComponent
         currentTime = 0; duration = 0; isPlaying = false; loopCueId = nil; error = nil
         detectedFrameRate = nil
+        audioTracks = []; currentAudioTrackId = nil
         waveformStatus = .idle
+        waveformAudio = nil
+        sceneCuts = []; sceneCutStatus = .idle; sceneCutTask?.cancel()
         engine?.open(path: path)
     }
 
@@ -76,7 +101,10 @@ final class MediaModel {
         mediaPath = nil; mediaKind = nil; mediaName = nil
         currentTime = 0; duration = 0; isPlaying = false; loopCueId = nil; error = nil
         detectedFrameRate = nil
+        audioTracks = []; currentAudioTrackId = nil
         waveformStatus = .idle
+        waveformAudio = nil
+        sceneCuts = []; sceneCutStatus = .idle; sceneCutTask?.cancel()
     }
 
     /// Called by the poll timer — mpv is the source of truth for these three.
@@ -93,6 +121,13 @@ final class MediaModel {
         }
         if let duration, duration > 0 { self.duration = duration }
         if let paused { isPlaying = !paused }
+        // Only while the list is still empty: re-reading a dozen string
+        // properties 12 times a second for a list that never changes mid-file
+        // would be pure waste.
+        if mediaPath != nil, audioTracks.isEmpty, let engine {
+            audioTracks = engine.audioTracks()
+            if !audioTracks.isEmpty { currentAudioTrackId = engine.selectedAudioTrackId() }
+        }
     }
 
     /// isPlaying=true → pause it (pass true); isPlaying=false → resume (pass false).
@@ -142,6 +177,32 @@ final class MediaModel {
     func clearLoop() { loopCueId = nil }
 
     func pushSubtitles(_ assText: String) { engine?.setSubtitles(assText) }
+
+    func selectAudioTrack(_ id: Int64) {
+        engine?.setAudioTrack(id)
+        currentAudioTrackId = id
+    }
+
+    /// Kicks off (or re-kicks, cancelling any run in progress) shot-change
+    /// detection for the current file. No-op without media loaded.
+    func detectSceneCuts() {
+        guard let path = mediaPath else { return }
+        sceneCutTask?.cancel()
+        sceneCutStatus = .detecting
+        sceneCutTask = Task { [weak self] in
+            do {
+                let cuts = try await SceneCutExtractor.detect(path: path)
+                guard !Task.isCancelled else { return }
+                self?.sceneCuts = cuts
+                self?.sceneCutStatus = .ready
+            } catch {
+                guard !Task.isCancelled else { return }
+                self?.sceneCutStatus = .failed(
+                    (error as? SceneCutExtractor.ExtractError) == .ffmpegNotFound
+                        ? t("ffmpegMissing") : t("sceneCutFailed"))
+            }
+        }
+    }
 
     private static func kind(of path: String) -> MediaKind {
         let ext = (path as NSString).pathExtension.lowercased()

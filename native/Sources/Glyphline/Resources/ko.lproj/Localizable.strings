@@ -349,3 +349,191 @@
 "waveformExtracting" = "파형 만드는 중…";
 "waveformFailed" = "파형을 만들지 못했습니다";
 "recoveryPickHint" = "복구할 시점을 고르세요. 최근 저장본부터 순서대로입니다.";
+"panelsMenu" = "패널";
+
+"overview" = "문서 개관";
+"overviewGaps" = "빈 구간 %@곳";
+"overviewNoGaps" = "긴 빈 구간이 없습니다.";
+"actorList" = "화자";
+"actorListEmpty" = "화자가 지정된 자막이 없습니다.";
+"actorListHint" = "비슷한 이름이 나란히 보이면 표기가 흔들린 것입니다.";
+"actorLineCount" = "%@줄";
+"historyPanel" = "작업 이력";
+"historyHint" = "되돌릴 시점을 눌러 그 상태로 돌아갑니다.";
+"historyCurrent" = "현재";
+"historyStepsBack" = "%@단계 전";
+"historyCueCount" = "자막 %@";
+
+"outputOptions" = "내보내기 형식";
+"exportEncoding" = "인코딩";
+"exportCRLF" = "줄바꿈을 CRLF로 (Windows·방송)";
+"exportBOM" = "UTF-8 BOM 넣기";
+"outputOptionsHint" = "저장·내보내기에 적용됩니다. 납품처가 요구하는 형식에 맞추세요. .glyph 프로젝트 파일은 항상 UTF-8입니다.";
+"reopenWithEncoding" = "인코딩 지정하여 다시 열기";
+"errEncodingMismatch" = "이 인코딩으로는 파일을 읽을 수 없습니다: %@";
+
+"style_bold" = "굵게 (⌘⌥B)";
+"style_italic" = "기울임 (⌘⌥I)";
+"style_underline" = "밑줄 (⌘⌥U)";
+
+"audioTrack" = "오디오 트랙";
+"noAudioTracks" = "오디오 트랙 없음";
+
+"exportRange" = "범위 지정 내보내기";
+"scopeTimeRange" = "시간 구간";
+"scopeSelectedCount" = "선택된 자막 %@개를 내보냅니다.";
+"scopeSelectedNone" = "선택된 자막이 없습니다. 먼저 자막 목록에서 선택하세요.";
+"scopeTimeRangeHint" = "구간에 걸쳐 있는 자막은 잘리지 않고 통째로 포함됩니다.";
+"from" = "시작";
+"to" = "종료";
+"useCurrentTime" = "현재 위치";
+"rebaseToZero" = "0초부터 시작하도록 시간 이동";
+"rebaseToZeroHint" = "잘라낸 클립에 맞출 때 사용하세요. 원본 타임라인에 다시 붙일 거라면 끄세요.";
+"exportRangeMatch" = "자막 %@개가 포함됩니다";
+"export" = "내보내기";
+
+"safeGuides" = "방송 세이프 가이드";
+
+"detectSceneCuts" = "샷 체인지 감지";
+"detectingSceneCuts" = "감지 중…";
+"sceneCutCount" = "컷 %@개";
+"redetectSceneCuts" = "다시 감지";
+"ffmpegMissing" = "ffmpeg 미설치 (brew install ffmpeg)";
+"sceneCutFailed" = "샷 체인지 감지 실패";
+"crossesCut" = "컷 교차";
+
+"timingPostProcess" = "타이밍 후처리";
+"leadInOut" = "리드인/리드아웃";
+"leadInOutHint" = "자막 시작 전/종료 후 여유를 줍니다. 인접 자막을 침범하지 않습니다.";
+"bridgeSmallGaps" = "짧은 간격 접합";
+"bridgeSmallGapsHint" = "임계값 이하의 빈 간격을 다음 자막 시작까지 늘려 깜빡임을 없앱니다.";
+"snapToSceneCuts" = "샷 체인지에 스냅";
+"snapToSceneCutsNeedsDetect" = "먼저 파형 패널에서 샷 체인지 감지를 실행하세요.";
+
+"tcStartOffset" = "시작 타임코드";
+"tcDropFrame" = "드롭프레임 표기";
+"tcDropFrameHint" = "그리드에 표시/입력되는 타임코드에 적용됩니다(29.97/59.94 전용). 실제 편집 시간과 내보내기 포맷은 영향받지 않습니다.";
+"tcDropFrameUnavailable" = "드롭프레임은 29.97/59.94 프레임레이트에서만 사용할 수 있습니다.";
+
+"autoSpot" = "무음 기반 자동 스포팅…";
+"autoSpotNeedsWaveform" = "먼저 파형이 로드되어야 합니다 (파형 탭이 표시되어 있는지 확인하세요).";
+"autoSpotHint" = "발화로 보이는 구간마다 빈 자막 줄을 만듭니다. 이미 자막이 있는 구간은 건너뜁니다. 음성 인식이 아닌 음량 임계값 기반입니다.";
+"autoSpotThreshold" = "임계값";
+"autoSpotMinSilence" = "최소 무음 간격";
+"autoSpotMinSpeech" = "최소 구간 길이";
+"autoSpotPadding" = "여유(패딩)";
+"autoSpotPreviewCount" = "%@개 구간이 감지되었습니다";
+"autoSpotAdded" = "%@개 자막을 추가했습니다";
+"autoSpotApply" = "자막 추가";
+
+"batchConvert" = "일괄 변환…";
+"batchConvertRun" = "변환 시작";
+"batchConvertFiles" = "입력 파일";
+"batchConvertNoFiles" = "선택된 파일 없음";
+"batchConvertFileCount" = "%@개 파일";
+"batchConvertChooseFolder" = "폴더 선택…";
+"batchConvertChooseFiles" = "파일 선택…";
+"batchConvertOutputFolder" = "출력 폴더";
+"batchConvertSameFolder" = "원본과 같은 폴더";
+"batchConvertUseSameFolder" = "초기화";
+"choose" = "선택…";
+"batchConvertBinaryFormatNote" = "이 포맷은 텍스트 인코딩 선택이 적용되지 않습니다.";
+"batchConvertCleanup" = "일괄 정리 (선택)";
+"batchConvertResult" = "%@/%@ 파일 완료";
+
+"deliveryProfile" = "납품 프로파일";
+"deliveryProfileChoose" = "프로파일 선택…";
+"deliveryProfileSave" = "저장…";
+"deliveryProfileDelete" = "삭제";
+"deliveryProfileSavePrompt" = "현재 임계값을 이 이름으로 저장합니다.";
+"deliveryProfileName" = "프로파일 이름";
+"fontCoverage" = "폰트 문자 검사";
+"fontCoverageMissing" = "%@: 다음 문자가 없습니다 — %@";
+"fontCoverageUnparseable" = "%@: 폰트를 분석할 수 없어 검사를 건너뜁니다";
+
+"qcReportExport" = "QC 리포트 내보내기";
+"qcReportExportCSV" = "CSV로 내보내기";
+"qcReportExportHTML" = "HTML로 내보내기";
+
+"customRules" = "사용자 정의 규칙…";
+"customRulesHint" = "정규식 찾기/바꾸기 규칙을 저장해 재사용합니다. 위에서부터 순서대로 적용됩니다.";
+"customRulesEmpty" = "저장된 규칙이 없습니다.";
+"customRulesAdd" = "규칙 추가";
+"customRulesNewName" = "새 규칙";
+"customRulesName" = "규칙 이름";
+"customRulesPattern" = "정규식";
+"customRulesReplacement" = "바꿀 내용";
+"customRulesCaseInsensitive" = "대소문자 무시";
+"customRulesInvalidPattern" = "정규식이 올바르지 않습니다";
+"customRulesApply" = "적용";
+"customRulesApplied" = "%@개 자막이 변경되었습니다";
+
+"resampleResolution" = "해상도 리샘플…";
+"resampleCurrentRes" = "현재: %@×%@";
+"resampleTarget" = "목표 해상도";
+"resamplePresets" = "프리셋";
+"resampleWidth" = "너비";
+"resampleHeight" = "높이";
+"resampleKeepAspect" = "종횡비 유지";
+"resampleHint" = "스타일의 글자 크기·외곽선·그림자·여백과 \\pos/\\move/\\org/\\fs/\\bord/\\shad 태그가 함께 조정됩니다. \\p 그리기·\\clip 좌표는 대상이 아닙니다.";
+
+"fontCollectorRun" = "폰트 수집 (%@개)";
+"fontCollectorAdded" = "%@개 폰트를 임베드했습니다";
+"fontCollectorNotFound" = "시스템에서 찾지 못함: %@";
+
+"closeTab" = "탭 닫기";
+"nextTab" = "다음 탭";
+"previousTab" = "이전 탭";
+"tabCloseDirtyTitle" = "저장하지 않은 변경사항이 있습니다";
+"tabCloseDirtyBody" = "\"%@\" 탭을 저장하지 않고 닫으시겠습니까?";
+"tabCloseDiscard" = "저장 안 함";
+
+"spectrogram" = "스펙트로그램";
+"spectrogramHint" = "진폭 파형 대신 주파수 스펙트로그램을 표시합니다. 배경음 아래 묻힌 발화 시작점을 찾기 쉽습니다.";
+
+"burnIn" = "자막 번인 인코딩…";
+"burnInHint" = "현재 자막을 영상에 태워 넣은 사본을 만듭니다. 어떤 플레이어에서도 자막이 보이는 검수용 파일입니다.";
+"burnInNeedsVideo" = "영상을 먼저 열어야 합니다 (오디오 전용 파일은 지원하지 않습니다).";
+"burnInStart" = "인코딩 시작";
+"burnInDone" = "완료: %@";
+
+"detachVideoWindow" = "영상 창 분리";
+"videoWindowTitle" = "영상";
+"redockVideo" = "다시 도킹";
+"videoDetachedTitle" = "영상이 별도 창에 표시 중";
+"videoDetachedDesc" = "다른 모니터로 옮겨 놓고 작업할 수 있습니다.";
+
+"activityWindowTitle" = "작업 현황";
+"activityEmpty" = "실행 중이거나 완료된 백그라운드 작업이 없습니다.";
+"activityClearFinished" = "완료 항목 지우기";
+
+"miniPlayerWindowTitle" = "미니 플레이어";
+"miniPlayerNoMedia" = "열린 미디어가 없습니다";
+
+"dashboardWindowTitle" = "프로젝트 대시보드";
+"dashboardTabCount" = "탭 %@개";
+"dashboardCueCount" = "%@개";
+"dashboardSaveAll" = "모두 저장";
+
+"sharedGlossaryWindowTitle" = "공용 용어집";
+"sharedGlossaryEmpty" = "등록된 공용 용어가 없습니다.";
+"sharedGlossaryNote" = "메모 (선택)";
+"tcOpenSharedGlossary" = "공용 용어집 열기";
+"tcSharedGlossaryApplied" = "공용 용어집 %@개 항목이 함께 검사됩니다.";
+
+"tornOffWindowTitle" = "패널";
+"dragToMerge" = "메인 창으로 드래그하면 다시 도킹됩니다";
+
+"deliveryPipeline" = "납품 패키지 생성";
+"deliveryPipelineRun" = "실행";
+"deliveryPipelineInput" = "입력";
+"deliveryPipelineChooseFolder" = "폴더 선택…";
+"deliveryPipelineOutputFolder" = "출력 폴더";
+"deliveryPipelineNoOutput" = "선택 안 됨";
+"deliveryPipelinePairCount" = "%@개 파일, %@개 영상 매칭됨";
+"deliveryPipelineFormats" = "내보낼 포맷";
+"deliveryPipelineFeatures" = "포함할 항목";
+"deliveryPipelineBurnIn" = "번인 검수본 생성";
+"deliveryPipelineQC" = "QC 리포트 생성";
+"deliveryPipelineFonts" = "폰트 수집";
+"deliveryPipelineResult" = "%@/%@ 항목 완료";

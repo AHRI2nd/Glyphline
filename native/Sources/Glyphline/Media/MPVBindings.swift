@@ -8,7 +8,9 @@
 
 import Foundation
 
+let MPV_FORMAT_STRING: Int32 = 1
 let MPV_FORMAT_FLAG: Int32 = 3
+let MPV_FORMAT_INT64: Int32 = 4
 let MPV_FORMAT_DOUBLE: Int32 = 5
 
 let MPV_RENDER_PARAM_INVALID: Int32 = 0
@@ -32,6 +34,7 @@ typealias MpvDestroy = @convention(c) (OpaquePointer?) -> Void
 typealias MpvSetOptionString = @convention(c) (OpaquePointer?, UnsafePointer<CChar>?, UnsafePointer<CChar>?) -> Int32
 typealias MpvSetProperty = @convention(c) (OpaquePointer?, UnsafePointer<CChar>?, Int32, UnsafeMutableRawPointer?) -> Int32
 typealias MpvGetProperty = @convention(c) (OpaquePointer?, UnsafePointer<CChar>?, Int32, UnsafeMutableRawPointer?) -> Int32
+typealias MpvFree = @convention(c) (UnsafeMutableRawPointer?) -> Void
 typealias MpvCommand = @convention(c) (OpaquePointer?, UnsafePointer<UnsafePointer<CChar>?>?) -> Int32
 typealias MpvRenderContextCreate = @convention(c) (UnsafeMutablePointer<OpaquePointer?>?, OpaquePointer?, UnsafeMutableRawPointer?) -> Int32
 typealias MpvRenderContextFree = @convention(c) (OpaquePointer?) -> Void
@@ -47,6 +50,7 @@ final class MPVLibrary {
     let setProperty: MpvSetProperty
     let getProperty: MpvGetProperty
     let command: MpvCommand
+    let free_: MpvFree
     let renderContextCreate: MpvRenderContextCreate
     let renderContextFree: MpvRenderContextFree
     let renderContextRender: MpvRenderContextRender
@@ -85,6 +89,7 @@ final class MPVLibrary {
             let sp = sym("mpv_set_property", MpvSetProperty.self),
             let gp = sym("mpv_get_property", MpvGetProperty.self),
             let cmd = sym("mpv_command", MpvCommand.self),
+            let fr = sym("mpv_free", MpvFree.self),
             let rcc = sym("mpv_render_context_create", MpvRenderContextCreate.self),
             let rcf = sym("mpv_render_context_free", MpvRenderContextFree.self),
             let rcr = sym("mpv_render_context_render", MpvRenderContextRender.self),
@@ -92,7 +97,7 @@ final class MPVLibrary {
             let rcs = sym("mpv_render_context_set_update_callback", MpvRenderContextSetUpdateCallback.self)
         else { return nil }
         create = c; initialize = i; destroy = d
-        setOptionString = sos; setProperty = sp; getProperty = gp; command = cmd
+        setOptionString = sos; setProperty = sp; getProperty = gp; command = cmd; free_ = fr
         renderContextCreate = rcc; renderContextFree = rcf; renderContextRender = rcr
         renderContextUpdate = rcu; renderContextSetUpdateCallback = rcs
     }
@@ -120,6 +125,21 @@ final class MPVLibrary {
         let rc = getProperty(mpv, name, MPV_FORMAT_FLAG, &v)
         return rc == 0 ? (v != 0) : nil
     }
+    func getInt(_ mpv: OpaquePointer?, _ name: String) -> Int64? {
+        var v: Int64 = 0
+        let rc = getProperty(mpv, name, MPV_FORMAT_INT64, &v)
+        return rc == 0 ? v : nil
+    }
+    /// String properties hand back a malloc'd C string that libmpv owns the
+    /// allocator for — it must go back through `mpv_free`, not `free`.
+    func getString(_ mpv: OpaquePointer?, _ name: String) -> String? {
+        var cstr: UnsafeMutablePointer<CChar>?
+        let rc = getProperty(mpv, name, MPV_FORMAT_STRING, &cstr)
+        guard rc == 0, let cstr else { return nil }
+        defer { free_(UnsafeMutableRawPointer(cstr)) }
+        return String(cString: cstr)
+    }
+
     /// Run an mpv command as a NULL-terminated argv (dup'd C strings, freed after).
     func runCommand(_ mpv: OpaquePointer?, _ args: [String]) {
         var argv: [UnsafePointer<CChar>?] = args.map { UnsafePointer(strdup($0)) }

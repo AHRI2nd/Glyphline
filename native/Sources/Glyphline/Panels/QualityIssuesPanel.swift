@@ -12,6 +12,7 @@ import GlyphlineCore
 struct QualityIssuesPanel: View {
     let document: DocumentModel
     let settings: AppSettings
+    let media: MediaModel
     @Environment(\.dismiss) private var dismiss
 
     private struct Issue: Identifiable {
@@ -24,19 +25,33 @@ struct QualityIssuesPanel: View {
     private var issues: [Issue] {
         let sorted = sortedCues(document.doc.cues)
         return sorted.enumerated().compactMap { i, cue in
-            let q = evaluateCue(cue, prev: i > 0 ? sorted[i - 1] : nil, thresholds: settings.quality)
+            let q = evaluateCue(cue, prev: i > 0 ? sorted[i - 1] : nil,
+                               thresholds: settings.quality, sceneCuts: media.sceneCuts)
             return hasAnyIssue(q) ? Issue(cue: cue, index: i + 1, q: q) : nil
         }
     }
 
+    // Decoding+parsing every embedded font's binary data isn't cheap (a
+    // multi-MB CJK font is real work), and this panel is a DOCKED pane, not
+    // a modal sheet — it can sit open right next to the grid while the user
+    // types. A computed property here would redo that work on every single
+    // keystroke, since it reads `document.doc` and ANY cue edit changes that.
+    // Caching keyed on `doc.fonts` (which only changes when fonts are
+    // embedded/removed, not on ordinary cue editing) decouples the two.
+    @State private var fontIssues: [FontCoverageIssue] = []
+
     var body: some View {
         PanelShell(title: t("qualityIssues"), width: 420) {
-            if issues.isEmpty {
-                Text(t("qualityIssuesNone"))
-                    .font(GlyphFont.body(12)).foregroundStyle(GlyphColor.quiet)
-                    .frame(maxWidth: .infinity, minHeight: 80)
-            } else {
-                VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 0) {
+                if !fontIssues.isEmpty {
+                    fontCoverageSection
+                    Divider().padding(.vertical, 6)
+                }
+                if issues.isEmpty {
+                    Text(t("qualityIssuesNone"))
+                        .font(GlyphFont.body(12)).foregroundStyle(GlyphColor.quiet)
+                        .frame(maxWidth: .infinity, minHeight: 80)
+                } else {
                     Text(t("qualityIssuesCount", "\(issues.count)"))
                         .font(GlyphFont.body(11)).foregroundStyle(GlyphColor.quiet)
                         .padding(.bottom, 6)
@@ -49,8 +64,50 @@ struct QualityIssuesPanel: View {
                 }
             }
         } footer: {
+            Menu(t("qcReportExport")) {
+                Button(t("qcReportExportCSV")) { exportReport(html: false) }
+                Button(t("qcReportExportHTML")) { exportReport(html: true) }
+            }
+            .fixedSize()
             Spacer()
-            Button(t("close")) { dismiss() }.keyboardShortcut(.cancelAction)
+            PanelCloseButton()
+        }
+        .onAppear { fontIssues = checkFontCoverage(document.doc) }
+        // Fires on a real font embed/removal AND on a tab switch (loadParsed
+        // swaps the whole doc, fonts included) — never on plain cue editing,
+        // which is the whole point.
+        .onChange(of: document.doc.fonts) { _, _ in fontIssues = checkFontCoverage(document.doc) }
+    }
+
+    private func exportReport(html: Bool) {
+        let panel = NSSavePanel()
+        let base = (document.fileName ?? "subtitle").replacingOccurrences(of: ".\(document.doc.format.rawValue)", with: "")
+        panel.nameFieldStringValue = "\(base)_qc.\(html ? "html" : "csv")"
+        panel.allowedContentTypes = [html ? .html : .commaSeparatedText]
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        let content = html
+            ? generateQCReportHTML(document.doc, thresholds: settings.quality, sceneCuts: media.sceneCuts,
+                                   fontIssues: fontIssues, title: document.fileName ?? "QC Report")
+            : generateQCReportCSV(document.doc, thresholds: settings.quality, sceneCuts: media.sceneCuts)
+        try? content.write(to: url, atomically: true, encoding: .utf8)
+    }
+
+    /// Document-level, not per-cue — the embedded font either covers a
+    /// character everywhere in the file or it doesn't, so this sits above the
+    /// per-cue list rather than trying to force it into one row per cue.
+    @ViewBuilder
+    private var fontCoverageSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(t("fontCoverage")).font(GlyphFont.display(11)).foregroundStyle(GlyphColor.quiet)
+            ForEach(Array(fontIssues.enumerated()), id: \.offset) { _, issue in
+                if let missing = issue.missingCharacters {
+                    Text(t("fontCoverageMissing", issue.fontName, String(missing.prefix(20))))
+                        .font(GlyphFont.data(11)).foregroundStyle(GlyphColor.amber)
+                } else {
+                    Text(t("fontCoverageUnparseable", issue.fontName))
+                        .font(GlyphFont.data(11)).foregroundStyle(GlyphColor.quiet)
+                }
+            }
         }
     }
 }
@@ -93,6 +150,7 @@ private struct IssueRow: View {
             (t("lineTooLong"), q.lineTooLong, GlyphColor.amber),
             (t("tooManyLines"), q.tooManyLines, GlyphColor.amber),
             (t("negativeDuration"), q.negativeDuration, GlyphColor.warn),
+            (t("crossesCut"), q.crossesCut, GlyphColor.warn),
         ]
         let active = items.filter { $0.1 }
         if !active.isEmpty {

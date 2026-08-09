@@ -1,12 +1,12 @@
-// Document-wide summary (ported from ../../../src/components/Modals/StatisticsModal.tsx).
-// Read-only.
+// Document-wide summary — a docked pane (not a modal): `stats` is computed
+// live from `document.doc`, so as a sheet it only ever showed a snapshot from
+// the moment it was opened. Docked, it updates as you edit.
 
 import SwiftUI
 import GlyphlineCore
 
 struct StatisticsPanel: View {
     let document: DocumentModel
-    @Environment(\.dismiss) private var dismiss
 
     private struct Stats {
         var count = 0, chars = 0, words = 0, lines = 0, overlaps = 0
@@ -54,10 +54,11 @@ struct StatisticsPanel: View {
                 }
             } else {
                 Text(t("noCues")).foregroundStyle(GlyphColor.quiet)
+                    .frame(maxWidth: .infinity, minHeight: 60)
             }
         } footer: {
             Spacer()
-            Button(t("close")) { dismiss() }.keyboardShortcut(.cancelAction)
+            PanelCloseButton()
         }
     }
 

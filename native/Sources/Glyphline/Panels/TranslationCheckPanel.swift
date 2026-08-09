@@ -13,6 +13,7 @@ struct TranslationCheckPanel: View {
     let document: DocumentModel
     let settings: AppSettings
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openWindow) private var openWindow
 
     @State private var issues: [TermIssue] = []
     @State private var newSource = ""
@@ -20,6 +21,14 @@ struct TranslationCheckPanel: View {
     @State private var hasRun = false
 
     private var glossary: [GlossaryEntry] { document.doc.glossary ?? [] }
+
+    /// Document-local entries plus the shared (cross-project) glossary — see
+    /// AppSettings.sharedGlossary. A document-local entry for the same source
+    /// term wins, since it's the more specific override for this file.
+    private var effectiveGlossary: [GlossaryEntry] {
+        let docSources = Set(glossary.map(\.source))
+        return glossary + settings.sharedGlossary.filter { !docSources.contains($0.source) }
+    }
 
     var body: some View {
         PanelShell(title: t("translationCheck"), width: 560) {
@@ -40,7 +49,7 @@ struct TranslationCheckPanel: View {
         } footer: {
             Button(t("spellRecheck")) { run() }
             Spacer()
-            Button(t("close")) { dismiss() }.keyboardShortcut(.cancelAction)
+            PanelCloseButton()
         }
         .onAppear { if !hasRun { run() } }
     }
@@ -70,9 +79,18 @@ struct TranslationCheckPanel: View {
 
     private var glossarySection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(t("tcGlossary")).font(GlyphFont.display(11)).foregroundStyle(GlyphColor.quiet)
+            HStack {
+                Text(t("tcGlossary")).font(GlyphFont.display(11)).foregroundStyle(GlyphColor.quiet)
+                Spacer()
+                Button(t("tcOpenSharedGlossary")) { openWindow(id: SHARED_GLOSSARY_WINDOW_ID) }
+                    .controlSize(.small)
+            }
             Text(t("tcGlossaryHint"))
                 .font(GlyphFont.body(10)).foregroundStyle(GlyphColor.quiet)
+            if !settings.sharedGlossary.isEmpty {
+                Text(t("tcSharedGlossaryApplied", "\(settings.sharedGlossary.count)"))
+                    .font(GlyphFont.body(10)).foregroundStyle(GlyphColor.signal)
+            }
 
             if glossary.isEmpty {
                 Text(t("tcGlossaryEmpty"))
@@ -134,7 +152,7 @@ struct TranslationCheckPanel: View {
         hasRun = true
         issues = checkTranslationConsistency(
             document.doc,
-            glossary: glossary,
+            glossary: effectiveGlossary,
             checkDivergent: settings.checkDivergentTranslations
         )
     }

@@ -26,6 +26,7 @@ struct CueEditorBox: View {
     @State private var text = ""
     @State private var translation = ""
     @State private var editingCueId: String?
+    @State private var textSelection: TextSelection?
     @FocusState private var focus: Field?
 
     private enum Field { case text, translation }
@@ -58,7 +59,7 @@ struct CueEditorBox: View {
     private func editor(for cue: Cue) -> some View {
         HStack(alignment: .top, spacing: 10) {
             VStack(alignment: .leading, spacing: 3) {
-                TextEditor(text: $text)
+                TextEditor(text: $text, selection: $textSelection)
                     .font(GlyphFont.body(13))
                     .scrollContentBackground(.hidden)
                     .background(GlyphColor.bg)
@@ -66,7 +67,13 @@ struct CueEditorBox: View {
                     .frame(height: 56)
                     .focused($focus, equals: .text)
                     .onChange(of: text) { _, next in commit(cue.id) { $0.text = next } }
-                lineCounts(text)
+                HStack(spacing: 4) {
+                    styleButton(.bold, "bold")
+                    styleButton(.italic, "italic")
+                    styleButton(.underline, "underline")
+                    Divider().frame(height: 12)
+                    lineCounts(text)
+                }
             }
 
             if settings.showTranslation {
@@ -98,6 +105,59 @@ struct CueEditorBox: View {
             }
             .frame(width: 92)
         }
+    }
+
+    /// The markup dialect this document's format speaks — HTML tags for
+    /// SRT/VTT/SMI/TTML, override blocks for ASS, nothing for plain-text
+    /// formats (where the buttons are disabled rather than writing markup that
+    /// would be delivered literally).
+    private var markup: InlineMarkup { InlineMarkup.forFormat(document.doc.format) }
+
+    private func styleButton(_ style: InlineStyle, _ symbol: String) -> some View {
+        Button {
+            applyStyle(style)
+        } label: {
+            Image(systemName: symbol).frame(width: 14)
+        }
+        .buttonStyle(.borderless)
+        .controlSize(.small)
+        .disabled(markup == InlineMarkup.none)
+        .help(t("style_\(style.rawValue)"))
+        .keyboardShortcut(shortcut(for: style), modifiers: [.command, .option])
+    }
+
+    // ⌘⌥B/I/U rather than the usual ⌘B/I/U: plain ⌘B is AppKit's rich-text
+    // "bold face" on the field editor, which a plain-text TextEditor answers by
+    // doing nothing — so the tag would never get written.
+    private func shortcut(for style: InlineStyle) -> KeyEquivalent {
+        switch style {
+        case .bold: return "b"
+        case .italic: return "i"
+        case .underline: return "u"
+        }
+    }
+
+    private func applyStyle(_ style: InlineStyle) {
+        let offsets = selectedOffsets()
+        let result = toggleInlineStyle(style, in: text, selection: offsets, markup: markup)
+        text = result.text
+        // Re-select the same words in the rewritten string, so a second press
+        // (or a second style) acts on what's still highlighted instead of on a
+        // collapsed caret at position 0.
+        let chars = result.text.count
+        let lo = result.text.index(result.text.startIndex, offsetBy: min(result.selection.lowerBound, chars))
+        let hi = result.text.index(result.text.startIndex, offsetBy: min(result.selection.upperBound, chars))
+        textSelection = TextSelection(range: lo..<hi)
+    }
+
+    /// The current selection as character offsets. An absent or multi-range
+    /// selection collapses to empty, which `toggleInlineStyle` reads as
+    /// "the whole cue".
+    private func selectedOffsets() -> Range<Int> {
+        guard let textSelection, case .selection(let range) = textSelection.indices else { return 0..<0 }
+        let lo = text.distance(from: text.startIndex, to: range.lowerBound)
+        let hi = text.distance(from: text.startIndex, to: range.upperBound)
+        return lo..<hi
     }
 
     /// One count per line, amber past the threshold, plus the CPS the quality

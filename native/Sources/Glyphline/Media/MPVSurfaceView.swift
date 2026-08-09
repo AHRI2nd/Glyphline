@@ -254,6 +254,31 @@ final class MPVSurfaceView: NSOpenGLView, MediaEngineControlling {
     func setSpeed(_ speed: Double) { lib.setDouble(mpv, "speed", speed) }
     func stop() { lib.runCommand(mpv, ["stop"]) }
 
+    func audioTracks() -> [AudioTrack] {
+        guard let count = lib.getInt(mpv, "track-list/count"), count > 0 else { return [] }
+        var tracks: [AudioTrack] = []
+        for i in 0..<count {
+            guard lib.getString(mpv, "track-list/\(i)/type") == "audio",
+                  let id = lib.getInt(mpv, "track-list/\(i)/id") else { continue }
+            tracks.append(AudioTrack(
+                id: id,
+                title: lib.getString(mpv, "track-list/\(i)/title"),
+                lang: lib.getString(mpv, "track-list/\(i)/lang"),
+                codec: lib.getString(mpv, "track-list/\(i)/codec"),
+                isDefault: lib.getFlag(mpv, "track-list/\(i)/default") ?? false
+            ))
+        }
+        return tracks
+    }
+
+    /// `aid` reads back as the string "no" when audio is disabled, which
+    /// getInt can't represent — hence nil rather than 0 (a real track id).
+    func selectedAudioTrackId() -> Int64? { lib.getInt(mpv, "aid") }
+
+    // `set` command, not set_option_string: aid is being changed on a running
+    // player, and options are only honoured through the property path here.
+    func setAudioTrack(_ id: Int64) { lib.runCommand(mpv, ["set", "aid", String(id)]) }
+
     /// Write ASS to a fixed temp file and add/reload it as mpv's sub track
     /// (first call adds+selects; later calls reload the same path).
     func setSubtitles(_ assText: String) {

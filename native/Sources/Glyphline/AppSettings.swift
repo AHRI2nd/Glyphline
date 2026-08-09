@@ -61,6 +61,108 @@ final class AppSettings {
         didSet { UserDefaults.standard.set(spellCheckNotation, forKey: spellCheckNotationKey) }
     }
 
+    /// How exported text is written. Set once per delivery target rather than
+    /// asked on every export — people ship to one place at a time.
+    var exportEncoding: String {
+        didSet { UserDefaults.standard.set(exportEncoding, forKey: exportEncodingKey) }
+    }
+    var exportCRLF: Bool {
+        didSet { UserDefaults.standard.set(exportCRLF, forKey: exportCRLFKey) }
+    }
+    var exportBOM: Bool {
+        didSet { UserDefaults.standard.set(exportBOM, forKey: exportBOMKey) }
+    }
+    private let exportEncodingKey = "glyphline.exportEncoding"
+    private let exportCRLFKey = "glyphline.exportCRLF"
+    private let exportBOMKey = "glyphline.exportBOM"
+
+    var textOutputOptions: TextOutputOptions {
+        TextOutputOptions(encodingLabel: exportEncoding,
+                          lineEnding: exportCRLF ? .crlf : .lf,
+                          writeBOM: exportBOM)
+    }
+
+    /// Draw the broadcast title-safe / action-safe boxes over the video.
+    /// Off by default: they're a checking aid, not something you want in the
+    /// way while doing ordinary timing work.
+    var showSafeGuides: Bool {
+        didSet { UserDefaults.standard.set(showSafeGuides, forKey: showSafeGuidesKey) }
+    }
+    private let showSafeGuidesKey = "glyphline.showSafeGuides"
+
+    /// User-saved delivery profiles (named QualityThresholds) — the DEFAULT/
+    /// Netflix buttons already in Settings are fixed presets; this is where a
+    /// house style for a specific client goes so switching between clients'
+    /// requirements is a picker, not re-typing five numbers each time.
+    private(set) var deliveryProfiles: [DeliveryProfile] = []
+    private let deliveryProfilesKey = "glyphline.deliveryProfiles"
+
+    func saveDeliveryProfile(name: String, thresholds: QualityThresholds) {
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        deliveryProfiles.removeAll { $0.name == trimmed } // overwrite same-named profile
+        deliveryProfiles.append(DeliveryProfile(name: trimmed, thresholds: thresholds))
+        persistDeliveryProfiles()
+    }
+
+    func deleteDeliveryProfile(name: String) {
+        deliveryProfiles.removeAll { $0.name == name }
+        persistDeliveryProfiles()
+    }
+
+    private func persistDeliveryProfiles() {
+        guard let data = try? JSONEncoder().encode(deliveryProfiles) else { return }
+        UserDefaults.standard.set(data, forKey: deliveryProfilesKey)
+    }
+
+    /// Saved house-style find/replace rule sets — see CustomRules.swift.
+    var customRules: [CustomRule] {
+        didSet { persistCustomRules() }
+    }
+    private let customRulesKey = "glyphline.customRules"
+    private func persistCustomRules() {
+        guard let data = try? JSONEncoder().encode(customRules) else { return }
+        UserDefaults.standard.set(data, forKey: customRulesKey)
+    }
+
+    /// House-style term glossary shared across every document — unlike
+    /// `doc.glossary` (see TermConsistency.swift), which is per-project and
+    /// lives only in `.glyph`, this is a standing reference (character/brand
+    /// names that recur across a whole series, say) that should be available
+    /// from the moment a new file is opened, not re-typed per episode. See
+    /// SharedGlossaryWindow.swift for the editor and TranslationCheckPanel
+    /// for where it's merged into the per-document check.
+    private(set) var sharedGlossary: [GlossaryEntry] = []
+    private let sharedGlossaryKey = "glyphline.sharedGlossary"
+
+    func upsertSharedGlossaryEntry(source: String, target: String, note: String? = nil) {
+        let src = source.trimmingCharacters(in: .whitespacesAndNewlines)
+        let tgt = target.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !src.isEmpty, !tgt.isEmpty else { return }
+        var list = sharedGlossary
+        list.removeAll { $0.source == src }
+        let trimmedNote = note?.trimmingCharacters(in: .whitespacesAndNewlines)
+        list.append(GlossaryEntry(source: src, target: tgt, note: trimmedNote?.isEmpty == false ? trimmedNote : nil))
+        sharedGlossary = list.sorted { $0.source < $1.source }
+        persistSharedGlossary()
+    }
+
+    func removeSharedGlossaryEntry(source: String) {
+        sharedGlossary.removeAll { $0.source == source }
+        persistSharedGlossary()
+    }
+
+    private func persistSharedGlossary() {
+        guard let data = try? JSONEncoder().encode(sharedGlossary) else { return }
+        UserDefaults.standard.set(data, forKey: sharedGlossaryKey)
+    }
+
+    /// Spectrogram vs. amplitude waveform display — see SpectrogramRenderer.
+    var showSpectrogram: Bool {
+        didSet { UserDefaults.standard.set(showSpectrogram, forKey: showSpectrogramKey) }
+    }
+    private let showSpectrogramKey = "glyphline.showSpectrogram"
+
     /// Waveform zoom, 0–100 on a log scale (see WaveformScrollView). Persisted
     /// because it's a working preference — how densely you want to see the
     /// audio — not per-file state, and having it snap back to the default on
@@ -145,6 +247,25 @@ final class AppSettings {
         spellCheckNotation = UserDefaults.standard.object(forKey: spellCheckNotationKey) as? Bool ?? true
         waveformZoom = UserDefaults.standard.object(forKey: waveformZoomKey) as? Double ?? 50
         showCueEditor = UserDefaults.standard.object(forKey: showCueEditorKey) as? Bool ?? true
+        exportEncoding = UserDefaults.standard.string(forKey: exportEncodingKey) ?? "utf-8"
+        exportCRLF = UserDefaults.standard.object(forKey: exportCRLFKey) as? Bool ?? false
+        exportBOM = UserDefaults.standard.object(forKey: exportBOMKey) as? Bool ?? false
+        showSafeGuides = UserDefaults.standard.object(forKey: showSafeGuidesKey) as? Bool ?? false
+        showSpectrogram = UserDefaults.standard.object(forKey: showSpectrogramKey) as? Bool ?? false
+        if let data = UserDefaults.standard.data(forKey: deliveryProfilesKey),
+           let decoded = try? JSONDecoder().decode([DeliveryProfile].self, from: data) {
+            deliveryProfiles = decoded
+        }
+        if let data = UserDefaults.standard.data(forKey: customRulesKey),
+           let decoded = try? JSONDecoder().decode([CustomRule].self, from: data) {
+            customRules = decoded
+        } else {
+            customRules = []
+        }
+        if let data = UserDefaults.standard.data(forKey: sharedGlossaryKey),
+           let decoded = try? JSONDecoder().decode([GlossaryEntry].self, from: data) {
+            sharedGlossary = decoded
+        }
         checkDivergentTranslations = UserDefaults.standard.object(forKey: checkDivergentKey) as? Bool ?? true
         frameMode = UserDefaults.standard.object(forKey: frameModeKey) as? Bool ?? false
         frameRateOverride = UserDefaults.standard.object(forKey: frameRateOverrideKey) as? Double ?? 0
@@ -188,6 +309,33 @@ final class AppSettings {
         dockLayout = updatingWeights(at: path, to: weights, in: dockLayout)
     }
 
+    /// Which panels are currently in the layout.
+    var visiblePanels: Set<PanelKind> { panelsInTree(dockLayout) }
+
+    /// Shows or hides a panel.
+    ///
+    /// Hiding the last one is refused: an empty dock has no way back, since
+    /// every route to un-hide a panel lives in a menu that acts on this tree.
+    func togglePanel(_ panel: PanelKind) {
+        if visiblePanels.contains(panel) {
+            guard visiblePanels.count > 1, let next = removingPanel(panel, from: dockLayout) else { return }
+            dockLayout = next
+        } else {
+            dockLayout = addingPanelAsTab(panel, into: dockLayout)
+        }
+    }
+
+    /// Brings `panel` into view: adds it if hidden, then selects its tab so a
+    /// menu command always ends with the panel actually on screen — not merely
+    /// present behind a sibling tab.
+    func revealPanel(_ panel: PanelKind) {
+        if !visiblePanels.contains(panel) {
+            dockLayout = addingPanelAsTab(panel, into: dockLayout)
+        }
+        guard let path = pathToTabset(containing: panel, in: dockLayout) else { return }
+        dockLayout = updatingSelection(at: path, to: panel, in: dockLayout)
+    }
+
     func resetDockLayout() {
         dockLayout = .defaultLayout
     }
@@ -196,4 +344,12 @@ final class AppSettings {
         guard let data = try? JSONEncoder().encode(dockLayout) else { return }
         UserDefaults.standard.set(data, forKey: dockLayoutKey)
     }
+}
+
+/// A named quality-threshold set the user saved for a specific client/show —
+/// see AppSettings.deliveryProfiles.
+struct DeliveryProfile: Codable, Equatable, Identifiable {
+    var name: String
+    var thresholds: QualityThresholds
+    var id: String { name }
 }

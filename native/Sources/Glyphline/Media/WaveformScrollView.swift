@@ -15,6 +15,7 @@ struct WaveformScrollView: NSViewRepresentable {
     let zoomLevel: Double // 0–100, log scale (see WaveformPane)
     /// Non-nil when edits should land on frame boundaries (View ▸ 프레임 타임코드).
     var frameRate: Double?
+    var showSpectrogram: Bool = false
     var onZoomWheel: (Double) -> Void = { _ in }
 
     func makeCoordinator() -> Coordinator { Coordinator() }
@@ -36,14 +37,12 @@ struct WaveformScrollView: NSViewRepresentable {
         // WaveformDrawView so the view keeps tracking the pointer smoothly —
         // only the value committed to the document is quantized.
         drawView.onAdjustCue = { [weak coordinator = context.coordinator] id, start, end in
-            let b = coordinator?.frameRate.map { snapCueBounds(start: start, end: end, fps: $0) }
-                ?? (start: start, end: end)
-            doc.updateCue(id) { $0.start = b.start; $0.end = b.end }
+            let (s, e) = coordinator?.snappedBounds(start: start, end: end) ?? (start, end)
+            doc.updateCue(id) { $0.start = s; $0.end = e }
         }
         drawView.onCreateCue = { [weak coordinator = context.coordinator] start, end in
-            let b = coordinator?.frameRate.map { snapCueBounds(start: start, end: end, fps: $0) }
-                ?? (start: start, end: end)
-            doc.addCueAt(start: b.start, end: b.end)
+            let (s, e) = coordinator?.snappedBounds(start: start, end: end) ?? (start, end)
+            doc.addCueAt(start: s, end: e)
             return doc.activeCueId // addCueAt makes the new cue active
         }
 
@@ -72,6 +71,8 @@ struct WaveformScrollView: NSViewRepresentable {
             else { drawView.audio = nil }
         }
 
+        drawView.showSpectrogram = showSpectrogram
+        if showSpectrogram { coordinator.ensureSpectrogram() }
         let pxPerSec = CGFloat(Self.zoomLevelToPixels(zoomLevel))
         drawView.pxPerSec = pxPerSec
         let duration = max(media.duration, coordinator.lastAudio?.duration ?? 0)
@@ -83,6 +84,8 @@ struct WaveformScrollView: NSViewRepresentable {
         drawView.cues = sortedCues(document.doc.cues)
         drawView.activeCueId = document.activeCueId
         drawView.currentTime = media.currentTime
+        drawView.sceneCuts = media.sceneCuts
+        coordinator.sceneCuts = media.sceneCuts
 
         // Only recenter while actually playing — paused lets the user scroll freely.
         if media.isPlaying {
@@ -102,6 +105,7 @@ struct WaveformScrollView: NSViewRepresentable {
         /// Read by the drag callbacks above; kept on the coordinator so they
         /// see the live value instead of the one captured at makeNSView time.
         var frameRate: Double?
+        var sceneCuts: [Double] = []
         weak var scrollView: NSScrollView?
         var lastPath: String?
         var lastAudio: WaveformAudio?
@@ -119,6 +123,8 @@ struct WaveformScrollView: NSViewRepresentable {
                     guard !Task.isCancelled else { return }
                     self.lastAudio = audio
                     self.drawView?.audio = audio
+                    self.drawView?.spectrogramImage = nil // stale for the new file; ensureSpectrogram rebuilds on demand
+                    media?.waveformAudio = audio
                     media?.waveformStatus = .ready
                 } catch {
                     guard !Task.isCancelled else { return }
@@ -129,6 +135,33 @@ struct WaveformScrollView: NSViewRepresentable {
                         (error as? WaveformExtractor.ExtractError) == .mpvNotFound
                             ? t("mpvMissing") : t("waveformFailed"))
                 }
+            }
+        }
+
+        /// A cut, if one is close enough, wins outright over frame snapping —
+        /// see snapToNearestCut. Tolerance is 3 frames when the rate is known,
+        /// else a flat 100ms (roughly a third of a second of dead reckoning on
+        /// an un-timed document, generous enough to catch a deliberate drag
+        /// toward the line without grabbing an unrelated nearby cut).
+        func snappedBounds(start: Double, end: Double) -> (Double, Double) {
+            let tolerance = frameRate.map { 3 / $0 } ?? 0.1
+            let s = snapToNearestCut(start, cuts: sceneCuts, within: tolerance)
+            let e = snapToNearestCut(end, cuts: sceneCuts, within: tolerance)
+            return frameRate.map { snapCueBounds(start: s, end: e, fps: $0) } ?? (s, e)
+        }
+
+        /// Lazily renders the spectrogram bitmap for the current audio the
+        /// first time spectrogram mode is turned on (or a new file loads) —
+        /// the FFT pass takes real time for a long file, so it isn't run
+        /// unless the user actually asked to see it.
+        private var spectrogramTask: Task<Void, Never>?
+        func ensureSpectrogram() {
+            guard drawView?.spectrogramImage == nil, spectrogramTask == nil, let audio = lastAudio else { return }
+            spectrogramTask = Task { [weak self] in
+                let image = await Task.detached(priority: .userInitiated) { SpectrogramRenderer.render(audio) }.value
+                guard let self, !Task.isCancelled else { return }
+                self.drawView?.spectrogramImage = image
+                self.spectrogramTask = nil
             }
         }
 

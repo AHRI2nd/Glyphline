@@ -10,6 +10,8 @@ struct BatchCleanupPanel: View {
     /// Line rebreaking reuses the SAME limits the quality check flags against,
     /// so "fix" and "complain" can never disagree about what too long means.
     let settings: AppSettings
+    /// Only needed for the scene-cut snap row, which reads media.sceneCuts.
+    let media: MediaModel
     @Environment(\.dismiss) private var dismiss
 
     @State private var results: [String: Int] = [:]
@@ -22,6 +24,10 @@ struct BatchCleanupPanel: View {
     // Off by default: each rule rewrites text, so the user opts in to exactly
     // the ones they want rather than discovering a sweeping change afterwards.
     @State private var tidyRules: Set<TidyRule> = []
+    @State private var leadInMs = "0"
+    @State private var leadOutMs = "0"
+    @State private var bridgeGapMs = "300"
+    @State private var cutSnapMs = "80"
 
     var body: some View {
         PanelShell(title: t("batchCleanup"), width: 480) {
@@ -94,6 +100,36 @@ struct BatchCleanupPanel: View {
                 }
 
                 row(t("mergeSameTimecodes"), key: "sameTime") { document.mergeSameTimecodes() }
+
+                Divider()
+                Text(t("timingPostProcess")).font(GlyphFont.display(11)).foregroundStyle(GlyphColor.quiet)
+
+                row(t("leadInOut"), key: "leadInOut", hint: t("leadInOutHint")) {
+                    document.applyLeadInOut(
+                        leadInSec: max(0, (Double(leadInMs) ?? 0)) / 1000,
+                        leadOutSec: max(0, (Double(leadOutMs) ?? 0)) / 1000
+                    )
+                } accessory: {
+                    HStack(spacing: 4) {
+                        NumberField(label: "", value: $leadInMs, suffix: "ms", width: 48)
+                        Text("/").foregroundStyle(GlyphColor.quiet)
+                        NumberField(label: "", value: $leadOutMs, suffix: "ms", width: 48)
+                    }
+                }
+
+                row(t("bridgeSmallGaps"), key: "bridge", hint: t("bridgeSmallGapsHint")) {
+                    document.bridgeSmallGaps(maxGapSec: max(0, (Double(bridgeGapMs) ?? 0)) / 1000)
+                } accessory: {
+                    NumberField(label: "", value: $bridgeGapMs, suffix: "ms")
+                }
+
+                row(t("snapToSceneCuts"), key: "cutSnap",
+                    hint: media.sceneCuts.isEmpty ? t("snapToSceneCutsNeedsDetect") : nil) {
+                    document.snapToSceneCuts(media.sceneCuts, toleranceSec: max(0, (Double(cutSnapMs) ?? 0)) / 1000)
+                } accessory: {
+                    NumberField(label: "", value: $cutSnapMs, suffix: "ms")
+                }
+                .disabled(media.sceneCuts.isEmpty)
 
                 Divider()
                 tidySection

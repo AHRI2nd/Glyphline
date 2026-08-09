@@ -71,7 +71,7 @@ struct FindReplacePanel: View {
                 .buttonStyle(.borderedProminent)
                 .tint(GlyphColor.accent)
             Spacer()
-            Button(t("close")) { dismiss() }.keyboardShortcut(.cancelAction)
+            PanelCloseButton()
         }
         .onChange(of: cursorTarget) { _, target in
             if let target { document.setActiveCue(target) }

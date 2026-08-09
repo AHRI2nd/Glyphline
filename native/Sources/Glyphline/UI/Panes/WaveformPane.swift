@@ -26,6 +26,9 @@ struct WaveformPane: View {
         } else {
             VStack(spacing: 0) {
                 HStack(spacing: 6) {
+                    sceneCutControl
+                    Divider().frame(height: 12)
+                    spectrogramToggle
                     Spacer()
                     Button("−") { zoomBy(0.8) }.buttonStyle(.plain)
                         .help(t("zoomOut")).accessibilityLabel(t("zoomOut"))
@@ -49,6 +52,7 @@ struct WaveformPane: View {
                         frameRate: settings.frameMode
                             ? settings.effectiveFrameRate(detected: media.detectedFrameRate)
                             : nil,
+                        showSpectrogram: settings.showSpectrogram,
                         onZoomWheel: { delta in
                             settings.waveformZoom = min(100, max(0, zoomLevel + delta))
                         }
@@ -81,6 +85,50 @@ struct WaveformPane: View {
         case .idle, .ready:
             EmptyView()
         }
+    }
+
+    /// Runs the whole-file decode to find cuts (or shows how it went) — not
+    /// automatic, since detection cost scales with runtime and this pane
+    /// otherwise has zero waiting for anything but the audio downsample.
+    @ViewBuilder
+    private var sceneCutControl: some View {
+        switch media.sceneCutStatus {
+        case .idle:
+            Button(t("detectSceneCuts")) { media.detectSceneCuts() }
+                .buttonStyle(.plain)
+                .font(GlyphFont.data(11)).foregroundStyle(GlyphColor.quiet)
+                .disabled(!SceneCutExtractor.ffmpegAvailable)
+                .help(SceneCutExtractor.ffmpegAvailable ? "" : t("ffmpegMissing"))
+        case .detecting:
+            HStack(spacing: 4) {
+                ProgressView().controlSize(.small).scaleEffect(0.6)
+                Text(t("detectingSceneCuts")).font(GlyphFont.data(11)).foregroundStyle(GlyphColor.quiet)
+            }
+        case .ready:
+            Button(t("sceneCutCount", "\(media.sceneCuts.count)")) { media.detectSceneCuts() }
+                .buttonStyle(.plain)
+                .font(GlyphFont.data(11)).foregroundStyle(GlyphColor.signal)
+                .help(t("redetectSceneCuts"))
+        case .failed(let message):
+            Button(message) { media.detectSceneCuts() }
+                .buttonStyle(.plain)
+                .font(GlyphFont.data(11)).foregroundStyle(GlyphColor.amber)
+        }
+    }
+
+    private var spectrogramToggle: some View {
+        Button {
+            settings.showSpectrogram.toggle()
+        } label: {
+            HStack(spacing: 3) {
+                Image(systemName: "waveform.and.magnifyingglass")
+                Text(t("spectrogram"))
+            }
+        }
+        .buttonStyle(.plain)
+        .font(GlyphFont.data(11))
+        .foregroundStyle(settings.showSpectrogram ? GlyphColor.signal : GlyphColor.quiet)
+        .help(t("spectrogramHint"))
     }
 
     private func zoomBy(_ factor: Double) {

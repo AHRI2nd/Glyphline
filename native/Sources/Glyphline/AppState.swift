@@ -10,9 +10,9 @@ import GlyphlineCore
 /// Which M5 panel sheet is currently presented (mutually exclusive — matches the
 /// Tauri app's one-modal-at-a-time UX). `nil` = none.
 enum ActivePanel: Identifiable {
-    case findReplace, batchCleanup, pointSync, changeSpeed, statistics, shiftTime
-    case styleManager, embeddedAssets, inlineTagEditor, settings, rawEditor, help, qualityIssues, closeConfirm
-    case spellCheck, translationCheck, compareFiles, karaokeTiming
+    case batchCleanup, pointSync, changeSpeed, shiftTime
+    case styleManager, embeddedAssets, settings, rawEditor, help, closeConfirm
+    case compareFiles, exportRange, autoSpot, batchConvert, customRules, resampleResolution, burnIn, deliveryPipeline
 
     var id: Self { self }
 }
@@ -40,6 +40,37 @@ final class AppState {
     var olderRecoveries: [AutosaveData] = []
     var lastError: String?
 
+    /// Open files as tabs over the one shared `document` — see
+    /// DocumentTabs.swift for why this isn't one DocumentModel per tab.
+    /// Always has at least one entry; the active one mirrors `document` live.
+    var tabs: [DocumentTab]
+    var activeTabId: UUID
+
+    /// True while the video lives in its own OS window instead of the dock —
+    /// for a second-monitor layout (video on one screen, grid/waveform on the
+    /// other), which the single-window dock can't offer on its own. Session-
+    /// only (not persisted): restoring it blind on next launch, before the
+    /// window has actually been (re)opened, would leave the dock's video slot
+    /// permanently showing the "detached" placeholder with no way back.
+    var videoDetached = false
+
+    /// Long-running background operations (burn-in encode, batch convert, …)
+    /// that outlive the panel that started them — see BackgroundJobs.swift.
+    /// Newest first; kept after completion until cleared so a job started
+    /// from a panel the user already closed still has somewhere to report.
+    var backgroundJobs: [BackgroundJob] = []
+
+    /// Shared with every window (including any torn-off panel's own window)
+    /// so a cross-window drag can drive the same zone-preview overlay an
+    /// in-dock drag uses — see DockTearOff.swift.
+    let dockDragState = DockDragState()
+    /// Captured once each relevant view appears — lets a torn-off panel's
+    /// window hit-test its drag against the main dock without SwiftUI
+    /// coordinate spaces, which don't span separate windows. Weak: SwiftUI
+    /// owns these views' lifetime, not us.
+    weak var mainWindow: NSWindow?
+    weak var dockRootView: NSView?
+
     private var autosave: AutosaveService!
 
     init() {
@@ -47,6 +78,9 @@ final class AppState {
         self.media = MediaModel()
         self.settings = AppSettings()
         self.autosave = AutosaveService(document: document)
+        let firstTab = DocumentTab(path: nil, fileName: nil, snapshot: .empty(.srt), isDirty: false)
+        self.tabs = [firstTab]
+        self.activeTabId = firstTab.id
     }
 
     /// Called once from the app's `.onAppear` — starts the autosave timer and
@@ -84,13 +118,29 @@ final class AppState {
         openSubtitlePath(url.path)
     }
 
-    func openSubtitlePath(_ path: String) {
+    /// Re-opens the current file forcing an encoding — the recovery path when
+    /// auto-detection produced mojibake, which previously had no way out.
+    func reopenWithEncoding(_ label: String) {
+        guard let path = document.filePath else { return }
+        openSubtitlePath(path, forcingEncoding: label)
+    }
+
+    func openSubtitlePath(_ path: String, forcingEncoding label: String? = nil) {
         do {
-            let doc = try SubtitleFileIO.open(path: path)
-            document.loadParsed(doc, filePath: path, fileName: (path as NSString).lastPathComponent)
+            let parsed = try SubtitleFileIO.open(path: path, forcingEncoding: label)
+            // A blank tab gets reused (the common "just opened the app,
+            // File ▸ Open" case); reloading the SAME path in place handles
+            // reopenWithEncoding's "no, it's actually CP949" retry. Anything
+            // else opens alongside what's already there, as a new tab,
+            // rather than silently discarding unsaved work the way this
+            // action used to.
+            if !activeTabIsBlank, document.filePath != path {
+                openNewTab()
+            }
+            document.loadParsed(parsed, filePath: path, fileName: (path as NSString).lastPathComponent)
             settings.addRecentFile(path)
         } catch {
-            lastError = t("errOpenSubtitle", error.localizedDescription)
+            lastError = t("errOpenSubtitle", readableError(error))
         }
     }
 
@@ -142,7 +192,13 @@ final class AppState {
         performExport(format: format, source: source, encodingLabel: encodingLabel)
     }
 
-    func performExport(format: SubFormat, source: DocumentModel.ExportSource, encodingLabel: String?) {
+    func performExport(
+        format: SubFormat,
+        source: DocumentModel.ExportSource,
+        encodingLabel: String?,
+        scope: ExportScope = .all,
+        rebaseToZero: Bool = false
+    ) {
         let adapter = adapterForFormat(format)
         let panel = NSSavePanel()
         panel.allowedContentTypes = adapter.extensions.compactMap { UTType(filenameExtension: $0) }
@@ -151,11 +207,29 @@ final class AppState {
         panel.nameFieldStringValue = "\(base)\(suffix).\(adapter.extensions[0])"
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
-            let content = document.exportContent(format: format, source: source)
-            let encoding = encodingLabel.map(TextEncoding.encoding(forLabel:)) ?? .utf8
-            try content.write(toFile: url.path, atomically: true, encoding: encoding)
+            let content = document.exportContent(format: format, source: source,
+                                                 scope: scope, rebaseToZero: rebaseToZero)
+            if format == .stl {
+                // Binary format — raw bytes via the Latin-1 bridge, no text
+                // encoding/CRLF/BOM options apply (see SubtitleFileIO.export).
+                try Data(latin1StringToBytes(content)).write(to: url, options: .atomic)
+            } else if format == .scc {
+                // Plain ASCII hex text, but a fixed literal header real
+                // decoders match byte-for-byte — the general encoding/BOM
+                // settings (UTF-16 would interleave null bytes and corrupt
+                // it outright; a BOM would break the header check) must not
+                // apply here, same reasoning as STL just without needing the
+                // Latin-1 bridge.
+                try content.write(to: url, atomically: true, encoding: .utf8)
+            } else {
+                // An explicit per-format choice (the CP949 SMI entry) wins over
+                // the general setting; otherwise the delivery preferences apply.
+                var options = settings.textOutputOptions
+                if let encodingLabel { options.encodingLabel = encodingLabel }
+                try SubtitleFileIO.writeText(content, to: url.path, options: options)
+            }
         } catch {
-            lastError = t("errExportFailed", error.localizedDescription)
+            lastError = t("errExportFailed", readableError(error))
         }
     }
 
@@ -203,4 +277,15 @@ final class AppState {
             media.loadMedia(path)
         }
     }
+}
+
+/// `localizedDescription` on a plain Swift error yields NSError's generic
+/// "operation couldn't be completed (Domain error 0.)" — useless for the one
+/// case the user can actually act on. Translate that case; pass the rest through.
+@MainActor
+func readableError(_ error: Error) -> String {
+    if case FileIOError.encodingMismatch(let label) = error {
+        return t("errEncodingMismatch", TextEncoding.displayName(forLabel: label))
+    }
+    return error.localizedDescription
 }

@@ -11,12 +11,40 @@ import CoreGraphics
 
 enum PanelKind: String, Codable, CaseIterable, Hashable {
     case video, waveform, subtitles
+    // Tool panes. These are all "find a problem → fix it → next" surfaces, so
+    // as modal sheets they blocked the very editing they exist to drive.
+    case qualityIssues, proofread, translationCheck, findReplace, karaoke, overview, history
+    // Inspector: tracks the active cue and edits its ASS tags/position live —
+    // was a modal you had to open/close per cue; statistics is read-only and
+    // was showing a stale snapshot every time it wasn't open. Both are cheap
+    // to keep live, so both moved here.
+    case inspector, statistics
+    // Originally standalone OS windows only (ActivityWindow/MiniPlayerWindow/
+    // ProjectDashboardWindow/SharedGlossaryWindow) — added here so the same
+    // live views can ALSO be docked instead of floating separately, same
+    // dual nature as .video (dockable, with a detach-to-window escape hatch).
+    // Each still keeps its Window(id:) scene in App.swift for the case a
+    // second monitor or true always-on-top (miniPlayer) is wanted instead.
+    case activity, miniPlayer, projectDashboard, sharedGlossary
 
     var titleKey: String {
         switch self {
         case .video: return "panelVideo"
         case .waveform: return "panelWaveform"
         case .subtitles: return "panelSubtitles"
+        case .qualityIssues: return "qualityIssues"
+        case .proofread: return "spellCheck"
+        case .translationCheck: return "translationCheck"
+        case .findReplace: return "findReplace"
+        case .karaoke: return "karaokeTiming"
+        case .overview: return "overview"
+        case .history: return "historyPanel"
+        case .inspector: return "inlineTagEditor"
+        case .statistics: return "statistics"
+        case .activity: return "activityWindowTitle"
+        case .miniPlayer: return "miniPlayerWindowTitle"
+        case .projectDashboard: return "dashboardWindowTitle"
+        case .sharedGlossary: return "sharedGlossaryWindowTitle"
         }
     }
 }
@@ -108,6 +136,45 @@ func insertingPanel(_ panel: PanelKind, dropZone: DropZone, targetPanel: PanelKi
 
     case .split(let axis, let children, let weights):
         return .split(axis: axis, children: children.map { insertingPanel(panel, dropZone: dropZone, targetPanel: targetPanel, into: $0) }, weights: weights)
+    }
+}
+
+/// Every panel present in the tree.
+func panelsInTree(_ node: DockNode) -> Set<PanelKind> {
+    switch node {
+    case .tabs(let panels, _): return Set(panels)
+    case .split(_, let children, _): return children.reduce(into: Set()) { $0.formUnion(panelsInTree($1)) }
+    }
+}
+
+/// Adds `panel` as a tab in the first tabset found, depth-first.
+///
+/// Somewhere predictable beats somewhere clever: the user drags it where they
+/// want immediately after, and a rule they can predict ("it appears in the
+/// first pane") is easier to live with than one that guesses at intent.
+func addingPanelAsTab(_ panel: PanelKind, into node: DockNode) -> DockNode {
+    guard !panelsInTree(node).contains(panel) else { return node }
+    switch node {
+    case .tabs(var panels, _):
+        panels.append(panel)
+        return .tabs(panels: panels, selected: panel)
+    case .split(let axis, var children, let weights):
+        guard let first = children.indices.first else { return node }
+        children[first] = addingPanelAsTab(panel, into: children[first])
+        return .split(axis: axis, children: children, weights: weights)
+    }
+}
+
+/// Child-index path to the tabset holding `panel`, for selecting its tab.
+func pathToTabset(containing panel: PanelKind, in node: DockNode, path: [Int] = []) -> [Int]? {
+    switch node {
+    case .tabs(let panels, _):
+        return panels.contains(panel) ? path : nil
+    case .split(_, let children, _):
+        for (i, child) in children.enumerated() {
+            if let found = pathToTabset(containing: panel, in: child, path: path + [i]) { return found }
+        }
+        return nil
     }
 }
 

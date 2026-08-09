@@ -60,10 +60,23 @@ public struct CueQuality: Equatable, Sendable {
     public var overlapsPrev = false
     public var lineTooLong = false
     public var tooManyLines = false
+    /// A detected shot change falls inside this cue's span — see SceneCuts.swift.
+    /// Only ever set when the caller actually has a cut list; a document opened
+    /// without media (or before detection ran) leaves this false throughout,
+    /// same as every other check that simply finds nothing to flag.
+    public var crossesCut = false
 }
 
-/// Evaluate a cue against the previous (time-sorted) cue.
-public func evaluateCue(_ cue: Cue, prev: Cue?, thresholds th: QualityThresholds = DEFAULT_THRESHOLDS) -> CueQuality {
+/// Evaluate a cue against the previous (time-sorted) cue. `sceneCuts` is
+/// optional media-derived state (empty when no video is loaded or detection
+/// hasn't run) — passing it in rather than storing it on the model keeps this
+/// function pure and testable without a media dependency.
+public func evaluateCue(
+    _ cue: Cue,
+    prev: Cue?,
+    thresholds th: QualityThresholds = DEFAULT_THRESHOLDS,
+    sceneCuts: [Double] = []
+) -> CueQuality {
     let d = cueDuration(cue)
     var q = CueQuality()
     q.negativeDuration = cue.end < cue.start
@@ -73,10 +86,11 @@ public func evaluateCue(_ cue: Cue, prev: Cue?, thresholds th: QualityThresholds
     q.overlapsPrev = prev != nil && cue.start < prev!.end - 1e-6
     q.lineTooLong = !cue.text.trimmed().isEmpty && longestLineLength(cue.text) > th.maxLineLength
     q.tooManyLines = lineCount(cue.text) > th.maxLines
+    q.crossesCut = !sceneCuts.isEmpty && !cutsInside(cue, cuts: sceneCuts).isEmpty
     return q
 }
 
 public func hasAnyIssue(_ q: CueQuality) -> Bool {
     q.negativeDuration || q.durationTooShort || q.durationTooLong
-        || q.cpsTooHigh || q.overlapsPrev || q.lineTooLong || q.tooManyLines
+        || q.cpsTooHigh || q.overlapsPrev || q.lineTooLong || q.tooManyLines || q.crossesCut
 }

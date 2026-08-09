@@ -55,7 +55,7 @@ struct KaraokeTimingPanel: View {
             }
         } footer: {
             Spacer()
-            Button(t("close")) { dismiss() }.keyboardShortcut(.cancelAction)
+            PanelCloseButton()
         }
     }
 

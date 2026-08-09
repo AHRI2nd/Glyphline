@@ -1,12 +1,16 @@
-// ASS inline override-tag editor for the active cue (ported from
-// ../../../src/components/Modals/InlineTagEditorModal.tsx).
+// ASS inline override-tag INSPECTOR for the active cue — a docked pane, not a
+// modal: it tracks whichever cue is active in the grid and shows/edits that
+// cue's tags live, the way a properties inspector does in most NLE/subtitle
+// tools, instead of the old "open per cue, edit, Apply, close, click the next
+// cue, reopen" cycle. Two modes over a single source of truth (`value`, the
+// raw tagged Dialogue text): Structured (per-category controls for the first
+// override block's tags — toggle/color/pos/align/scalar/raw) and Raw
+// (free-form text + insert toolbar).
 //
-// Two modes over a single source of truth (`value`, the raw tagged Dialogue
-// text): Structured (per-category controls for the first override block's
-// tags — toggle/color/pos/align/scalar/raw) and Raw (free-form text + insert
-// toolbar). Apply re-parses into assSpans (lossless for every tag, known or
-// not) and recomputes plain text, same as the raw-block-only version this
-// replaces.
+// Edits commit to the document as they happen, not on a separate Apply step:
+// structured-mode actions (a click/toggle) each land as their own undo entry;
+// raw-mode typing is bracketed into one entry per cue visit via
+// begin/endInteractive, mirroring CueEditorBox's live-typing pattern exactly.
 
 import SwiftUI
 import AppKit
@@ -14,10 +18,16 @@ import GlyphlineCore
 
 struct InlineTagEditorPanel: View {
     let document: DocumentModel
-    @Environment(\.dismiss) private var dismiss
+    /// Only used to drive the live \pos crosshair burned into the video
+    /// preview (see PositionPreview.swift) — nothing else here touches media.
+    let media: MediaModel
 
     @State private var value = ""
     @State private var rawMode = false
+    /// Which cue `value`'s in-flight raw-mode edits are bracketed under —
+    /// mirrors CueEditorBox.editingCueId so a typing session collapses into
+    /// one undo entry instead of one per keystroke.
+    @State private var editingCueId: String?
 
     private var cue: Cue? {
         document.doc.cues.first { $0.id == document.activeCueId }
@@ -30,6 +40,16 @@ struct InlineTagEditorPanel: View {
         return decodeTags(spans[leadIndex].tags!)
     }
     private var plain: String { spansToPlain(spans) }
+
+    /// The first `\pos(x,y[,x2,y2])` tag's coordinate, if the block has one —
+    /// what the crosshair preview tracks.
+    private var posCoordinate: (x: Double, y: Double)? {
+        guard let tag = decoded.first(where: { $0.name == "pos" }) else { return nil }
+        let inner = tag.arg.trimmingCharacters(in: CharacterSet(charactersIn: "()"))
+        let parts = inner.split(separator: ",").compactMap { Double($0.trimmingCharacters(in: .whitespaces)) }
+        guard parts.count >= 2 else { return nil }
+        return (parts[0], parts[1])
+    }
 
     var body: some View {
         PanelShell(title: t("inlineTagEditor"), width: 640) {
@@ -63,19 +83,52 @@ struct InlineTagEditorPanel: View {
                 }
             } else {
                 Text(t("noActiveCueShort")).foregroundStyle(GlyphColor.quiet)
+                    .frame(maxWidth: .infinity, minHeight: 60)
             }
         } footer: {
             Spacer()
-            Button(t("cancel")) { dismiss() }.keyboardShortcut(.cancelAction)
-            Button(t("apply")) { commit(); dismiss() }
-                .keyboardShortcut(.defaultAction)
-                .buttonStyle(.borderedProminent)
-                .tint(GlyphColor.accent)
-                .disabled(cue == nil)
+            PanelCloseButton()
         }
-        .onAppear {
-            guard let cue else { return }
-            value = (cue.assSpans?.isEmpty == false) ? serializeAssText(cue.assSpans!) : cue.text
+        .onAppear { syncFromDocument() }
+        .onChange(of: document.activeCueId) { _, _ in syncFromDocument() }
+        .onChange(of: value) { _, _ in
+            media.positionPreview = posCoordinate
+            // Structured-mode edits (commitTags below) already write straight
+            // to the document themselves — only raw free-form typing needs
+            // the bracketed live-commit path here.
+            if rawMode, let cue { commitRaw(cue.id) }
+        }
+        .onDisappear {
+            if editingCueId != nil { document.endInteractive(); editingCueId = nil }
+            media.positionPreview = nil
+        }
+    }
+
+    /// Pulls `value` from whatever cue just became active, closing out any
+    /// still-open raw-typing bracket from the cue being left first — exactly
+    /// CueEditorBox's syncFromDocument, so the two inspectors behave the same
+    /// way when the grid selection moves.
+    private func syncFromDocument() {
+        if editingCueId != nil { document.endInteractive(); editingCueId = nil }
+        guard let cue else { value = ""; media.positionPreview = nil; return }
+        value = (cue.assSpans?.isEmpty == false) ? serializeAssText(cue.assSpans!) : cue.text
+        media.positionPreview = posCoordinate
+    }
+
+    /// Commits the CURRENT `value` (already re-parsed by the `spans`/`plain`
+    /// computed properties above) to `cueId`, bracketing consecutive raw-mode
+    /// keystrokes for the same cue into one undo entry.
+    private func commitRaw(_ cueId: String) {
+        if editingCueId != cueId {
+            if editingCueId != nil { document.endInteractive() }
+            document.beginInteractive()
+            editingCueId = cueId
+        }
+        let finalSpans = spans
+        let finalPlain = plain
+        document.updateCue(cueId) {
+            $0.assSpans = finalSpans
+            $0.text = finalPlain
         }
     }
 
@@ -114,7 +167,11 @@ struct InlineTagEditorPanel: View {
         FlowChips(items: decoded)
     }
 
+    /// Structured-mode edits are discrete (one click = one toggle/align/color
+    /// change), so each commits straight to the document as its own undo
+    /// entry — no bracketing needed, unlike raw-mode's continuous typing.
     private func commitTags(_ tags: [DecodedTag]) {
+        guard let cue else { return }
         let block = tags.map { "\\\($0.name)\($0.arg)" }.joined()
         var next = parseAssText(value)
         if let i = next.firstIndex(where: { $0.tags != nil }) {
@@ -123,6 +180,10 @@ struct InlineTagEditorPanel: View {
             next.insert(AssSpan(tags: block, text: ""), at: 0)
         }
         value = serializeAssText(next)
+        document.updateCue(cue.id) {
+            $0.assSpans = next
+            $0.text = spansToPlain(next)
+        }
     }
 
     private func editTag(_ idx: Int, _ arg: String) {
@@ -169,15 +230,6 @@ struct InlineTagEditorPanel: View {
         value += "\(open)\(close)"
     }
 
-    private func commit() {
-        guard let cue else { return }
-        let finalSpans = parseAssText(value)
-        let finalPlain = spansToPlain(finalSpans)
-        document.updateCue(cue.id) {
-            $0.assSpans = finalSpans
-            $0.text = finalPlain
-        }
-    }
 }
 
 // ─── per-tag control ─────────────────────────────────────────────────────────
@@ -255,18 +307,43 @@ private struct TagRow: View {
         case .pos:
             PosInputs(arg: tag.arg, onChange: onChange)
         case .align:
-            Picker("", selection: Binding(
-                get: { Int(tag.arg.trimmingCharacters(in: .whitespaces)) ?? 8 },
-                set: { onChange("\($0)") }
-            )) {
-                ForEach([7, 8, 9, 4, 5, 6, 1, 2, 3], id: \.self) { Text("\($0)").tag($0) }
-            }.labelsHidden().frame(width: 60)
+            AlignGrid(
+                value: Int(tag.arg.trimmingCharacters(in: .whitespaces)) ?? 8,
+                onChange: { onChange("\($0)") }
+            )
         case .scalar:
             TextField("", text: Binding(get: { tag.arg }, set: { onChange($0) }))
                 .font(GlyphFont.data(11)).frame(width: 70).textFieldStyle(.roundedBorder)
         case .raw:
             TextField("", text: Binding(get: { tag.arg }, set: { onChange($0) }))
                 .font(GlyphFont.data(11)).textFieldStyle(.roundedBorder)
+        }
+    }
+}
+
+/// The 3×3 numpad-style layout ASS `\an` alignment values follow: 7/8/9 top,
+/// 4/5/6 middle, 1/2/3 bottom — reading it as a grid is how anyone who's used
+/// Aegisub already thinks about it, versus a bare number in a dropdown.
+private struct AlignGrid: View {
+    let value: Int
+    let onChange: (Int) -> Void
+
+    var body: some View {
+        VStack(spacing: 2) {
+            ForEach([[7, 8, 9], [4, 5, 6], [1, 2, 3]], id: \.self) { row in
+                HStack(spacing: 2) {
+                    ForEach(row, id: \.self) { n in
+                        Button(action: { onChange(n) }) {
+                            Circle()
+                                .fill(n == value ? GlyphColor.accent : GlyphColor.bg)
+                                .frame(width: 16, height: 16)
+                                .overlay(Circle().strokeBorder(GlyphColor.borderStrong, lineWidth: 0.5))
+                        }
+                        .buttonStyle(.plain)
+                        .help("\(n)")
+                    }
+                }
+            }
         }
     }
 }

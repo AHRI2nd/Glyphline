@@ -49,6 +49,37 @@ public final class DocumentModel {
     public var canUndo: Bool { !history.isEmpty }
     public var canRedo: Bool { !future.isEmpty }
 
+    /// One entry per undoable step, oldest first, with the CURRENT state last.
+    /// Cue counts are the only summary offered: history holds whole-document
+    /// snapshots, so saying what actually changed at each step would mean
+    /// diffing every pair, and a wrong label is worse than a plain one.
+    public struct HistoryEntry: Sendable, Equatable, Identifiable {
+        public let index: Int
+        public let cueCount: Int
+        /// Steps back from the present. 0 = current state.
+        public let stepsBack: Int
+        public var isCurrent: Bool { stepsBack == 0 }
+        public var id: Int { index }
+    }
+
+    public var historyEntries: [HistoryEntry] {
+        let all = history + [doc]
+        return all.enumerated().map { i, snapshot in
+            HistoryEntry(index: i, cueCount: snapshot.cues.count, stepsBack: all.count - 1 - i)
+        }
+    }
+
+    /// Jumps to a point in history by replaying undo/redo, so the stacks stay
+    /// consistent — reaching in and swapping `doc` directly would strand
+    /// entries on the wrong side and make the next undo jump somewhere random.
+    public func jumpToHistory(stepsBack: Int) {
+        guard stepsBack > 0 else { return }
+        for _ in 0..<stepsBack {
+            guard canUndo else { return }
+            undo()
+        }
+    }
+
     /// While a continuous gesture is in flight, only its FIRST mutation
     /// snapshots history — see beginInteractive().
     private var interactiveActive = false
@@ -136,6 +167,14 @@ public final class DocumentModel {
         future = []
     }
 
+    /// Restores a dirty flag captured before the document's content was
+    /// swapped out — the multi-tab switcher needs this: `loadParsed` always
+    /// resets to clean, but the tab being switched IN might have had unsaved
+    /// edits at the moment it was switched away from.
+    public func restoreDirtyFlag(_ dirty: Bool) {
+        isDirty = dirty
+    }
+
     public func markSaved(path: String, name: String) {
         filePath = path
         fileName = name
@@ -150,10 +189,15 @@ public final class DocumentModel {
     /// the translation column (falls back to `text`); ASS spans/tokens are
     /// dropped there since they describe the ORIGINAL text.
     public enum ExportSource { case text, translation }
-    public func exportContent(format: SubFormat, source: ExportSource = .text) -> String {
-        var exportDoc = doc
+    public func exportContent(
+        format: SubFormat,
+        source: ExportSource = .text,
+        scope: ExportScope = .all,
+        rebaseToZero: Bool = false
+    ) -> String {
+        var exportDoc = subsetDocument(doc, scope: scope, rebaseToZero: rebaseToZero)
         if source == .translation {
-            exportDoc.cues = doc.cues.map { cue in
+            exportDoc.cues = exportDoc.cues.map { cue in
                 var c = cue
                 if let t = cue.translation, !t.trimmed().isEmpty { c.text = t }
                 c.assSpans = nil
@@ -270,6 +314,76 @@ public final class DocumentModel {
         return patches.count
     }
 
+    /// Broadcast timecode display settings — see DropFrameTimecode.swift.
+    /// Document metadata, not cue content, but still an undo-able edit like
+    /// everything else here rather than a silent side channel.
+    public func setTimecodeStartOffsetSec(_ v: Double) {
+        guard doc.timecodeStartOffsetSec != v else { return }
+        pushHistory()
+        doc.timecodeStartOffsetSec = v
+    }
+    public func setTimecodeDropFrame(_ v: Bool) {
+        guard doc.timecodeDropFrame != v else { return }
+        pushHistory()
+        doc.timecodeDropFrame = v
+    }
+
+    /// Adds resolved system fonts to `doc.fonts` (task N's collector hands
+    /// these in already UU-encoded — see FontCollector.swift, app target).
+    @discardableResult
+    public func addEmbeddedFonts(_ fonts: [AssEmbedded]) -> Int {
+        guard !fonts.isEmpty else { return 0 }
+        pushHistory()
+        doc.fonts = (doc.fonts ?? []) + fonts
+        return fonts.count
+    }
+
+    /// Rescales styles + inline position/size overrides to a new PlayRes —
+    /// see ResolutionResample.swift. One undo entry for the whole document.
+    public func resampleResolution(toWidth: Double, toHeight: Double) {
+        let resampled = GlyphlineCore.resampleDocument(doc, toWidth: toWidth, toHeight: toHeight)
+        // resampleDocument itself no-ops when the target matches the current
+        // resolution — guard here too, so picking "Apply" on an unchanged
+        // size doesn't push an empty undo step (matches every other action
+        // in this file: push only once a real change is known).
+        guard resampled != doc else { return }
+        pushHistory()
+        doc = resampled
+    }
+
+    /// Give text a beat before it appears and after it leaves, without eating
+    /// into a neighboring cue. Returns #cues changed.
+    @discardableResult
+    public func applyLeadInOut(leadInSec: Double, leadOutSec: Double) -> Int {
+        let (out, changed) = GlyphlineCore.applyLeadInOut(doc.cues, leadInSec: leadInSec, leadOutSec: leadOutSec)
+        guard changed > 0 else { return 0 }
+        pushHistory()
+        withCues(out)
+        return changed
+    }
+
+    /// Closes gaps short enough to read as flicker rather than a deliberate
+    /// pause. Returns #cues extended.
+    @discardableResult
+    public func bridgeSmallGaps(maxGapSec: Double) -> Int {
+        let (out, changed) = GlyphlineCore.bridgeSmallGaps(doc.cues, maxGapSec: maxGapSec)
+        guard changed > 0 else { return 0 }
+        pushHistory()
+        withCues(out)
+        return changed
+    }
+
+    /// Quantizes every cue's start/end to the nearest detected shot change
+    /// within tolerance. Returns #cues changed.
+    @discardableResult
+    public func snapToSceneCuts(_ sceneCuts: [Double], toleranceSec: Double) -> Int {
+        let (out, changed) = GlyphlineCore.snapCuesToSceneCuts(doc.cues, sceneCuts: sceneCuts, toleranceSec: toleranceSec)
+        guard changed > 0 else { return 0 }
+        pushHistory()
+        withCues(out)
+        return changed
+    }
+
     /// Delete cues whose text (and translation) is blank. Returns #removed.
     @discardableResult
     public func removeEmptyCues() -> Int {
@@ -381,6 +495,14 @@ public final class DocumentModel {
     public func tidyText(rules: [TidyRule], ids: [String]? = nil) -> Int {
         let scope = ids.map { set in doc.cues.filter { Set(set).contains($0.id) } } ?? doc.cues
         return applyTextPatches(tidyCues(scope, rules: rules))
+    }
+
+    /// Apply a saved house-style rule set (see CustomRules.swift). Same
+    /// one-undo-entry shape as tidyText.
+    @discardableResult
+    public func applyCustomRules(_ rules: [CustomRule], ids: [String]? = nil) -> Int {
+        let scope = ids.map { set in doc.cues.filter { Set(set).contains($0.id) } } ?? doc.cues
+        return applyTextPatches(GlyphlineCore.applyCustomRules(toCues: scope, rules: rules))
     }
 
     /// Strip bracket/parenthesis annotations, e.g. "(door slams)", "[music]".
@@ -515,6 +637,23 @@ public final class DocumentModel {
         let cue = Cue(id: newCueId(), start: start, end: max(end, start + 0.001), text: "")
         withCues(doc.cues + [cue])
         activeCueId = cue.id
+    }
+
+    /// Lays down a blank cue for each detected speech segment that doesn't
+    /// already overlap an existing cue — skipping overlaps means running this
+    /// again after manually timing part of the file only fills in the gaps,
+    /// rather than duplicating work already done. Returns #cues added.
+    @discardableResult
+    public func addCuesFromSpeechSegments(_ segments: [SpeechSegment]) -> Int {
+        let existing = doc.cues
+        let fresh = segments.filter { seg in
+            !existing.contains { $0.start < seg.end && $0.end > seg.start }
+        }
+        guard !fresh.isEmpty else { return 0 }
+        pushHistory()
+        let newCues = fresh.map { Cue(id: newCueId(), start: $0.start, end: $0.end, text: "") }
+        withCues(doc.cues + newCues)
+        return newCues.count
     }
 
     public func insertCueAfter(_ id: String) {

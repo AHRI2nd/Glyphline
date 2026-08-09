@@ -21,6 +21,11 @@ import GlyphlineCore
 
 final class WaveformDrawView: NSView {
     var audio: WaveformAudio? { didSet { needsDisplay = true } }
+    /// Pre-rendered by SpectrogramRenderer at a fixed px/s (see its doc
+    /// comment) — drawn scaled into the viewport rather than recomputed on
+    /// zoom/scroll, since the FFT input (the audio) never changes.
+    var spectrogramImage: CGImage? { didSet { needsDisplay = true } }
+    var showSpectrogram: Bool = false { didSet { needsDisplay = true } }
     var pxPerSec: CGFloat = 71 { didSet { needsDisplay = true } }
     var cues: [Cue] = [] {
         didSet {
@@ -37,6 +42,8 @@ final class WaveformDrawView: NSView {
     }
     var activeCueId: String? { didSet { needsDisplay = true } }
     var currentTime: Double = 0 { didSet { needsDisplay = true } }
+    /// Detected shot-change timestamps (empty until the user runs detection).
+    var sceneCuts: [Double] = [] { didSet { guard sceneCuts != oldValue else { return }; needsDisplay = true } }
     /// cue id → overlapPalette index, for cues that overlap another cue —
     /// recomputed whenever `cues` changes (see overlapColorSlots).
     private var overlapSlots: [String: Int] = [:]
@@ -284,9 +291,49 @@ final class WaveformDrawView: NSView {
         ctx.fill(dirtyRect)
 
         drawCueRegions(ctx, dirtyRect: dirtyRect)
-        drawPeaks(ctx, dirtyRect: dirtyRect)
+        if showSpectrogram, let spectrogramImage {
+            drawSpectrogram(spectrogramImage, ctx, dirtyRect: dirtyRect)
+        } else {
+            drawPeaks(ctx, dirtyRect: dirtyRect)
+        }
+        drawSceneCuts(ctx, dirtyRect: dirtyRect)
         drawPlayhead(ctx)
         drawFocusRing(ctx)
+    }
+
+    /// Draws the pre-rendered bitmap stretched to fill the view's full
+    /// width at the CURRENT zoom (the image itself is a fixed px/s — see
+    /// SpectrogramRenderer) — a plain image draw, since CoreGraphics already
+    /// handles the scaling/clipping this needs.
+    private func drawSpectrogram(_ image: CGImage, _ ctx: CGContext, dirtyRect: NSRect) {
+        ctx.saveGState()
+        // isFlipped=true means the default CTM already reads top-down; CGImage
+        // draws bottom-up, so without this the spectrogram renders upside down.
+        ctx.translateBy(x: 0, y: bounds.height)
+        ctx.scaleBy(x: 1, y: -1)
+        let full = CGRect(x: 0, y: 0, width: bounds.width, height: bounds.height)
+        ctx.draw(image, in: full)
+        ctx.restoreGState()
+    }
+
+    /// Thin dashed lines at each detected cut — dashed (not solid, like the
+    /// playhead) so it reads as a reference mark rather than another moving
+    /// element competing with the cursor for attention.
+    private func drawSceneCuts(_ ctx: CGContext, dirtyRect: NSRect) {
+        guard !sceneCuts.isEmpty, pxPerSec > 0 else { return }
+        ctx.saveGState()
+        ctx.setStrokeColor(NSColor(GlyphColor.signal).withAlphaComponent(0.55).cgColor)
+        ctx.setLineWidth(1)
+        ctx.setLineDash(phase: 0, lengths: [3, 3])
+        for cut in sceneCuts {
+            let x = CGFloat(cut) * pxPerSec
+            if x < dirtyRect.minX - 1 { continue }
+            if x > dirtyRect.maxX + 1 { break } // sceneCuts is sorted ascending
+            ctx.move(to: CGPoint(x: x + 0.5, y: 0))
+            ctx.addLine(to: CGPoint(x: x + 0.5, y: bounds.height))
+        }
+        ctx.strokePath()
+        ctx.restoreGState()
     }
 
     private func drawPeaks(_ ctx: CGContext, dirtyRect: NSRect) {

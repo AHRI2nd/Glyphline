@@ -61,6 +61,35 @@ public enum TextEncoding {
         return nil
     }
 
+    /// Encodings the UI offers, for opening a misdetected file and for
+    /// exporting to a target that needs a legacy one.
+    public static let selectableLabels = ["utf-8", "cp949", "shift_jis", "utf-16le", "utf-16be"]
+
+    /// Human name for a label.
+    public static func displayName(forLabel label: String) -> String {
+        switch label.lowercased() {
+        case "utf-8", "utf8": return "UTF-8"
+        case "euc-kr", "cp949": return "CP949 / EUC-KR"
+        case "shift_jis", "shift-jis", "sjis": return "Shift_JIS"
+        case "utf-16le": return "UTF-16 LE"
+        case "utf-16be": return "UTF-16 BE"
+        default: return label
+        }
+    }
+
+    /// Decode with an EXPLICIT encoding, for when auto-detection got it wrong.
+    /// Returns nil if the bytes aren't valid in that encoding, so the caller can
+    /// say so instead of showing silent mojibake.
+    public static func decode(_ data: Data, forcing label: String) -> String? {
+        let encoding = self.encoding(forLabel: label)
+        // Strip a BOM matching the requested family so it doesn't survive as a
+        // stray character at the head of the first cue.
+        if let (bomEncoding, length) = detectBOM(data), bomEncoding == encoding {
+            return String(data: data.dropFirst(length), encoding: encoding)
+        }
+        return String(data: data, encoding: encoding)
+    }
+
     /// WHATWG-ish label → `String.Encoding`, for export (e.g. "euc-kr"/"cp949"
     /// for legacy SMI, matching the Tauri app's `write_text_file_encoded`).
     public static func encoding(forLabel label: String) -> String.Encoding {
@@ -68,6 +97,8 @@ public enum TextEncoding {
         case "utf-8", "utf8": return .utf8
         case "euc-kr", "cp949", "ks_c_5601-1987", "dos-korean": return cp949
         case "shift_jis", "shift-jis", "sjis": return .shiftJIS
+        case "utf-16le": return .utf16LittleEndian
+        case "utf-16be": return .utf16BigEndian
         default: return .utf8
         }
     }
