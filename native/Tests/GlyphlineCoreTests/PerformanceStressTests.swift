@@ -89,4 +89,82 @@ struct PerformanceStressTests {
         measure("serializeAss(5000)", budget: 1.0) { ass = serializeAss(doc) }
         #expect(!ass.isEmpty)
     }
+
+    // ── beyond a single feature-length file: a season/series-sized batch ──────
+    //
+    // 5,000 cues covers a long feature; a delivery-pipeline run or a heavily
+    // edited multi-season project can push well past that. These extend the
+    // same tripwire to 20,000 cues so an accidental O(n²) that's still masked
+    // at 5,000 (a 4x input growing a well-behaved O(n) or O(n log n) function
+    // by ~4x, but an O(n²) one by ~16x) gets caught before it ships.
+
+    @Test("20,000 cues: sort + overlap coloring")
+    func sortAndOverlapAtScale() {
+        let raw = syntheticCues(count: 20000).shuffled()
+        var sorted: [Cue] = []
+        measure("sortedCues(20000)", budget: 1.0) { sorted = sortedCues(raw) }
+        measure("overlapColorSlots(20000)", budget: 1.0) {
+            _ = overlapColorSlots(for: sorted, paletteSize: 5)
+        }
+    }
+
+    @Test("20,000 cues: quality evaluation over the whole document")
+    func qualityEvaluationAtScale() {
+        let cues = sortedCues(syntheticCues(count: 20000))
+        measure("evaluateCue × 20000", budget: 2.0) {
+            for (i, cue) in cues.enumerated() {
+                _ = evaluateCue(cue, prev: i > 0 ? cues[i - 1] : nil)
+            }
+        }
+    }
+
+    @Test("20,000 cues: .glyph round-trip")
+    func glyphRoundTripAtScale() throws {
+        let doc = SubtitleDocument(format: .srt, cues: sortedCues(syntheticCues(count: 20000)))
+        var json = ""
+        measure("serializeGlyph(20000)", budget: 4.0) { json = (try? serializeGlyph(doc)) ?? "" }
+        #expect(!json.isEmpty)
+        var decoded: SubtitleDocument?
+        measure("parseGlyph(20000)", budget: 4.0) { decoded = try? parseGlyph(json) }
+        #expect(decoded?.cues.count == 20000)
+    }
+
+    // ── multi-language translation tracks (new this session — unexercised
+    // by the above, which only ever touch the legacy single `translation`
+    // field) ────────────────────────────────────────────────────────────────
+
+    @Test("5,000 cues × 3 languages: translationText/setTranslationText round-trip")
+    func multiLanguageAccessorsAtScale() {
+        let languages = ["ko", "ja", "en"]
+        var cues = sortedCues(syntheticCues(count: 5000))
+        measure("setTranslationText × 5000 × 3 languages", budget: 0.5) {
+            for i in cues.indices {
+                for (idx, lang) in languages.enumerated() {
+                    cues[i].setTranslationText("\(lang)-\(i)", at: idx, languages: languages)
+                }
+            }
+        }
+        var total = 0
+        measure("translationText × 5000 × 3 languages", budget: 0.5) {
+            for cue in cues {
+                for idx in languages.indices {
+                    if cue.translationText(at: idx, languages: languages) != nil { total += 1 }
+                }
+            }
+        }
+        #expect(total == 5000 * languages.count)
+    }
+
+    @Test("Glossary check against 5,000 cues with 200 language-tagged terms")
+    func glossaryCheckAtScale() {
+        var cues = sortedCues(syntheticCues(count: 5000))
+        for i in cues.indices where i % 10 == 0 {
+            cues[i].translation = "term\(i % 200) translated"
+        }
+        let doc = SubtitleDocument(format: .srt, cues: cues)
+        let entries = (0..<200).map { GlossaryEntry(source: "term\($0)", target: "term\($0) translated", language: "ko") }
+        measure("glossaryIssues(5000 cues, 200 entries)", budget: 1.0) {
+            _ = glossaryIssues(in: doc, entries: entries)
+        }
+    }
 }

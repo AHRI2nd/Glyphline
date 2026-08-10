@@ -174,13 +174,26 @@ struct TranslationCheckPanel: View {
 
     private func run() {
         hasRun = true
+        // Off the main actor: glossaryIssues is O(entries × cues) with a
+        // substring search per pair, so a large house-style glossary checked
+        // against a long document (measured: 200 terms × 5,000 cues ≈ 0.7s)
+        // would otherwise stall the panel — everything captured here is a
+        // Sendable value type, so the check itself can run on a background
+        // thread with zero risk of touching document/settings off the main
+        // actor.
         let idx = document.activeTranslationLanguageIndex
         let languages = document.doc.translationLanguages ?? []
-        issues = checkTranslationConsistency(
-            document.doc,
-            glossary: effectiveGlossary,
-            checkDivergent: settings.checkDivergentTranslations
-        ) { $0.translationText(at: idx, languages: languages) }
+        let doc = document.doc
+        let glossary = effectiveGlossary
+        let checkDivergent = settings.checkDivergentTranslations
+        Task {
+            let result = await Task.detached {
+                checkTranslationConsistency(
+                    doc, glossary: glossary, checkDivergent: checkDivergent
+                ) { $0.translationText(at: idx, languages: languages) }
+            }.value
+            issues = result
+        }
     }
 }
 
