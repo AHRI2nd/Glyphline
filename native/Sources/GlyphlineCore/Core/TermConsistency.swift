@@ -30,13 +30,23 @@ public struct GlossaryEntry: Codable, Equatable, Sendable, Identifiable {
     public var target: String
     /// Free-form reminder for the translator ("keep honorific", "brand name").
     public var note: String?
+    /// Which translation language `target` is correct for — nil means "any
+    /// language" (today's behavior: a project with a single, unlabeled
+    /// translation just never sets this). Set once a project has more than
+    /// one translation language, since a glossary target is only meaningful
+    /// for ONE target language ("스즈키" is right for Japanese, wrong for
+    /// English "Suzuki").
+    public var language: String?
 
-    public var id: String { source }
+    /// Composite so the same source term can have a different target per
+    /// language without colliding in a SwiftUI List/upsert-by-id.
+    public var id: String { "\(source)#\(language ?? "")" }
 
-    public init(source: String, target: String, note: String? = nil) {
+    public init(source: String, target: String, note: String? = nil, language: String? = nil) {
         self.source = source
         self.target = target
         self.note = note
+        self.language = language
     }
 }
 
@@ -82,12 +92,15 @@ func consistencyKey(_ s: String) -> String {
 /// Cues with an empty translation are skipped rather than counted as a variant:
 /// "not translated yet" is a different problem from "translated inconsistently",
 /// and conflating them would bury the real finding under every untranslated line.
-public func divergentTranslations(in doc: SubtitleDocument) -> [TermIssue] {
+public func divergentTranslations(
+    in doc: SubtitleDocument,
+    translationSelector: (Cue) -> String? = { $0.translation }
+) -> [TermIssue] {
     var bySource: [String: (first: String, display: String, variants: [String])] = [:]
     for cue in sortedCues(doc.cues) {
         let src = consistencyKey(cue.text)
         guard !src.isEmpty else { continue }
-        let translated = consistencyKey(cue.translation ?? "")
+        let translated = consistencyKey(translationSelector(cue) ?? "")
         guard !translated.isEmpty else { continue }
         if var entry = bySource[src] {
             if !entry.variants.contains(translated) { entry.variants.append(translated) }
@@ -115,7 +128,11 @@ public func divergentTranslations(in doc: SubtitleDocument) -> [TermIssue] {
 /// Matching is plain, case-insensitive substring containment — no word
 /// boundaries, because Korean and Japanese don't delimit words with spaces, so
 /// a boundary rule tuned for English would silently miss every CJK term.
-public func glossaryIssues(in doc: SubtitleDocument, entries: [GlossaryEntry]) -> [TermIssue] {
+public func glossaryIssues(
+    in doc: SubtitleDocument,
+    entries: [GlossaryEntry],
+    translationSelector: (Cue) -> String? = { $0.translation }
+) -> [TermIssue] {
     let usable = entries.filter { !$0.source.trimmed().isEmpty && !$0.target.trimmed().isEmpty }
     guard !usable.isEmpty else { return [] }
     let cues = sortedCues(doc.cues)
@@ -128,7 +145,7 @@ public func glossaryIssues(in doc: SubtitleDocument, entries: [GlossaryEntry]) -
         for cue in cues {
             guard cue.text.lowercased().contains(source) else { continue }
             // Untranslated cues aren't glossary violations — see above.
-            let translation = (cue.translation ?? "").trimmed()
+            let translation = (translationSelector(cue) ?? "").trimmed()
             guard !translation.isEmpty else { continue }
             if !translation.lowercased().contains(target) {
                 misses += 1
@@ -150,9 +167,10 @@ public func glossaryIssues(in doc: SubtitleDocument, entries: [GlossaryEntry]) -
 public func checkTranslationConsistency(
     _ doc: SubtitleDocument,
     glossary: [GlossaryEntry],
-    checkDivergent: Bool = true
+    checkDivergent: Bool = true,
+    translationSelector: (Cue) -> String? = { $0.translation }
 ) -> [TermIssue] {
-    var out = glossaryIssues(in: doc, entries: glossary)
-    if checkDivergent { out += divergentTranslations(in: doc) }
+    var out = glossaryIssues(in: doc, entries: glossary, translationSelector: translationSelector)
+    if checkDivergent { out += divergentTranslations(in: doc, translationSelector: translationSelector) }
     return out
 }

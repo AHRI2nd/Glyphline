@@ -22,12 +22,30 @@ struct TranslationCheckPanel: View {
 
     private var glossary: [GlossaryEntry] { document.doc.glossary ?? [] }
 
+    /// nil until the document has added a second translation language (see
+    /// DocumentModel.addTranslationLanguage) — matches every existing
+    /// project's untagged glossary entries (`GlossaryEntry.language == nil`).
+    private var activeLanguageCode: String? {
+        let languages = document.doc.translationLanguages ?? []
+        guard languages.indices.contains(document.activeTranslationLanguageIndex) else { return nil }
+        return languages[document.activeTranslationLanguageIndex]
+    }
+
+    /// Only entries that apply to the language currently being edited —
+    /// language-tagged entries for a DIFFERENT language would just be noise
+    /// (and false "misses") here. Untagged (`language == nil`) entries apply
+    /// regardless, matching every existing single-language project exactly.
+    private func forActiveLanguage(_ entries: [GlossaryEntry]) -> [GlossaryEntry] {
+        entries.filter { $0.language == nil || $0.language == activeLanguageCode }
+    }
+
     /// Document-local entries plus the shared (cross-project) glossary — see
     /// AppSettings.sharedGlossary. A document-local entry for the same source
     /// term wins, since it's the more specific override for this file.
     private var effectiveGlossary: [GlossaryEntry] {
-        let docSources = Set(glossary.map(\.source))
-        return glossary + settings.sharedGlossary.filter { !docSources.contains($0.source) }
+        let docEntries = forActiveLanguage(glossary)
+        let docSources = Set(docEntries.map(\.source))
+        return docEntries + forActiveLanguage(settings.sharedGlossary).filter { !docSources.contains($0.source) }
     }
 
     var body: some View {
@@ -92,18 +110,22 @@ struct TranslationCheckPanel: View {
                     .font(GlyphFont.body(10)).foregroundStyle(GlyphColor.signal)
             }
 
-            if glossary.isEmpty {
+            let visible = forActiveLanguage(glossary)
+            if visible.isEmpty {
                 Text(t("tcGlossaryEmpty"))
                     .font(GlyphFont.body(11)).foregroundStyle(GlyphColor.quiet)
                     .padding(.vertical, 4)
             } else {
-                ForEach(glossary) { entry in
+                ForEach(visible) { entry in
                     HStack(spacing: 8) {
                         Text(entry.source).font(GlyphFont.body(12)).frame(maxWidth: .infinity, alignment: .leading)
                         Text("→").font(GlyphFont.body(11)).foregroundStyle(GlyphColor.quiet)
                         Text(entry.target).font(GlyphFont.body(12)).frame(maxWidth: .infinity, alignment: .leading)
+                        if let lang = entry.language {
+                            Text(lang.uppercased()).font(GlyphFont.data(9)).foregroundStyle(GlyphColor.quiet)
+                        }
                         Button(t("tcRemoveTerm")) {
-                            document.removeGlossaryEntry(source: entry.source)
+                            document.removeGlossaryEntry(source: entry.source, language: entry.language)
                             run()
                         }
                         .controlSize(.small)
@@ -127,7 +149,9 @@ struct TranslationCheckPanel: View {
             if let cue = activeCue {
                 Button(t("tcAddFromCue")) {
                     newSource = cue.text.trimmingCharacters(in: .whitespacesAndNewlines)
-                    newTarget = (cue.translation ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                    let languages = document.doc.translationLanguages ?? []
+                    let translation = cue.translationText(at: document.activeTranslationLanguageIndex, languages: languages) ?? ""
+                    newTarget = translation.trimmingCharacters(in: .whitespacesAndNewlines)
                 }
                 .controlSize(.small)
             }
@@ -142,7 +166,7 @@ struct TranslationCheckPanel: View {
     // ── actions ──────────────────────────────────────────────────────────────
 
     private func addTerm() {
-        document.upsertGlossaryEntry(source: newSource, target: newTarget)
+        document.upsertGlossaryEntry(source: newSource, target: newTarget, language: activeLanguageCode)
         newSource = ""
         newTarget = ""
         run()
@@ -150,11 +174,13 @@ struct TranslationCheckPanel: View {
 
     private func run() {
         hasRun = true
+        let idx = document.activeTranslationLanguageIndex
+        let languages = document.doc.translationLanguages ?? []
         issues = checkTranslationConsistency(
             document.doc,
             glossary: effectiveGlossary,
             checkDivergent: settings.checkDivergentTranslations
-        )
+        ) { $0.translationText(at: idx, languages: languages) }
     }
 }
 

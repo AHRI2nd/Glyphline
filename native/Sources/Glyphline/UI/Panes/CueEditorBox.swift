@@ -28,8 +28,17 @@ struct CueEditorBox: View {
     @State private var editingCueId: String?
     @State private var textSelection: TextSelection?
     @FocusState private var focus: Field?
+    @State private var showingAddLanguage = false
+    @State private var newPrimaryCode = ""
+    @State private var newLanguageCode = ""
 
     private enum Field { case text, translation }
+
+    /// Empty when the document has never added a second translation language
+    /// (`doc.translationLanguages == nil`) — the single-language, unlabeled
+    /// case every existing project is in today.
+    private var languages: [String] { document.doc.translationLanguages ?? [] }
+    private var activeIndex: Int { document.activeTranslationLanguageIndex }
 
     private var cue: Cue? {
         guard let id = document.activeCueId else { return nil }
@@ -52,6 +61,7 @@ struct CueEditorBox: View {
         .background(GlyphColor.surface)
         .overlay(Rectangle().frame(height: 0.5).foregroundStyle(GlyphColor.border), alignment: .top)
         .onChange(of: document.activeCueId) { _, _ in syncFromDocument() }
+        .onChange(of: document.activeTranslationLanguageIndex) { _, _ in syncFromDocument() }
         .onAppear { syncFromDocument() }
     }
 
@@ -78,6 +88,7 @@ struct CueEditorBox: View {
 
             if settings.showTranslation {
                 VStack(alignment: .leading, spacing: 3) {
+                    translationHeader
                     TextEditor(text: $translation)
                         .font(GlyphFont.body(13))
                         .scrollContentBackground(.hidden)
@@ -86,7 +97,8 @@ struct CueEditorBox: View {
                         .frame(height: 56)
                         .focused($focus, equals: .translation)
                         .onChange(of: translation) { _, next in
-                            commit(cue.id) { $0.translation = next.isEmpty ? nil : next }
+                            let idx = activeIndex; let langs = languages
+                            commit(cue.id) { $0.setTranslationText(next, at: idx, languages: langs) }
                         }
                     lineCounts(translation)
                 }
@@ -192,7 +204,78 @@ struct CueEditorBox: View {
         // adopting a new one, so its undo entry doesn't absorb the next cue too.
         if editingCueId != nil { document.endInteractive(); editingCueId = nil }
         text = cue?.text ?? ""
-        translation = cue?.translation ?? ""
+        translation = cue?.translationText(at: activeIndex, languages: languages) ?? ""
+    }
+
+    // ── translation language switcher ───────────────────────────────────────
+
+    @ViewBuilder
+    private var translationHeader: some View {
+        HStack(spacing: 4) {
+            if languages.count > 1 {
+                ForEach(Array(languages.enumerated()), id: \.offset) { idx, code in
+                    languageChip(code: code, index: idx)
+                }
+            } else {
+                Text(t("translation")).font(GlyphFont.data(10)).foregroundStyle(GlyphColor.quiet)
+            }
+            Button { showingAddLanguage = true } label: {
+                Image(systemName: "plus.circle").font(.system(size: 11))
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(GlyphColor.quiet)
+            .help(t("addTranslationLanguage"))
+            .popover(isPresented: $showingAddLanguage) { addLanguagePopover }
+            Spacer()
+        }
+    }
+
+    private func languageChip(code: String, index: Int) -> some View {
+        HStack(spacing: 2) {
+            Text(code.uppercased()).font(GlyphFont.data(10, weight: index == activeIndex ? .bold : .regular))
+            if index > 0 {
+                Button { document.removeTranslationLanguage(at: index) } label: {
+                    Image(systemName: "xmark").font(.system(size: 8))
+                }
+                .buttonStyle(.plain)
+                .help(t("removeTranslationLanguage"))
+            }
+        }
+        .foregroundStyle(index == activeIndex ? GlyphColor.ink : GlyphColor.quiet)
+        .padding(.horizontal, 5).padding(.vertical, 2)
+        .background(index == activeIndex ? GlyphColor.accent.opacity(0.25) : Color.clear, in: RoundedRectangle(cornerRadius: 4))
+        .contentShape(Rectangle())
+        .onTapGesture { document.activeTranslationLanguageIndex = index }
+    }
+
+    @ViewBuilder
+    private var addLanguagePopover: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if languages.isEmpty {
+                Text(t("labelPrimaryLanguagePrompt")).font(GlyphFont.body(11))
+                TextField(t("languageCode"), text: $newPrimaryCode).textFieldStyle(.roundedBorder).frame(width: 100)
+            }
+            Text(t("addTranslationLanguagePrompt")).font(GlyphFont.body(11))
+            TextField(t("languageCode"), text: $newLanguageCode).textFieldStyle(.roundedBorder).frame(width: 100)
+            HStack {
+                Spacer()
+                Button(t("add")) { addLanguage() }
+                    .disabled(newLanguageCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                              || (languages.isEmpty && newPrimaryCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
+            }
+        }
+        .padding(10)
+        .frame(width: 220)
+    }
+
+    private func addLanguage() {
+        document.addTranslationLanguage(newLanguageCode, primaryLanguageCode: newPrimaryCode)
+        if let langs = document.doc.translationLanguages, !langs.isEmpty {
+            document.activeTranslationLanguageIndex = langs.count - 1
+        }
+        newLanguageCode = ""
+        newPrimaryCode = ""
+        showingAddLanguage = false
     }
 
     /// Typing is one continuous gesture per cue: the first keystroke opens an

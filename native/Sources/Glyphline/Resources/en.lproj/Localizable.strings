@@ -24,6 +24,12 @@
 "translation" = "Translation";
 "translationPlaceholder" = "Enter translation…";
 "showTranslation" = "Show Translation Column";
+"addTranslationLanguage" = "Add Translation Language";
+"removeTranslationLanguage" = "Remove This Language";
+"labelPrimaryLanguagePrompt" = "What language is the current translation in?";
+"addTranslationLanguagePrompt" = "Language code to add";
+"languageCode" = "Language code (e.g. ja)";
+"add" = "Add";
 "zoomIn" = "Zoom in (⌘+scroll)";
 "zoomOut" = "Zoom out (⌘+scroll)";
 "zoomFit" = "Fit";

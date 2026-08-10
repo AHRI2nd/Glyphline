@@ -24,6 +24,12 @@
 "translation" = "번역";
 "translationPlaceholder" = "번역 입력…";
 "showTranslation" = "번역 열 표시";
+"addTranslationLanguage" = "번역 언어 추가";
+"removeTranslationLanguage" = "이 언어 삭제";
+"labelPrimaryLanguagePrompt" = "지금 번역은 어떤 언어인가요?";
+"addTranslationLanguagePrompt" = "추가할 언어 코드";
+"languageCode" = "언어 코드 (예: ja)";
+"add" = "추가";
 "zoomIn" = "확대 (⌘+스크롤)";
 "zoomOut" = "축소 (⌘+스크롤)";
 "zoomFit" = "전체";

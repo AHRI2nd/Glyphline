@@ -138,10 +138,10 @@ struct CueGridView: NSViewRepresentable {
             let existing = table.tableColumn(withIdentifier: col.identifier)
             if isVisible(col), existing == nil {
                 let column = NSTableColumn(identifier: col.identifier)
-                let headerCell = CueHeaderCell(textCell: col.title)
+                let headerCell = CueHeaderCell(textCell: columnTitle(col))
                 headerCell.alignment = col.headerAlignment
                 column.headerCell = headerCell
-                column.title = col.title
+                column.title = columnTitle(col)
                 column.width = col.defaultWidth
                 column.minWidth = col.minWidth
                 if let maxWidth = col.maxWidth { column.maxWidth = maxWidth }
@@ -150,9 +150,20 @@ struct CueGridView: NSViewRepresentable {
             } else if !isVisible(col), let existing {
                 table.removeTableColumn(existing)
             } else if let existing {
-                existing.title = col.title
+                existing.title = columnTitle(col)
             }
         }
+    }
+
+    /// The translation column's title grows an active-language suffix
+    /// ("Translation (JA)") once a document has more than one translation
+    /// language — see AppState/DocumentModel.activeTranslationLanguageIndex.
+    /// Every other column is unaffected.
+    private func columnTitle(_ col: CueColumn) -> String {
+        guard col == .translation else { return col.title }
+        let languages = document.doc.translationLanguages ?? []
+        guard languages.count > 1, languages.indices.contains(document.activeTranslationLanguageIndex) else { return col.title }
+        return "\(col.title) (\(languages[document.activeTranslationLanguageIndex].uppercased()))"
     }
 }
 

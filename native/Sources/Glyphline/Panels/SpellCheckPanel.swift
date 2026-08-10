@@ -142,7 +142,9 @@ struct SpellCheckPanel: View {
             ignored: Set(document.doc.ignoredWords ?? [])
         )
         let dict = dictionary
-        var found = checkDocument(document.doc, dictionary: dict, options: options)
+        let idx = document.activeTranslationLanguageIndex
+        let langs = document.doc.translationLanguages ?? []
+        var found = checkDocument(document.doc, dictionary: dict, options: options) { $0.translationText(at: idx, languages: langs) }
         // Words already in the system dictionary aren't "unknown" — drop them.
         found.removeAll { $0.kind == .unknownWord && dict.hasLearned($0.word) }
         issues = found

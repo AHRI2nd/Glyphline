@@ -106,15 +106,16 @@ public struct SpellCheckOptions: Sendable {
 public func checkDocument(
     _ doc: SubtitleDocument,
     dictionary: SpellDictionary?,
-    options: SpellCheckOptions
+    options: SpellCheckOptions,
+    translationSelector: @escaping (Cue) -> String? = { $0.translation }
 ) -> [SpellIssue] {
     let cues = sortedCues(doc.cues)
     var issues: [SpellIssue] = []
     if let dictionary {
-        issues += dictionaryIssues(cues, dictionary: dictionary, options: options)
+        issues += dictionaryIssues(cues, dictionary: dictionary, options: options, translationSelector: translationSelector)
     }
     if options.checkNotation {
-        issues += notationIssues(cues, ignored: options.ignored)
+        issues += notationIssues(cues, ignored: options.ignored, translationSelector: translationSelector)
     }
     // Most-frequent first: a word misspelled 30 times is the bigger problem.
     return issues.sorted {
@@ -127,7 +128,8 @@ public func checkDocument(
 private func dictionaryIssues(
     _ cues: [Cue],
     dictionary: SpellDictionary,
-    options: SpellCheckOptions
+    options: SpellCheckOptions,
+    translationSelector: (Cue) -> String?
 ) -> [SpellIssue] {
     var tally: [String: (count: Int, cueId: String, field: CueField, span: TextSpan)] = [:]
 
@@ -137,7 +139,7 @@ private func dictionaryIssues(
             (CueField.translation, options.translationLanguage),
         ] {
             guard let language else { continue }
-            let content = field == .text ? cue.text : (cue.translation ?? "")
+            let content = field == .text ? cue.text : (translationSelector(cue) ?? "")
             guard !content.isEmpty else { continue }
             let ns = content as NSString
 
@@ -179,7 +181,7 @@ public func notationKey(_ token: String) -> String {
     return s
 }
 
-private func notationIssues(_ cues: [Cue], ignored: Set<String>) -> [SpellIssue] {
+private func notationIssues(_ cues: [Cue], ignored: Set<String>, translationSelector: (Cue) -> String?) -> [SpellIssue] {
     struct Sighting {
         var count = 0
         var cueId = ""
@@ -192,7 +194,7 @@ private func notationIssues(_ cues: [Cue], ignored: Set<String>) -> [SpellIssue]
 
     for cue in cues {
         for field in CueField.allCases {
-            let content = field == .text ? cue.text : (cue.translation ?? "")
+            let content = field == .text ? cue.text : (translationSelector(cue) ?? "")
             guard !content.isEmpty else { continue }
             tokenizer.string = content
             let ns = content as NSString

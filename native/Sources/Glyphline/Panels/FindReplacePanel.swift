@@ -25,13 +25,20 @@ struct FindReplacePanel: View {
     }
     private var invalidRegex: Bool { !query.isEmpty && regex == nil }
 
+    /// Which translation "slot" is currently active — everything here reads/
+    /// writes through it instead of `cue.translation` directly, so find &
+    /// replace works on whichever language the grid/editor box is showing.
+    private var translationIndex: Int { document.activeTranslationLanguageIndex }
+    private var translationLanguages: [String] { document.doc.translationLanguages ?? [] }
+
     private func matches(_ re: NSRegularExpression) -> [Match] {
         var out: [Match] = []
         for cue in sortedCues(document.doc.cues) {
             if re.firstMatch(in: cue.text, range: NSRange(cue.text.startIndex..., in: cue.text)) != nil {
                 out.append(Match(cueId: cue.id, field: .text))
             }
-            if let t = cue.translation, re.firstMatch(in: t, range: NSRange(t.startIndex..., in: t)) != nil {
+            if let t = cue.translationText(at: translationIndex, languages: translationLanguages),
+               re.firstMatch(in: t, range: NSRange(t.startIndex..., in: t)) != nil {
                 out.append(Match(cueId: cue.id, field: .translation))
             }
         }
@@ -120,11 +127,12 @@ struct FindReplacePanel: View {
             guard next != cue.text else { return nil }
             return { $0.text = next }
         case .translation:
-            guard let t = cue.translation else { return nil }
+            guard let t = cue.translationText(at: translationIndex, languages: translationLanguages) else { return nil }
             let ns = t as NSString
             let next = re.stringByReplacingMatches(in: t, range: NSRange(location: 0, length: ns.length), withTemplate: replacementTemplate)
             guard next != t else { return nil }
-            return { $0.translation = next.isEmpty ? nil : next }
+            let idx = translationIndex; let langs = translationLanguages
+            return { $0.setTranslationText(next, at: idx, languages: langs) }
         }
     }
 

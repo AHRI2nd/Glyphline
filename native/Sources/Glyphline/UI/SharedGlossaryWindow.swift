@@ -16,6 +16,7 @@ struct SharedGlossaryWindow: View {
     @State private var newSource = ""
     @State private var newTarget = ""
     @State private var newNote = ""
+    @State private var newLanguage = ""
 
     var body: some View {
         VStack(spacing: 0) {
@@ -33,13 +34,16 @@ struct SharedGlossaryWindow: View {
                                 Text(entry.source).font(GlyphFont.body(12)).lineLimit(1)
                                 Text("→").font(GlyphFont.body(11)).foregroundStyle(GlyphColor.quiet)
                                 Text(entry.target).font(GlyphFont.body(12)).lineLimit(1)
+                                if let lang = entry.language {
+                                    Text(lang.uppercased()).font(GlyphFont.data(9)).foregroundStyle(GlyphColor.quiet)
+                                }
                             }
                             if let note = entry.note, !note.isEmpty {
                                 Text(note).font(GlyphFont.body(10)).foregroundStyle(GlyphColor.quiet).lineLimit(1)
                             }
                         }
                         Spacer()
-                        Button(t("tcRemoveTerm")) { settings.removeSharedGlossaryEntry(source: entry.source) }
+                        Button(t("tcRemoveTerm")) { settings.removeSharedGlossaryEntry(source: entry.source, language: entry.language) }
                             .controlSize(.small)
                     }
                     .listRowBackground(GlyphColor.bg)
@@ -59,6 +63,8 @@ struct SharedGlossaryWindow: View {
                 HStack(spacing: 8) {
                     TextField(t("sharedGlossaryNote"), text: $newNote)
                         .textFieldStyle(.roundedBorder).font(GlyphFont.body(12))
+                    TextField(t("languageCode"), text: $newLanguage)
+                        .textFieldStyle(.roundedBorder).font(GlyphFont.body(12)).frame(width: 110)
                     Button(t("tcAddTerm")) { addTerm() }
                         .controlSize(.small)
                         .disabled(newSource.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -74,7 +80,7 @@ struct SharedGlossaryWindow: View {
     }
 
     private func addTerm() {
-        settings.upsertSharedGlossaryEntry(source: newSource, target: newTarget, note: newNote)
-        newSource = ""; newTarget = ""; newNote = ""
+        settings.upsertSharedGlossaryEntry(source: newSource, target: newTarget, note: newNote, language: newLanguage)
+        newSource = ""; newTarget = ""; newNote = ""; newLanguage = ""
     }
 }

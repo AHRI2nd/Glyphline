@@ -24,6 +24,12 @@
 "translation" = "翻訳";
 "translationPlaceholder" = "翻訳を入力…";
 "showTranslation" = "翻訳列を表示";
+"addTranslationLanguage" = "翻訳言語を追加";
+"removeTranslationLanguage" = "この言語を削除";
+"labelPrimaryLanguagePrompt" = "今の翻訳は何語ですか?";
+"addTranslationLanguagePrompt" = "追加する言語コード";
+"languageCode" = "言語コード (例: ja)";
+"add" = "追加";
 "zoomIn" = "拡大 (⌘+スクロール)";
 "zoomOut" = "縮小 (⌘+スクロール)";
 "zoomFit" = "全体";

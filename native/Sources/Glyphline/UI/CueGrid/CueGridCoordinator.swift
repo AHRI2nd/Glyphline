@@ -214,7 +214,8 @@ final class CueGridCoordinator: NSObject, NSTableViewDataSource, NSTableViewDele
             let textColor: Color = (q.lineTooLong || q.tooManyLines) ? GlyphColor.amber : GlyphColor.ink
             return makeEditableField(cue: cue, column: column, text: cue.text, mono: false, alignment: .left, color: textColor)
         case .translation:
-            return makeEditableField(cue: cue, column: column, text: cue.translation ?? "", mono: false, alignment: .left, color: GlyphColor.ink)
+            let value = cue.translationText(at: document.activeTranslationLanguageIndex, languages: document.doc.translationLanguages ?? []) ?? ""
+            return makeEditableField(cue: cue, column: column, text: value, mono: false, alignment: .left, color: GlyphColor.ink)
         }
     }
 
@@ -397,7 +398,9 @@ final class CueGridCoordinator: NSObject, NSTableViewDataSource, NSTableViewDele
         case .text:
             document.updateCue(cueId) { $0.text = value }
         case .translation:
-            document.updateCue(cueId) { $0.translation = value.isEmpty ? nil : value }
+            let idx = document.activeTranslationLanguageIndex
+            let langs = document.doc.translationLanguages ?? []
+            document.updateCue(cueId) { $0.setTranslationText(value, at: idx, languages: langs) }
         case .flag, .index, .duration:
             break
         }

@@ -135,20 +135,26 @@ final class AppSettings {
     private(set) var sharedGlossary: [GlossaryEntry] = []
     private let sharedGlossaryKey = "glyphline.sharedGlossary"
 
-    func upsertSharedGlossaryEntry(source: String, target: String, note: String? = nil) {
+    /// `language` defaults to nil (applies regardless of active translation
+    /// language) — set it once a project targets more than one language,
+    /// since a shared term's correct target is language-specific.
+    func upsertSharedGlossaryEntry(source: String, target: String, note: String? = nil, language: String? = nil) {
         let src = source.trimmingCharacters(in: .whitespacesAndNewlines)
         let tgt = target.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !src.isEmpty, !tgt.isEmpty else { return }
+        let lang = language?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedLang = (lang?.isEmpty ?? true) ? nil : lang
         var list = sharedGlossary
-        list.removeAll { $0.source == src }
+        list.removeAll { $0.source == src && $0.language == normalizedLang }
         let trimmedNote = note?.trimmingCharacters(in: .whitespacesAndNewlines)
-        list.append(GlossaryEntry(source: src, target: tgt, note: trimmedNote?.isEmpty == false ? trimmedNote : nil))
+        list.append(GlossaryEntry(
+            source: src, target: tgt, note: trimmedNote?.isEmpty == false ? trimmedNote : nil, language: normalizedLang))
         sharedGlossary = list.sorted { $0.source < $1.source }
         persistSharedGlossary()
     }
 
-    func removeSharedGlossaryEntry(source: String) {
-        sharedGlossary.removeAll { $0.source == source }
+    func removeSharedGlossaryEntry(source: String, language: String? = nil) {
+        sharedGlossary.removeAll { $0.source == source && $0.language == language }
         persistSharedGlossary()
     }
 

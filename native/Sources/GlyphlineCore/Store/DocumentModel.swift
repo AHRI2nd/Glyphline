@@ -33,6 +33,12 @@ public final class DocumentModel {
     public private(set) var isDirty: Bool
     public var activeCueId: String?
     public var selectedIds: Set<String>
+    /// Which translation "slot" the grid/editor-box/find-replace/spellcheck/
+    /// term-consistency currently read and write — 0 is always the plain
+    /// `translation` field, 1+ indexes into `doc.translationLanguages`. Pure
+    /// session state (not persisted, not undo-tracked): resets to 0 whenever
+    /// a document loads, same as `activeCueId`.
+    public var activeTranslationLanguageIndex: Int = 0
 
     private var history: [SubtitleDocument] = []
     private var future: [SubtitleDocument] = []
@@ -131,6 +137,7 @@ public final class DocumentModel {
         isDirty = false
         activeCueId = nil
         selectedIds = []
+        activeTranslationLanguageIndex = 0
         history = []
         future = []
     }
@@ -143,6 +150,7 @@ public final class DocumentModel {
         isDirty = false
         activeCueId = newDoc.cues.first?.id
         selectedIds = []
+        activeTranslationLanguageIndex = 0
         history = []
         future = []
     }
@@ -153,6 +161,7 @@ public final class DocumentModel {
         doc = newDoc
         activeCueId = newDoc.cues.first?.id
         selectedIds = []
+        activeTranslationLanguageIndex = 0
     }
 
     /// Restore a document from the crash-recovery autosave (stays dirty until saved).
@@ -163,6 +172,7 @@ public final class DocumentModel {
         isDirty = true // recovered content is unsaved by definition
         activeCueId = restored.cues.first?.id
         selectedIds = []
+        activeTranslationLanguageIndex = 0
         history = []
         future = []
     }
@@ -186,20 +196,27 @@ public final class DocumentModel {
     }
 
     /// Export doc content in `format`. `source: .translation` swaps the body to
-    /// the translation column (falls back to `text`); ASS spans/tokens are
-    /// dropped there since they describe the ORIGINAL text.
+    /// a translation column (falls back to `text`); ASS spans/tokens are
+    /// dropped there since they describe the ORIGINAL text. `translationIndex`
+    /// selects WHICH translation language — 0 (the default) is the plain
+    /// `translation` field, exactly today's behavior; 1+ exports an
+    /// additional language via `Cue.translationText(at:languages:)`.
     public enum ExportSource { case text, translation }
     public func exportContent(
         format: SubFormat,
         source: ExportSource = .text,
+        translationIndex: Int = 0,
         scope: ExportScope = .all,
         rebaseToZero: Bool = false
     ) -> String {
         var exportDoc = subsetDocument(doc, scope: scope, rebaseToZero: rebaseToZero)
         if source == .translation {
+            let languages = doc.translationLanguages ?? []
             exportDoc.cues = exportDoc.cues.map { cue in
                 var c = cue
-                if let t = cue.translation, !t.trimmed().isEmpty { c.text = t }
+                if let t = cue.translationText(at: translationIndex, languages: languages), !t.trimmed().isEmpty {
+                    c.text = t
+                }
                 c.assSpans = nil
                 c.tokens = nil
                 return c
@@ -804,13 +821,18 @@ public final class DocumentModel {
 
     /// Adds or replaces the mapping for `source`. Undoable and marks the
     /// document dirty, because the glossary ships inside the .glyph file.
-    public func upsertGlossaryEntry(source: String, target: String, note: String? = nil) {
+    /// `language` defaults to nil (applies regardless of active translation
+    /// language — today's exact behavior); set it once a project targets
+    /// more than one language, since a target term is only correct for ONE
+    /// of them.
+    public func upsertGlossaryEntry(source: String, target: String, note: String? = nil, language: String? = nil) {
         let src = source.trimmed()
         let tgt = target.trimmed()
         guard !src.isEmpty, !tgt.isEmpty else { return }
         var list = doc.glossary ?? []
-        let entry = GlossaryEntry(source: src, target: tgt, note: note?.trimmed().isEmpty == false ? note?.trimmed() : nil)
-        if let i = list.firstIndex(where: { $0.source == src }) {
+        let entry = GlossaryEntry(
+            source: src, target: tgt, note: note?.trimmed().isEmpty == false ? note?.trimmed() : nil, language: language)
+        if let i = list.firstIndex(where: { $0.source == src && $0.language == language }) {
             guard list[i] != entry else { return }
             pushHistory()
             list[i] = entry
@@ -821,11 +843,50 @@ public final class DocumentModel {
         doc.glossary = list.sorted { $0.source < $1.source }
     }
 
-    public func removeGlossaryEntry(source: String) {
-        guard var list = doc.glossary, list.contains(where: { $0.source == source }) else { return }
+    public func removeGlossaryEntry(source: String, language: String? = nil) {
+        guard var list = doc.glossary, list.contains(where: { $0.source == source && $0.language == language }) else { return }
         pushHistory()
-        list.removeAll { $0.source == source }
+        list.removeAll { $0.source == source && $0.language == language }
         doc.glossary = list.isEmpty ? nil : list
+    }
+
+    // ── translation languages ────────────────────────────────────────────────
+
+    /// Adds a translation language beyond the first. If this document has no
+    /// additional languages yet (`doc.translationLanguages` is nil), the
+    /// existing, until-now-unlabeled `translation` field becomes language
+    /// index 0 — `primaryLanguageCode` labels it (only used for this
+    /// bootstrap case; ignored on every later call).
+    public func addTranslationLanguage(_ code: String, primaryLanguageCode: String? = nil) {
+        let trimmed = code.trimmed()
+        guard !trimmed.isEmpty else { return }
+        var languages = doc.translationLanguages ?? []
+        if languages.isEmpty {
+            let primary = primaryLanguageCode?.trimmed()
+            languages = [(primary?.isEmpty == false ? primary! : "?")]
+        }
+        guard !languages.contains(trimmed) else { return }
+        pushHistory()
+        languages.append(trimmed)
+        doc.translationLanguages = languages
+    }
+
+    /// Removes the language at `index` and every cue's stored text for it.
+    /// Refuses index 0 — that's `cue.translation` itself, which exists
+    /// whether or not any additional languages do, so there's nothing
+    /// meaningful to "remove" it into.
+    public func removeTranslationLanguage(at index: Int) {
+        guard var languages = doc.translationLanguages, languages.indices.contains(index), index > 0 else { return }
+        pushHistory()
+        let code = languages.remove(at: index)
+        doc.translationLanguages = languages
+        doc.cues = doc.cues.map { cue in
+            guard cue.translations?[code] != nil else { return cue }
+            var c = cue
+            c.translations?[code] = nil
+            return c
+        }
+        if activeTranslationLanguageIndex >= languages.count { activeTranslationLanguageIndex = 0 }
     }
 
     public func unignoreWord(_ word: String) {

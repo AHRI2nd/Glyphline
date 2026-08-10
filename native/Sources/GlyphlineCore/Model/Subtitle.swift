@@ -67,6 +67,11 @@ public struct Cue: Codable, Equatable, Sendable, Identifiable {
     public var end: Double
     public var text: String                 // may contain "\n" (breaks preserved)
     public var translation: String?         // parallel translation — .glyph-only
+    /// Additional translation languages beyond `translation` (which is always
+    /// "language index 0"), keyed by the language code at
+    /// `SubtitleDocument.translationLanguages[1...]`. nil for every document
+    /// that hasn't added a second language — see CueTranslations.swift.
+    public var translations: [String: String]?
     public var tokens: [SyncToken]?         // word/char sync
     public var assSpans: [AssSpan]?         // ASS inline tag + text runs (lossless)
     public var style: String?               // ASS style name
@@ -81,6 +86,7 @@ public struct Cue: Codable, Equatable, Sendable, Identifiable {
         end: Double,
         text: String,
         translation: String? = nil,
+        translations: [String: String]? = nil,
         tokens: [SyncToken]? = nil,
         assSpans: [AssSpan]? = nil,
         style: String? = nil,
@@ -94,6 +100,7 @@ public struct Cue: Codable, Equatable, Sendable, Identifiable {
         self.end = end
         self.text = text
         self.translation = translation
+        self.translations = translations
         self.tokens = tokens
         self.assSpans = assSpans
         self.style = style
@@ -191,6 +198,14 @@ public struct SubtitleDocument: Codable, Equatable, Sendable {
     /// another's. Optional so existing files decode unchanged and documents
     /// that never use it don't grow the key.
     public var glossary: [GlossaryEntry]?
+    /// Ordered translation language codes beyond the first. `translationLanguages[0]`
+    /// labels each cue's plain `translation` field; `translationLanguages[1...]`
+    /// label the keys into each cue's `translations` dict (see Cue). nil/empty
+    /// means "single, unlabeled translation" — exactly today's behavior — so a
+    /// document never touching multi-language tracks decodes and round-trips
+    /// with zero shape change. See CueTranslations.swift for the accessor that
+    /// reads/writes "language at index N" uniformly across index 0 and 1+.
+    public var translationLanguages: [String]?
 
     public init(
         format: SubFormat = .srt,
@@ -201,7 +216,8 @@ public struct SubtitleDocument: Codable, Equatable, Sendable {
         cues: [Cue] = [],
         meta: [String: String] = [:],
         ignoredWords: [String]? = nil,
-        glossary: [GlossaryEntry]? = nil
+        glossary: [GlossaryEntry]? = nil,
+        translationLanguages: [String]? = nil
     ) {
         self.format = format
         self.frameRate = frameRate
@@ -212,6 +228,7 @@ public struct SubtitleDocument: Codable, Equatable, Sendable {
         self.meta = meta
         self.ignoredWords = ignoredWords
         self.glossary = glossary
+        self.translationLanguages = translationLanguages
     }
 }
 
