@@ -157,6 +157,8 @@
 "tooLong" = "표시 시간이 너무 김";
 "cancel" = "취소";
 "close" = "닫기";
+"stopRunning" = "중지";
+"operationCancelled" = "취소됨";
 "newFileConfirm" = "현재 작업을 버리고 새 파일을 만들까요? 저장되지 않은 변경사항은 사라집니다.";
 "chooseExportFormat" = "내보낼 포맷을 선택하세요";
 "rawEdit" = "원본 편집";
@@ -537,3 +539,8 @@
 "deliveryPipelineQC" = "QC 리포트 생성";
 "deliveryPipelineFonts" = "폰트 수집";
 "deliveryPipelineResult" = "%@/%@ 항목 완료";
+"deliveryPipelineManifestWriteFailed" = "매니페스트 파일 쓰기 실패";
+"deliveryPipelineInputFolder" = "폴더";
+"deliveryPipelineInputOpenTabs" = "열린 탭";
+"deliveryPipelineRefreshTabs" = "새로고침";
+"deliveryPipelineUnsavedTabsSkipped" = "저장 안 된 탭 %@개는 제외됨";

@@ -37,6 +37,7 @@ enum BurnInEncoder {
         guard let ffmpegBin = ffmpegCandidates.first(where: { FileManager.default.fileExists(atPath: $0) }) else {
             throw EncodeError.ffmpegNotFound
         }
+        try Task.checkCancellation() // already-cancelled-before-starting case
         let assPath = FileManager.default.temporaryDirectory
             .appendingPathComponent("glyphline_burnin_\(UUID().uuidString).ass").path
         let assText = serializeAss(withDefaultStyleIfNeeded(document))
@@ -49,43 +50,61 @@ enum BurnInEncoder {
         // already-escaped input isn't corrupted.
         let escapedAss = assPath.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: ":", with: "\\:")
 
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: ffmpegBin)
-            process.arguments = [
-                "-y", "-i", videoPath,
-                "-vf", "ass=\(escapedAss)",
-                "-c:v", "libx264", "-crf", "20", "-preset", "medium",
-                "-c:a", "copy",
-                outputPath,
-            ]
-            let pipe = Pipe()
-            process.standardError = pipe
-            process.standardOutput = FileHandle.nullDevice
+        // Task cancellation is cooperative — cancelling the outer Task does
+        // NOT by itself stop a process already running inside the
+        // continuation below, so without processBox+onCancel a cancelled
+        // burn-in would keep encoding to completion in the background even
+        // after the panel/pipeline that started it has moved on. See
+        // ProcessBox.swift (same pattern SceneCutExtractor uses for ffmpeg
+        // scene detection).
+        let processBox = ProcessBox()
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: ffmpegBin)
+                process.arguments = [
+                    "-y", "-i", videoPath,
+                    "-vf", "ass=\(escapedAss)",
+                    "-c:v", "libx264", "-crf", "20", "-preset", "medium",
+                    "-c:a", "copy",
+                    outputPath,
+                ]
+                let pipe = Pipe()
+                process.standardError = pipe
+                process.standardOutput = FileHandle.nullDevice
+                processBox.process = process
 
-            let tail = TailBuffer()
-            pipe.fileHandleForReading.readabilityHandler = { handle in
-                let data = handle.availableData
-                guard !data.isEmpty, let text = String(data: data, encoding: .utf8) else { return }
-                tail.append(text)
-                if let seconds = parseFFmpegTime(text), durationHint > 0 {
-                    let fraction = min(1, max(0, seconds / durationHint))
-                    Task { @MainActor in onProgress(fraction) }
+                let tail = TailBuffer()
+                pipe.fileHandleForReading.readabilityHandler = { handle in
+                    let data = handle.availableData
+                    guard !data.isEmpty, let text = String(data: data, encoding: .utf8) else { return }
+                    tail.append(text)
+                    if let seconds = parseFFmpegTime(text), durationHint > 0 {
+                        let fraction = min(1, max(0, seconds / durationHint))
+                        Task { @MainActor in onProgress(fraction) }
+                    }
+                }
+                process.terminationHandler = { proc in
+                    pipe.fileHandleForReading.readabilityHandler = nil
+                    if proc.terminationStatus == 0 {
+                        continuation.resume()
+                    } else if Task.isCancelled {
+                        // A non-zero exit BECAUSE we just called terminate()
+                        // reads as "cancelled", not "ffmpeg failed" — the two
+                        // need distinct messaging to the user.
+                        continuation.resume(throwing: CancellationError())
+                    } else {
+                        continuation.resume(throwing: EncodeError.processFailed(proc.terminationStatus, tail.joined()))
+                    }
+                }
+                do {
+                    try process.run()
+                } catch {
+                    continuation.resume(throwing: error)
                 }
             }
-            process.terminationHandler = { proc in
-                pipe.fileHandleForReading.readabilityHandler = nil
-                if proc.terminationStatus == 0 {
-                    continuation.resume()
-                } else {
-                    continuation.resume(throwing: EncodeError.processFailed(proc.terminationStatus, tail.joined()))
-                }
-            }
-            do {
-                try process.run()
-            } catch {
-                continuation.resume(throwing: error)
-            }
+        } onCancel: {
+            processBox.terminate()
         }
     }
 }

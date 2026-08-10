@@ -98,21 +98,3 @@ enum SceneCutExtractor {
         return cuts
     }
 }
-
-/// Lets the cancellation handler (which can fire concurrently with, or
-/// before, the process even launches) reach the `Process` instance safely.
-/// `Process.terminate()` is documented as callable from any thread.
-private final class ProcessBox: @unchecked Sendable {
-    private let lock = NSLock()
-    private var _process: Process?
-    var process: Process? {
-        get { lock.lock(); defer { lock.unlock() }; return _process }
-        set { lock.lock(); defer { lock.unlock() }; _process = newValue }
-    }
-    func terminate() {
-        lock.lock()
-        let p = _process
-        lock.unlock()
-        p?.terminate()
-    }
-}

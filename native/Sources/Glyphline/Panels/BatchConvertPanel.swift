@@ -29,6 +29,7 @@ struct BatchConvertPanel: View {
     @State private var bom = false
     @State private var isProcessing = false
     @State private var results: [FileResult] = []
+    @State private var runningTask: Task<Void, Never>?
 
     var body: some View {
         PanelShell(title: t("batchConvert"), width: 460) {
@@ -45,6 +46,9 @@ struct BatchConvertPanel: View {
             }
         } footer: {
             Spacer()
+            if isProcessing {
+                Button(t("stopRunning")) { runningTask?.cancel() }
+            }
             Button(t("cancel")) { dismiss() }.keyboardShortcut(.cancelAction)
             Button(t("batchConvertRun")) { run() }
                 .keyboardShortcut(.defaultAction)
@@ -200,55 +204,52 @@ struct BatchConvertPanel: View {
     private func run() {
         isProcessing = true
         results = []
-        let adapter = adapterForFormat(outputFormat)
-        let ext = adapter.extensions[0]
+        let ext = adapterForFormat(outputFormat).extensions[0]
         let options = TextOutputOptions(encodingLabel: encodingLabel, lineEnding: crlf ? .crlf : .lf, writeBOM: bom)
         let jobId = state.startBackgroundJob(t("batchConvert") + ": \(inputPaths.count)")
 
-        // "폴더 선택…" scans recursively, so two inputs from DIFFERENT source
-        // subfolders routinely share a filename (every episode folder having
-        // its own "subtitle.srt" is completely normal). Funneled into ONE
-        // chosen output folder, that used to mean the second one silently
-        // overwrote the first with no error and no sign anything was lost —
-        // this tracks every destination this run has already written and
-        // disambiguates a repeat instead.
-        var usedDestPaths = Set<String>()
+        runningTask = Task {
+            // "폴더 선택…" scans recursively, so two inputs from DIFFERENT
+            // source subfolders routinely share a filename (every episode
+            // folder having its own "subtitle.srt" is completely normal).
+            // Funneled into ONE chosen output folder, that used to mean the
+            // second one silently overwrote the first with no error and no
+            // sign anything was lost — this tracks every destination this
+            // run has already written and disambiguates a repeat instead.
+            var usedDestPaths = Set<String>()
 
-        for path in inputPaths {
-            let name = (path as NSString).lastPathComponent
-            do {
-                let opened = try SubtitleFileIO.open(path: path)
-                let doc = DocumentModel()
-                doc.loadParsed(opened)
-                if fixOverlaps { doc.fixOverlaps() }
-                if removeEmpty { doc.removeEmptyCues() }
+            for path in inputPaths {
+                if Task.isCancelled { break }
+                let name = (path as NSString).lastPathComponent
+                do {
+                    let opened = try SubtitleFileIO.open(path: path)
+                    let doc = DocumentModel()
+                    doc.loadParsed(opened)
+                    if fixOverlaps { doc.fixOverlaps() }
+                    if removeEmpty { doc.removeEmptyCues() }
 
-                let base = (name as NSString).deletingPathExtension
-                let destDir = outputFolder ?? (path as NSString).deletingLastPathComponent
-                let destPath = GlyphlineCore.uniqueDestPath(dir: destDir, base: base, ext: ext, sourcePath: path, used: &usedDestPaths)
-                if outputFormat == .stl || outputFormat == .scc {
-                    // Binary/plain-text-without-encoding-choice formats bypass
-                    // the general options — same rule as AppState.performExport.
-                    let content = doc.exportContent(format: outputFormat)
-                    if outputFormat == .stl {
-                        try Data(latin1StringToBytes(content)).write(to: URL(fileURLWithPath: destPath), options: .atomic)
-                    } else {
-                        try content.write(toFile: destPath, atomically: true, encoding: .utf8)
-                    }
-                } else {
+                    let base = (name as NSString).deletingPathExtension
+                    let destDir = outputFolder ?? (path as NSString).deletingLastPathComponent
+                    let destPath = GlyphlineCore.uniqueDestPath(dir: destDir, base: base, ext: ext, sourcePath: path, used: &usedDestPaths)
+                    // SubtitleFileIO.export already bypasses `options` for
+                    // STL/SCC internally (raw Latin-1 bytes / literal UTF-8),
+                    // so every format goes through this one call.
                     try SubtitleFileIO.export(doc.doc, format: outputFormat, to: destPath, options: options)
+                    results.append(FileResult(name: name, outcome: .success(destPath)))
+                } catch {
+                    results.append(FileResult(name: name, outcome: .failure(error.localizedDescription)))
                 }
-                results.append(FileResult(name: name, outcome: .success(destPath)))
-            } catch {
-                results.append(FileResult(name: name, outcome: .failure(error.localizedDescription)))
+                state.updateBackgroundJob(jobId, progress: Double(results.count) / Double(inputPaths.count))
+                await Task.yield() // keeps the UI responsive and cancellation checkable on a large batch
             }
-            state.updateBackgroundJob(jobId, progress: Double(results.count) / Double(inputPaths.count))
+            isProcessing = false
+            let cancelled = Task.isCancelled
+            let failureCount = results.filter { if case .failure = $0.outcome { return true }; return false }.count
+            state.finishBackgroundJob(
+                jobId, success: !cancelled && failureCount == 0,
+                message: cancelled ? t("operationCancelled")
+                    : t("batchConvertResult", "\(results.count - failureCount)", "\(results.count)"))
         }
-        isProcessing = false
-        let failureCount = results.filter { if case .failure = $0.outcome { return true }; return false }.count
-        state.finishBackgroundJob(
-            jobId, success: failureCount == 0,
-            message: t("batchConvertResult", "\(results.count - failureCount)", "\(results.count)"))
     }
 
 }

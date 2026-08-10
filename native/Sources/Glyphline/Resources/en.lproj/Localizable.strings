@@ -157,6 +157,8 @@
 "tooLong" = "Display time too long";
 "cancel" = "Cancel";
 "close" = "Close";
+"stopRunning" = "Stop";
+"operationCancelled" = "Cancelled";
 "newFileConfirm" = "Discard the current work and start a new file? Unsaved changes will be lost.";
 "chooseExportFormat" = "Choose a format to export";
 "rawEdit" = "Edit Raw Text";
@@ -537,3 +539,8 @@
 "deliveryPipelineQC" = "QC report";
 "deliveryPipelineFonts" = "Font collection";
 "deliveryPipelineResult" = "%@/%@ items done";
+"deliveryPipelineManifestWriteFailed" = "failed to write manifest file";
+"deliveryPipelineInputFolder" = "Folder";
+"deliveryPipelineInputOpenTabs" = "Open Tabs";
+"deliveryPipelineRefreshTabs" = "Refresh";
+"deliveryPipelineUnsavedTabsSkipped" = "%@ unsaved tab(s) skipped";

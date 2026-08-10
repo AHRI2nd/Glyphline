@@ -157,6 +157,8 @@
 "tooLong" = "表示時間が長すぎる";
 "cancel" = "キャンセル";
 "close" = "閉じる";
+"stopRunning" = "中止";
+"operationCancelled" = "キャンセルされました";
 "newFileConfirm" = "現在の作業を破棄して新規ファイルを作成しますか？未保存の変更は失われます。";
 "chooseExportFormat" = "書き出す形式を選択";
 "rawEdit" = "ソーステキスト編集";
@@ -537,3 +539,8 @@
 "deliveryPipelineQC" = "QCレポート";
 "deliveryPipelineFonts" = "フォント収集";
 "deliveryPipelineResult" = "%@/%@ 項目完了";
+"deliveryPipelineManifestWriteFailed" = "マニフェストファイルの書き込みに失敗";
+"deliveryPipelineInputFolder" = "フォルダ";
+"deliveryPipelineInputOpenTabs" = "開いているタブ";
+"deliveryPipelineRefreshTabs" = "更新";
+"deliveryPipelineUnsavedTabsSkipped" = "未保存のタブ %@個は除外されました";

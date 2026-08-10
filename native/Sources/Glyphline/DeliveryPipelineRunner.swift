@@ -52,6 +52,13 @@ enum DeliveryPipelineRunner {
         let totalWeight = Double(config.items.count) * stepWeightTotal(config)
 
         for (index, pair) in config.items.enumerated() {
+            // Checked BEFORE starting a new item, not after — an item
+            // already in flight (its burn-in in particular) still runs to
+            // whatever outcome it reaches on its own; see runOne/runBurnIn,
+            // which observe cancellation via BurnInEncoder's own
+            // withTaskCancellationHandler and report a clean per-item
+            // outcome instead of just vanishing mid-manifest.
+            if Task.isCancelled { break }
             let item = await runOne(
                 pair, config: config, usedFolderPaths: &usedFolderPaths,
                 onProgress: { fraction in
@@ -64,12 +71,17 @@ enum DeliveryPipelineRunner {
         }
 
         let manifest = buildDeliveryManifest(items: manifestItems, outputRoot: config.outputRoot)
-        writeManifestFiles(manifest, to: config.outputRoot)
+        let manifestWritten = writeManifestFiles(manifest, to: config.outputRoot)
 
+        let cancelled = Task.isCancelled
         let failureCount = manifestItems.filter { $0.fatalError != nil }.count
-        state.finishBackgroundJob(
-            jobId, success: failureCount == 0,
-            message: t("deliveryPipelineResult", "\(manifestItems.count - failureCount)", "\(manifestItems.count)"))
+        var message = cancelled ? t("operationCancelled")
+            : t("deliveryPipelineResult", "\(manifestItems.count - failureCount)", "\(manifestItems.count)")
+        // Every item can have succeeded and this can still fail (a full disk,
+        // say) — worth surfacing rather than silently omitting the manifest
+        // from an otherwise-complete delivery folder.
+        if !manifestWritten { message += " — " + t("deliveryPipelineManifestWriteFailed") }
+        state.finishBackgroundJob(jobId, success: !cancelled && failureCount == 0 && manifestWritten, message: message)
         return manifest
     }
 
@@ -166,6 +178,8 @@ enum DeliveryPipelineRunner {
         do {
             try await BurnInEncoder.encode(videoPath: videoPath, document: doc, outputPath: outputPath, durationHint: duration) { _ in }
             return .succeeded(path: outputPath)
+        } catch is CancellationError {
+            return .failed(t("operationCancelled"))
         } catch {
             return .failed(String(describing: error))
         }
@@ -186,9 +200,14 @@ enum DeliveryPipelineRunner {
         return .init(issueCount: rows.count, csvPath: csvPath, htmlPath: htmlPath)
     }
 
-    private static func writeManifestFiles(_ manifest: DeliveryManifest, to outputRoot: String) {
-        guard let json = try? serializeDeliveryManifestJSON(manifest) else { return }
-        try? json.write(toFile: "\(outputRoot)/manifest.json", atomically: true, encoding: .utf8)
-        try? serializeDeliveryManifestText(manifest).write(toFile: "\(outputRoot)/manifest.txt", atomically: true, encoding: .utf8)
+    private static func writeManifestFiles(_ manifest: DeliveryManifest, to outputRoot: String) -> Bool {
+        do {
+            let json = try serializeDeliveryManifestJSON(manifest)
+            try json.write(toFile: "\(outputRoot)/manifest.json", atomically: true, encoding: .utf8)
+            try serializeDeliveryManifestText(manifest).write(toFile: "\(outputRoot)/manifest.txt", atomically: true, encoding: .utf8)
+            return true
+        } catch {
+            return false
+        }
     }
 }

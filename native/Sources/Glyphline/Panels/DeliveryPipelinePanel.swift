@@ -20,6 +20,10 @@ struct DeliveryPipelinePanel: View {
         let item: DeliveryManifestItem
     }
 
+    private enum InputMode { case folder, openTabs }
+
+    @State private var inputMode: InputMode = .folder
+    @State private var unsavedTabCount = 0
     @State private var pairs: [SubtitleVideoPair] = []
     @State private var outputFolder: String?
     @State private var formats: Set<SubFormat> = [.srt]
@@ -34,6 +38,7 @@ struct DeliveryPipelinePanel: View {
     @State private var selectedProfileName = ""
     @State private var isProcessing = false
     @State private var results: [ItemRow] = []
+    @State private var runningTask: Task<Void, Never>?
 
     var body: some View {
         PanelShell(title: t("deliveryPipeline"), width: 520) {
@@ -52,6 +57,9 @@ struct DeliveryPipelinePanel: View {
             }
         } footer: {
             Spacer()
+            if isProcessing {
+                Button(t("stopRunning")) { runningTask?.cancel() }
+            }
             Button(t("cancel")) { dismiss() }.keyboardShortcut(.cancelAction)
             Button(t("deliveryPipelineRun")) { run() }
                 .keyboardShortcut(.defaultAction)
@@ -69,10 +77,32 @@ struct DeliveryPipelinePanel: View {
             HStack {
                 Text(t("deliveryPipelineInput")).font(GlyphFont.body(12))
                 Spacer()
+                Picker("", selection: Binding(
+                    get: { inputMode },
+                    set: { mode in
+                        inputMode = mode
+                        if mode == .openTabs { loadFromOpenTabs() }
+                    }
+                )) {
+                    Text(t("deliveryPipelineInputFolder")).tag(InputMode.folder)
+                    Text(t("deliveryPipelineInputOpenTabs")).tag(InputMode.openTabs)
+                }
+                .labelsHidden().frame(width: 130).controlSize(.small)
+            }
+            HStack {
+                Spacer()
                 Text(pairs.isEmpty ? t("batchConvertNoFiles") : pairSummary)
                     .font(GlyphFont.data(11))
                     .foregroundStyle(pairs.isEmpty ? GlyphColor.amber : GlyphColor.quiet)
-                Button(t("deliveryPipelineChooseFolder")) { chooseFolder() }.controlSize(.small)
+                if inputMode == .folder {
+                    Button(t("deliveryPipelineChooseFolder")) { chooseFolder() }.controlSize(.small)
+                } else {
+                    Button(t("deliveryPipelineRefreshTabs")) { loadFromOpenTabs() }.controlSize(.small)
+                }
+            }
+            if inputMode == .openTabs, unsavedTabCount > 0 {
+                Text(t("deliveryPipelineUnsavedTabsSkipped", "\(unsavedTabCount)"))
+                    .font(GlyphFont.body(10)).foregroundStyle(GlyphColor.quiet)
             }
             HStack {
                 Text(t("deliveryPipelineOutputFolder")).font(GlyphFont.body(12))
@@ -188,6 +218,29 @@ struct DeliveryPipelinePanel: View {
         pairs = pairSubtitlesWithVideos(subtitlePaths: subtitlePaths.sorted(), candidatePaths: allPaths, mediaExts: MEDIA_EXTS)
     }
 
+    /// Builds pairs directly from every open tab instead of scanning a
+    /// folder — each tab already carries its own paired video
+    /// (`DocumentTab.mediaPath`), so no basename matching is needed here.
+    /// Tabs that were never saved to disk (`path == nil`) have nothing a
+    /// standalone `SubtitleFileIO.open` call could re-read, so they're
+    /// skipped rather than attempted — surfaced as a count, not silently.
+    private func loadFromOpenTabs() {
+        var loaded: [SubtitleVideoPair] = []
+        var skipped = 0
+        for tab in state.tabs {
+            // The active tab's `tabs` array entry is only refreshed on
+            // switch-away (see DocumentTabs.swift) — read the live document/
+            // media state for it instead of the possibly-stale snapshot.
+            let isActive = tab.id == state.activeTabId
+            let path = isActive ? state.document.filePath : tab.path
+            let mediaPath = isActive ? state.media.mediaPath : tab.mediaPath
+            guard let path else { skipped += 1; continue }
+            loaded.append(SubtitleVideoPair(subtitlePath: path, videoPath: mediaPath))
+        }
+        pairs = loaded
+        unsavedTabCount = skipped
+    }
+
     private func chooseOutputFolder() {
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
@@ -209,7 +262,7 @@ struct DeliveryPipelinePanel: View {
             fixOverlaps: fixOverlaps, removeEmpty: removeEmpty, encodingLabel: encodingLabel, crlf: crlf, bom: bom,
             burnInEnabled: burnInEnabled, qcEnabled: qcEnabled, qcThresholds: qcThresholds, fontsEnabled: fontsEnabled
         )
-        Task {
+        runningTask = Task {
             _ = await DeliveryPipelineRunner.run(config: config, state: state) { item in
                 results.append(ItemRow(item: item))
             }

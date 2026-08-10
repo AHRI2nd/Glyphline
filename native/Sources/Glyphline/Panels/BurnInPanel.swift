@@ -13,9 +13,10 @@ struct BurnInPanel: View {
     private var media: MediaModel { state.media }
 
     private enum Status: Equatable {
-        case idle, running(Double?), done(String), failed(String)
+        case idle, running(Double?), done(String), failed(String), cancelled
     }
     @State private var status: Status = .idle
+    @State private var runningTask: Task<Void, Never>?
 
     var body: some View {
         PanelShell(title: t("burnIn"), width: 420) {
@@ -50,10 +51,18 @@ struct BurnInPanel: View {
                         Image(systemName: "xmark.circle.fill").foregroundStyle(GlyphColor.warn)
                         Text(message).font(GlyphFont.data(10)).foregroundStyle(GlyphColor.quiet).lineLimit(4)
                     }
+                case .cancelled:
+                    HStack(spacing: 6) {
+                        Image(systemName: "slash.circle").foregroundStyle(GlyphColor.quiet)
+                        Text(t("operationCancelled")).font(GlyphFont.body(12)).foregroundStyle(GlyphColor.quiet)
+                    }
                 }
             }
         } footer: {
             Spacer()
+            if case .running = status {
+                Button(t("stopRunning")) { runningTask?.cancel() }
+            }
             Button(t("close")) { dismiss() }.keyboardShortcut(.cancelAction)
             Button(t("burnInStart")) { start() }
                 .keyboardShortcut(.defaultAction)
@@ -64,11 +73,10 @@ struct BurnInPanel: View {
     }
 
     private var canStart: Bool {
-        guard case .idle = status else {
-            if case .failed = status { return true }
-            return false
+        switch status {
+        case .idle, .failed, .cancelled: return BurnInEncoder.ffmpegAvailable && media.mediaPath != nil && media.mediaKind == .video
+        case .running, .done: return false
         }
-        return BurnInEncoder.ffmpegAvailable && media.mediaPath != nil && media.mediaKind == .video
     }
 
     private func start() {
@@ -83,7 +91,7 @@ struct BurnInPanel: View {
         let doc = document.doc
         let duration = media.duration
         let jobId = state.startBackgroundJob(t("burnIn") + ": " + (url.path as NSString).lastPathComponent)
-        Task {
+        runningTask = Task {
             do {
                 try await BurnInEncoder.encode(
                     videoPath: videoPath, document: doc, outputPath: url.path, durationHint: duration
@@ -93,6 +101,9 @@ struct BurnInPanel: View {
                 }
                 status = .done(url.path)
                 state.finishBackgroundJob(jobId, success: true, message: url.path)
+            } catch is CancellationError {
+                status = .cancelled
+                state.finishBackgroundJob(jobId, success: false, message: t("operationCancelled"))
             } catch {
                 let message = String(describing: error)
                 status = .failed(message)
