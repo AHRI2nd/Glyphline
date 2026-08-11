@@ -1,6 +1,6 @@
 # Glyphline
 
-A professional, native macOS subtitle editor in the spirit of Subtitle Edit — built with Swift, SwiftUI, and libmpv.
+A professional, native macOS subtitle editor — built with Swift, SwiftUI, and libmpv.
 
 Glyphline pairs a frame-accurate video/waveform workspace with a full editing, quality-assurance, and delivery toolchain: multi-format import/export, ASS-level styling, timing tools, batch conversion, and a one-click pipeline for producing client-ready delivery packages. It targets macOS specifically rather than aiming for cross-platform reach — see [Why native, why macOS-only](#why-native-why-macos-only) below.
 
@@ -149,7 +149,7 @@ The app layer (SwiftUI views, AppKit/mpv/ffmpeg integration) is verified by buil
 
 ## Why native, why macOS-only
 
-Glyphline started as a Tauri 2 (Rust) + React app, chosen for cross-platform reach. In practice, the app is used almost exclusively on macOS — Windows and Linux already have mature, established subtitle editors (Subtitle Edit, in particular) — so the cross-platform value never materialized, while the cost stayed: a three-layer stack (TypeScript UI + Rust backend + a native video bridge glued into a WebView) fighting compositing and coordinate-space bugs the whole way. The rewrite to pure Swift/SwiftUI removes that entire class of problem and makes macOS-specific capabilities (system spell-checking, native menus, real multi-window support) straightforward instead of a fight.
+Glyphline started as a Tauri 2 (Rust) + React app, chosen for cross-platform reach. In practice, the app is used almost exclusively on macOS — Windows and Linux already have mature, established subtitle editors — so the cross-platform value never materialized, while the cost stayed: a three-layer stack (TypeScript UI + Rust backend + a native video bridge glued into a WebView) fighting compositing and coordinate-space bugs the whole way. The rewrite to pure Swift/SwiftUI removes that entire class of problem and makes macOS-specific capabilities (system spell-checking, native menus, real multi-window support) straightforward instead of a fight.
 
 ## Roadmap / non-goals
 
