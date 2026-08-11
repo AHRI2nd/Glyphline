@@ -115,6 +115,8 @@ cd native
 
 Code-signing uses a `Developer ID Application` certificate hardcoded in `scripts/release.sh` — to build your own signed copy, edit `SIGN_IDENTITY` (and `NOTARY_PROFILE`, if you also want to notarize) to match a certificate in your own keychain. Without a matching certificate, `codesign` will fail; you can still run the unsigned `.app` locally by clearing the quarantine attribute (`xattr -dr com.apple.quarantine <path>`) after copying it out of `.build/`.
 
+Pass `--version=X.Y.Z` to stamp `CFBundleShortVersionString`/`CFBundleVersion` in the built `.app` (the release GitHub Actions workflow does this automatically from the pushed tag). This isn't just cosmetic: it's what [Sparkle](https://sparkle-project.org/) — the in-app auto-updater — compares against `appcast.xml` to detect a new release, so a build without a real version number will never show up as an update to anyone already running the app.
+
 ## Project layout
 
 ```
