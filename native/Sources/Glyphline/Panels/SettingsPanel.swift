@@ -127,8 +127,14 @@ struct SettingsPanel: View {
                         get: { settings.autoCheckUpdate }, set: { settings.autoCheckUpdate = $0 }
                     )).toggleStyle(.checkbox).font(GlyphFont.body(12))
                     if let version = settings.availableUpdateVersion {
-                        Text("\(t("updateAvailable")): \(version)")
-                            .font(GlyphFont.body(11)).foregroundStyle(GlyphColor.accent)
+                        let encodedVersion = version.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? version
+                        if let url = URL(string: "https://github.com/\(UpdateCheck.githubRepo)/releases/tag/\(encodedVersion)") {
+                            Link("\(t("updateAvailable")): \(version)", destination: url)
+                                .font(GlyphFont.body(11)).foregroundStyle(GlyphColor.accent)
+                        } else {
+                            Text("\(t("updateAvailable")): \(version)")
+                                .font(GlyphFont.body(11)).foregroundStyle(GlyphColor.accent)
+                        }
                     }
                 }
 

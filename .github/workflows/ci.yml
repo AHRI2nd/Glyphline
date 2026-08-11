@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    # Package.swift pins platforms: [.macOS("26.0")] — this job needs a
+    # runner whose Xcode ships an SDK >= macOS 26. If GitHub's macos-latest
+    # image hasn't picked that up yet, swift build will fail with an
+    # unsupported-platform-version error; pin to a specific newer runner
+    # label (or add a setup-xcode step) once one is available.
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: native
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Swift toolchain version
+        run: swift --version
+
+      - name: Build
+        run: swift build
+
+      - name: Test
+        run: swift test
+
+      - name: Verify i18n key parity across ko/en/ja
+        working-directory: native/Sources/Glyphline/Resources
+        run: |
+          for lang in ko en ja; do
+            grep -oE '^"[a-zA-Z0-9_]+"' "$lang.lproj/Localizable.strings" | sort -u > "/tmp/keys_$lang.txt"
+          done
+          diff /tmp/keys_ko.txt /tmp/keys_en.txt
+          diff /tmp/keys_en.txt /tmp/keys_ja.txt
