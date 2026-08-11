@@ -32,5 +32,9 @@
     <true/>
     <key>NSHumanReadableCopyright</key>
     <string>© Glyphline</string>
+    <key>SUFeedURL</key>
+    <string>https://raw.githubusercontent.com/AHRI2nd/Glyphline/main/appcast.xml</string>
+    <key>SUPublicEDKey</key>
+    <string>esTzRMr6vLCigw8Qx8cko/jWtEHSB4Ddm1eWDRqSmfc=</string>
 </dict>
 </plist>
