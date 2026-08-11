@@ -25,6 +25,15 @@ name: Release
 # still builds the .app but skips codesigning entirely (release.sh's own
 # codesign step would fail against an empty identity) — see the "Skip
 # signing" guard below.
+#
+# Optional, for Sparkle in-app auto-updates (see native/Sources/Glyphline/App.swift):
+#   SPARKLE_ED_PRIVATE_KEY      - the EdDSA private key exported via
+#                                 `generate_keys -x <file>` (see that file's
+#                                 contents — NOT the file path). Without this
+#                                 secret, the release still builds and
+#                                 publishes; appcast.xml is simply left
+#                                 unsigned/unupdated, so existing installs
+#                                 won't see the new version until it's set.
 
 on:
   push:
@@ -44,6 +53,7 @@ jobs:
     env:
       HAS_CERT: ${{ secrets.MACOS_CERTIFICATE }}
       HAS_NOTARY_CREDS: ${{ secrets.NOTARIZE_APPLE_ID }}
+      HAS_SPARKLE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
     defaults:
       run:
         working-directory: native
@@ -115,6 +125,51 @@ jobs:
             /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $APP_VERSION" "Glyphline-unsigned.app/Contents/Info.plist"
             /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $APP_VERSION" "Glyphline-unsigned.app/Contents/Info.plist"
             ditto -c -k --keepParent "Glyphline-unsigned.app" "Glyphline-${{ github.ref_name }}.zip"
+          fi
+
+      - name: Generate and sign appcast
+        if: ${{ env.HAS_SPARKLE_KEY != '' }}
+        env:
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          # A separate worktree of `main`, fully isolated from the tag checkout
+          # this job builds from — appcast.xml is published on main, not on
+          # release tags, and this step must never switch the primary
+          # checkout's branch mid-build.
+          git worktree add "$RUNNER_TEMP/main-wt" origin/main
+
+          ARCHIVE_DIR="$RUNNER_TEMP/appcast-src"
+          mkdir -p "$ARCHIVE_DIR"
+          cp .build/Glyphline-*.zip "$ARCHIVE_DIR/"
+          # Carry forward existing entries/signatures so old installs still on
+          # an older version keep seeing their update path (first-ever release
+          # has no appcast.xml on main yet, so this is skipped then).
+          if [ -f "$RUNNER_TEMP/main-wt/appcast.xml" ]; then
+            cp "$RUNNER_TEMP/main-wt/appcast.xml" "$ARCHIVE_DIR/appcast.xml"
+          fi
+
+          # Path comes from SPM's own artifact resolution for the Sparkle
+          # binaryTarget pinned in Package.swift (verified locally against the
+          # actual .build tree when this step was written) — re-check with
+          # `find .build/artifacts -iname generate_appcast` if the pinned
+          # Sparkle version ever changes and this step starts failing.
+          echo "$SPARKLE_ED_PRIVATE_KEY" | .build/artifacts/sparkle/Sparkle/bin/generate_appcast \
+            --ed-key-file - \
+            --download-url-prefix "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/" \
+            "$ARCHIVE_DIR"
+
+          cp "$ARCHIVE_DIR/appcast.xml" "$RUNNER_TEMP/main-wt/appcast.xml"
+          cd "$RUNNER_TEMP/main-wt"
+          git add appcast.xml
+          if git diff --cached --quiet; then
+            echo "appcast.xml unchanged, nothing to commit"
+          else
+            git commit -m "Update appcast.xml for ${{ github.ref_name }}"
+            git push origin HEAD:main
           fi
 
       - name: Create GitHub Release
