@@ -6,6 +6,13 @@
 # Usage:
 #   scripts/release.sh                       # build + sign only
 #   scripts/release.sh --notarize            # build + sign + notarize + staple
+#   scripts/release.sh --version=0.2.0       # also stamp CFBundleShortVersionString/
+#                                             # CFBundleVersion in the built .app
+#                                             # (Sparkle compares exactly these two
+#                                             # values to detect updates — without
+#                                             # this every release ships whatever's
+#                                             # hardcoded in scripts/Info.plist, and
+#                                             # Sparkle never sees a new version)
 #
 # One-time setup (not done by this script, see CLAUDE.md / M7 notes):
 #   xcrun notarytool store-credentials "glyphline-notary" \
@@ -20,10 +27,12 @@ APP_DIR="$ROOT_DIR/.build/Glyphline-release.app"
 SIGN_IDENTITY="Developer ID Application: Sangmin Lee (7N6XWH2333)"
 NOTARY_PROFILE="glyphline-notary"
 DO_NOTARIZE=false
+VERSION=""
 
 for arg in "$@"; do
     case "$arg" in
         --notarize) DO_NOTARIZE=true ;;
+        --version=*) VERSION="${arg#--version=}" ;;
         *) echo "Unknown argument: $arg" >&2; exit 1 ;;
     esac
 done
@@ -47,6 +56,11 @@ rm -rf "$APP_DIR"
 mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
 cp "$BUILD_DIR/Glyphline" "$APP_DIR/Contents/MacOS/Glyphline"
 cp "$SCRIPT_DIR/Info.plist" "$APP_DIR/Contents/Info.plist"
+if [ -n "$VERSION" ]; then
+    echo "==> Stamping version $VERSION"
+    /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP_DIR/Contents/Info.plist"
+    /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VERSION" "$APP_DIR/Contents/Info.plist"
+fi
 if [ -f "$SCRIPT_DIR/Glyphline.icns" ]; then
     cp "$SCRIPT_DIR/Glyphline.icns" "$APP_DIR/Contents/Resources/Glyphline.icns"
 else
