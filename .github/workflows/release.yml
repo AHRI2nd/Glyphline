@@ -37,6 +37,13 @@ permissions:
 jobs:
   build-sign-release:
     runs-on: macos-latest
+    # `secrets` isn't a valid context inside step `if:` conditionals (GitHub
+    # rejects it at parse time: "Unrecognized named-value: 'secrets'") — it's
+    # only readable from `env:`. So mirror the two secrets we branch on into
+    # job-level env vars here, and check those in `if:` instead.
+    env:
+      HAS_CERT: ${{ secrets.MACOS_CERTIFICATE }}
+      HAS_NOTARY_CREDS: ${{ secrets.NOTARIZE_APPLE_ID }}
     defaults:
       run:
         working-directory: native
@@ -50,7 +57,7 @@ jobs:
         run: swift test
 
       - name: Import signing certificate
-        if: ${{ secrets.MACOS_CERTIFICATE != '' }}
+        if: ${{ env.HAS_CERT != '' }}
         env:
           MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
           MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
@@ -68,7 +75,7 @@ jobs:
           rm -f "$RUNNER_TEMP/cert.p12"
 
       - name: Store notarization credentials
-        if: ${{ secrets.NOTARIZE_APPLE_ID != '' }}
+        if: ${{ env.HAS_NOTARY_CREDS != '' }}
         env:
           NOTARIZE_APPLE_ID: ${{ secrets.NOTARIZE_APPLE_ID }}
           NOTARIZE_TEAM_ID: ${{ secrets.NOTARIZE_TEAM_ID }}
@@ -80,15 +87,15 @@ jobs:
             --password "$NOTARIZE_APP_PASSWORD"
 
       - name: Build (unsigned)
-        if: ${{ secrets.MACOS_CERTIFICATE == '' }}
+        if: ${{ env.HAS_CERT == '' }}
         run: swift build -c release
 
       - name: Build, sign, and notarize
-        if: ${{ secrets.MACOS_CERTIFICATE != '' && secrets.NOTARIZE_APPLE_ID != '' }}
+        if: ${{ env.HAS_CERT != '' && env.HAS_NOTARY_CREDS != '' }}
         run: ./scripts/release.sh --notarize
 
       - name: Build and sign (no notarization credentials configured)
-        if: ${{ secrets.MACOS_CERTIFICATE != '' && secrets.NOTARIZE_APPLE_ID == '' }}
+        if: ${{ env.HAS_CERT != '' && env.HAS_NOTARY_CREDS == '' }}
         run: ./scripts/release.sh
 
       - name: Package
