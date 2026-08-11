@@ -220,8 +220,6 @@ final class AppSettings {
     private let spellTextLanguageKey = "glyphline.spell.textLanguage"
     private let spellTranslationLanguageKey = "glyphline.spell.translationLanguage"
     private let spellCheckNotationKey = "glyphline.spell.checkNotation"
-    /// Ephemeral (not persisted) — set by `UpdateCheck` when a newer release exists.
-    var availableUpdateVersion: String?
 
     /// Free-docking layout tree (video/waveform/subtitles panes) — see DockModel.swift.
     var dockLayout: DockNode {

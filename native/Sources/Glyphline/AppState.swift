@@ -99,12 +99,9 @@ final class AppState {
             recovery = newest
             olderRecoveries = Array(snapshots.dropFirst())
         }
-        if settings.autoCheckUpdate {
-            Task { [weak self] in
-                guard let version = await UpdateCheck.checkForUpdate() else { return }
-                self?.settings.availableUpdateVersion = version
-            }
-        }
+        // Update checking/notification is Sparkle's job now (see App.swift's
+        // updaterController + settings.autoCheckUpdate binding) — no manual
+        // poll needed here.
     }
 
     // ── Subtitle file I/O ────────────────────────────────────────────────────────
