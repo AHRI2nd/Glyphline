@@ -15,6 +15,11 @@ let package = Package(
         .executable(name: "GlyphlineSpike", targets: ["GlyphlineSpike"]),
         .executable(name: "Glyphline", targets: ["Glyphline"]),
     ],
+    dependencies: [
+        // In-app update checking/installing (replaces the old GitHub-Releases-poll +
+        // "click a link" flow) — see Platform/UpdateCheck.swift's removal notes.
+        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.6.0"),
+    ],
     targets: [
         .target(name: "GlyphlineCore"),
         .testTarget(
@@ -33,7 +38,10 @@ let package = Package(
         // The real app: SwiftUI-first shell + AppKit where needed (M2+).
         .executableTarget(
             name: "Glyphline",
-            dependencies: ["GlyphlineCore"],
+            dependencies: [
+                "GlyphlineCore",
+                .product(name: "Sparkle", package: "Sparkle"),
+            ],
             resources: [.process("Resources")],
             linkerSettings: [.linkedFramework("AppKit")]
         ),

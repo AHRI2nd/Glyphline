@@ -5,6 +5,7 @@
 import Observation
 import Foundation
 import GlyphlineCore
+import Sparkle
 
 @MainActor
 @Observable
@@ -44,9 +45,20 @@ final class AppSettings {
     private let uiScaleKey = "glyphline.uiScale"
 
     var autoCheckUpdate: Bool {
-        didSet { UserDefaults.standard.set(autoCheckUpdate, forKey: autoCheckUpdateKey) }
+        didSet {
+            UserDefaults.standard.set(autoCheckUpdate, forKey: autoCheckUpdateKey)
+            sparkleUpdater?.automaticallyChecksForUpdates = autoCheckUpdate
+        }
     }
     private let autoCheckUpdateKey = "glyphline.autoCheckUpdate"
+
+    /// Set once by `GlyphlineApp` right after it creates the Sparkle updater
+    /// controller, so this toggle (already wired into Settings and persisted
+    /// above) drives Sparkle's own check-scheduling instead of a second,
+    /// duplicate on/off switch living inside Sparkle's own defaults.
+    var sparkleUpdater: SPUUpdater? {
+        didSet { sparkleUpdater?.automaticallyChecksForUpdates = autoCheckUpdate }
+    }
 
     /// Spelling language per column. Empty string = don't dictionary-check
     /// that column, which is the only correct setting for Japanese (macOS has

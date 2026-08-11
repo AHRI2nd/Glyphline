@@ -3,6 +3,7 @@
 
 import SwiftUI
 import GlyphlineCore
+import Sparkle
 
 @main
 struct GlyphlineApp: App {
@@ -10,12 +11,15 @@ struct GlyphlineApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @Environment(\.openWindow) private var openWindow
     @Environment(\.dismissWindow) private var dismissWindow
+    private let updaterController = SPUStandardUpdaterController(
+        startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
 
     var body: some Scene {
         WindowGroup {
             ContentView(state: state)
                 .onAppear {
                     appDelegate.state = state
+                    state.settings.sparkleUpdater = updaterController.updater
                     state.startUp()
                 }
         }
@@ -227,6 +231,8 @@ struct GlyphlineApp: App {
                 }
             }
             CommandGroup(replacing: .help) {
+                CheckForUpdatesView(updater: updaterController.updater)
+                Divider()
                 Button(menuLabel("shortcuts")) { state.activePanel = .help }
             }
         }

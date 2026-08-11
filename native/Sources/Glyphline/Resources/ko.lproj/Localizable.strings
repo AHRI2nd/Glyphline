@@ -176,6 +176,7 @@
 "uiScale" = "UI 배율";
 "autoCheckUpdate" = "시작 시 업데이트 확인";
 "updateAvailable" = "새 버전이 있습니다";
+"checkForUpdates" = "업데이트 확인…";
 "shortcuts" = "단축키";
 "scUndo" = "실행 취소";
 "scRedo" = "다시 실행";

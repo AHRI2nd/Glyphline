@@ -176,6 +176,7 @@
 "uiScale" = "UI scale";
 "autoCheckUpdate" = "Check for updates on launch";
 "updateAvailable" = "A new version is available";
+"checkForUpdates" = "Check for Updates…";
 "shortcuts" = "Shortcuts";
 "scUndo" = "Undo";
 "scRedo" = "Redo";

@@ -176,6 +176,7 @@
 "uiScale" = "UI 倍率";
 "autoCheckUpdate" = "起動時に更新を確認";
 "updateAvailable" = "新しいバージョンがあります";
+"checkForUpdates" = "アップデートを確認…";
 "shortcuts" = "ショートカット";
 "scUndo" = "元に戻す";
 "scRedo" = "やり直し";
