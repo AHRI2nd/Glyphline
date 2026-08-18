@@ -63,7 +63,12 @@ struct BurnInPanel: View {
             if case .running = status {
                 Button(t("stopRunning")) { runningTask?.cancel() }
             }
-            Button(t("close")) { dismiss() }.keyboardShortcut(.cancelAction)
+            // "Cancel" only while nothing has started yet — once running (or
+            // finished), this button no longer stops anything (Stop does,
+            // above; the encode keeps going in the background even if this
+            // panel closes — see BackgroundJobs.swift), so it says "Close"
+            // once that's true instead of implying it aborts the job.
+            Button(status == .idle ? t("cancel") : t("close")) { dismiss() }.keyboardShortcut(.cancelAction)
             Button(t("burnInStart")) { start() }
                 .keyboardShortcut(.defaultAction)
                 .buttonStyle(.borderedProminent)

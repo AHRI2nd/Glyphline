@@ -60,7 +60,12 @@ struct DeliveryPipelinePanel: View {
             if isProcessing {
                 Button(t("stopRunning")) { runningTask?.cancel() }
             }
-            Button(t("cancel")) { dismiss() }.keyboardShortcut(.cancelAction)
+            // "Cancel" only before a run has started — once running (or
+            // finished), this only closes the panel; the run itself keeps
+            // going in the background regardless (Stop actually stops it,
+            // above), so the label stops implying it aborts anything.
+            Button(isProcessing || !results.isEmpty ? t("close") : t("cancel")) { dismiss() }
+                .keyboardShortcut(.cancelAction)
             Button(t("deliveryPipelineRun")) { run() }
                 .keyboardShortcut(.defaultAction)
                 .buttonStyle(.borderedProminent)
