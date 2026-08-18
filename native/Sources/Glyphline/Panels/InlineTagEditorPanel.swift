@@ -29,6 +29,7 @@ struct InlineTagEditorPanel: View {
     /// one undo entry instead of one per keystroke.
     @State private var editingCueId: String?
     @FocusState private var rawEditorFocused: Bool
+    @State private var valueSelection: TextSelection?
 
     private var cue: Cue? {
         document.doc.cues.first { $0.id == document.activeCueId }
@@ -222,12 +223,12 @@ struct InlineTagEditorPanel: View {
                 RawToolButton("i", italic: true) { wrap("{\\i1}", "{\\i0}") }
                 RawToolButton("U", underline: true) { wrap("{\\u1}", "{\\u0}") }
                 Divider().frame(height: 14)
-                RawToolButton("{\\pos}") { value += "{\\pos(960,540)}" }
-                RawToolButton("{\\fad}") { value += "{\\fad(200,200)}" }
-                RawToolButton("{\\an8}") { value += "{\\an8}" }
-                RawToolButton("{\\r}") { value += "{\\r}" }
+                RawToolButton("{\\pos}") { insertAtCursor("{\\pos(960,540)}") }
+                RawToolButton("{\\fad}") { insertAtCursor("{\\fad(200,200)}") }
+                RawToolButton("{\\an8}") { insertAtCursor("{\\an8}") }
+                RawToolButton("{\\r}") { insertAtCursor("{\\r}") }
             }
-            TextEditor(text: $value)
+            TextEditor(text: $value, selection: $valueSelection)
                 .font(GlyphFont.data(11))
                 .frame(height: 100)
                 .overlay(RoundedRectangle(cornerRadius: 6).stroke(GlyphColor.borderStrong, lineWidth: 0.5))
@@ -235,11 +236,41 @@ struct InlineTagEditorPanel: View {
         }
     }
 
-    /// Wraps the current selection in an override block pair, or appends both
-    /// halves at the end if nothing is selected (no NSTextView selection range
-    /// is exposed through SwiftUI's plain TextEditor binding).
+    /// Wraps the current selection in an override block pair at wherever it
+    /// actually is; only falls back to appending both halves at the end when
+    /// the editor has never been focused at all (no cursor position to work
+    /// from). A collapsed cursor with nothing highlighted still wraps AT
+    /// that point (open+close land back to back, ready to type between).
     private func wrap(_ open: String, _ close: String) {
-        value += "\(open)\(close)"
+        guard let valueSelection, case .selection(let range) = valueSelection.indices else {
+            value += "\(open)\(close)"
+            return
+        }
+        let lo = value.distance(from: value.startIndex, to: range.lowerBound)
+        let hi = value.distance(from: value.startIndex, to: range.upperBound)
+        let chars = Array(value)
+        let inner = String(chars[lo..<hi])
+        value = String(chars[0..<lo]) + open + inner + close + String(chars[hi...])
+        let newLo = lo + open.count
+        let newHi = newLo + inner.count
+        guard let loIdx = value.index(value.startIndex, offsetBy: newLo, limitedBy: value.endIndex),
+              let hiIdx = value.index(value.startIndex, offsetBy: newHi, limitedBy: value.endIndex) else { return }
+        self.valueSelection = TextSelection(range: loIdx..<hiIdx)
+    }
+
+    /// Inserts a standalone tag (not a wrap pair) at the cursor/selection
+    /// start, or at the end if the editor's never been focused — the same
+    /// fallback `wrap` uses, for the same reason.
+    private func insertAtCursor(_ text: String) {
+        guard let valueSelection, case .selection(let range) = valueSelection.indices else {
+            value += text
+            return
+        }
+        let at = value.distance(from: value.startIndex, to: range.lowerBound)
+        let chars = Array(value)
+        value = String(chars[0..<at]) + text + String(chars[at...])
+        guard let idx = value.index(value.startIndex, offsetBy: at + text.count, limitedBy: value.endIndex) else { return }
+        self.valueSelection = TextSelection(insertionPoint: idx)
     }
 
 }
