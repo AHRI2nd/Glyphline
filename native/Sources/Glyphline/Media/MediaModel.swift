@@ -161,9 +161,24 @@ final class MediaModel {
         engine?.setMute(false)
     }
 
+    /// Matches TransportBar's own "shows as muted" condition (`muted ||
+    /// volume == 0`) rather than just flipping the `muted` flag — dragging
+    /// the volume slider to 0 already reads as muted in the UI, but only
+    /// toggling `muted` there did nothing audible: un-muting from a 0-volume
+    /// state left the flag false and the volume still 0, so the icon (and
+    /// the silence) never changed no matter how many times you clicked it.
     func toggleMute() {
-        muted.toggle()
-        engine?.setMute(muted)
+        if muted || volume == 0 {
+            if volume == 0 {
+                setVolume(100) // already clears `muted` and unmutes the engine
+            } else {
+                muted = false
+                engine?.setMute(false)
+            }
+        } else {
+            muted = true
+            engine?.setMute(true)
+        }
     }
 
     /// Loop over the given cue: seek to its start, unpause, remember WHICH cue
