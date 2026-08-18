@@ -38,11 +38,9 @@ struct ChangeSpeedPanel: View {
                         .multilineTextAlignment(.trailing)
                         .frame(width: 80)
                         .textFieldStyle(.roundedBorder)
+                        .onSubmit { apply(Double(factorStr) ?? -1) }
                     Text("×").foregroundStyle(GlyphColor.quiet)
                     Spacer()
-                    Button(t("apply")) { apply(Double(factorStr) ?? -1) }
-                        .buttonStyle(.borderedProminent)
-                        .tint(GlyphColor.accent)
                 }
                 if invalid {
                     Text(t("changeSpeedInvalid")).font(GlyphFont.body(11)).foregroundStyle(GlyphColor.warn)
@@ -51,6 +49,14 @@ struct ChangeSpeedPanel: View {
         } footer: {
             Spacer()
             Button(t("close")) { dismiss() }.keyboardShortcut(.cancelAction)
+            // Moved out of the content row and into the footer so it follows
+            // the panel-wide convention (primary action bottom-right,
+            // Return-to-submit) — it used to be an orphaned button floating
+            // mid-form with no keyboard path to it at all.
+            Button(t("apply")) { apply(Double(factorStr) ?? -1) }
+                .keyboardShortcut(.defaultAction)
+                .buttonStyle(.borderedProminent)
+                .tint(GlyphColor.accent)
         }
     }
 

@@ -32,6 +32,16 @@ struct StyleManagerPanel: View {
         } footer: {
             Spacer()
             Button(t("close")) { dismiss() }.keyboardShortcut(.cancelAction)
+            // Moved out of the form body and into the footer so it follows
+            // the panel-wide convention (primary action bottom-right,
+            // Return-to-submit) instead of sitting as the form's last field
+            // with no keyboard path to it.
+            if editing != nil {
+                Button(t("apply")) { commit() }
+                    .keyboardShortcut(.defaultAction)
+                    .buttonStyle(.borderedProminent)
+                    .tint(GlyphColor.accent)
+            }
         }
         .onAppear { selectFirst() }
     }
@@ -88,9 +98,6 @@ struct StyleManagerPanel: View {
                 marginStepper(t("marginRight"), \.marginR)
                 marginStepper(t("marginVertical"), \.marginV)
             }
-            Button(t("apply")) { commit() }
-                .buttonStyle(.borderedProminent)
-                .tint(GlyphColor.accent)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
