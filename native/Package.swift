@@ -14,6 +14,7 @@ let package = Package(
         .library(name: "GlyphlineCore", targets: ["GlyphlineCore"]),
         .executable(name: "GlyphlineSpike", targets: ["GlyphlineSpike"]),
         .executable(name: "Glyphline", targets: ["Glyphline"]),
+        .executable(name: "GlyphlineUISmoke", targets: ["GlyphlineUISmoke"]),
     ],
     dependencies: [
         // In-app update checking/installing (replaces the old GitHub-Releases-poll +
@@ -44,6 +45,20 @@ let package = Package(
             ],
             resources: [.process("Resources")],
             linkerSettings: [.linkedFramework("AppKit")]
+        ),
+        // Local, manual smoke-test tool — launches a built .app and checks
+        // via the Accessibility API that it comes up (window + menu bar).
+        // Deliberately a plain executable, not a .testTarget: it needs a
+        // pre-built .app and Accessibility (TCC) permission neither CI nor a
+        // routine `swift test` has, so it must never run as a side effect of
+        // either. See Sources/GlyphlineUISmoke/main.swift for why this
+        // exists instead of XCUITest.
+        .executableTarget(
+            name: "GlyphlineUISmoke",
+            linkerSettings: [
+                .linkedFramework("AppKit"),
+                .linkedFramework("ApplicationServices"),
+            ]
         ),
     ]
 )

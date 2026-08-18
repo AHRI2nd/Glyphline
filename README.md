@@ -147,7 +147,13 @@ src/, src-tauri/                # Earlier Tauri 2 + React 19 + TypeScript implem
 
 `GlyphlineCore` — the format adapters, timing math, quality checks, and delivery-pipeline logic — is covered by a Swift Testing suite (`swift test` from `native/`), including round-trip tests for every format adapter, hand-verified drop-frame timecode math, and cross-validated binary format tests (EBU-STL and SCC were checked against independent reference implementations — `pycaption`, `ffmpeg` — rather than trusted from memory, since a wrong byte in a binary broadcast format fails silently).
 
-The app layer (SwiftUI views, AppKit/mpv/ffmpeg integration) is verified by building and running the app directly, since it depends on system frameworks and external processes that aren't practical to unit test.
+The app layer (SwiftUI views, AppKit/mpv/ffmpeg integration) is verified by building and running the app directly, since it depends on system frameworks and external processes that aren't practical to unit test. `GlyphlineUISmoke` automates the first slice of that: it launches a built `.app` and checks via the Accessibility API that a window actually appears and the menu bar built out, catching launch-time crashes and menu-wiring regressions without needing an Xcode project for real XCUITest.
+
+```bash
+swift run GlyphlineUISmoke [path/to/Glyphline.app]   # defaults to .build/Glyphline-release.app, then /Applications/Glyphline.app
+```
+
+Requires Accessibility permission for whatever runs it (System Settings → Privacy & Security → Accessibility) — a one-time, local grant, which is also why this isn't wired into CI.
 
 ## Why native, why macOS-only
 
