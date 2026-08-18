@@ -20,6 +20,7 @@ struct SpellCheckPanel: View {
 
     @State private var issues: [SpellIssue] = []
     @State private var hasRun = false
+    @State private var refreshTask: Task<Void, Never>?
 
     private var dictionary: SystemSpellDictionary { SystemSpellDictionary() }
 
@@ -77,6 +78,23 @@ struct SpellCheckPanel: View {
         }
         .onAppear { if !hasRun { run() } }
         .onChange(of: document.activeTranslationLanguageIndex) { run() }
+        // Results otherwise only ever reflected whatever the document looked
+        // like when the panel last ran — fixing a typo directly in the grid
+        // or the cue editor while this panel sat open left the stale row
+        // showing until the user remembered to click "Recheck" themselves.
+        // Debounced (matches MPVVideoView's subtitle-push debounce) so a
+        // spell-checked full-length document isn't re-scanned on every
+        // keystroke, only once typing pauses.
+        .onChange(of: document.doc.cues) { _, _ in scheduleRefresh() }
+    }
+
+    private func scheduleRefresh() {
+        refreshTask?.cancel()
+        refreshTask = Task {
+            try? await Task.sleep(for: .milliseconds(300))
+            guard !Task.isCancelled else { return }
+            run()
+        }
     }
 
     // ── controls ─────────────────────────────────────────────────────────────

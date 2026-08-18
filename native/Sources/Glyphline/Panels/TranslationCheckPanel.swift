@@ -19,6 +19,7 @@ struct TranslationCheckPanel: View {
     @State private var newSource = ""
     @State private var newTarget = ""
     @State private var hasRun = false
+    @State private var refreshTask: Task<Void, Never>?
 
     private var glossary: [GlossaryEntry] { document.doc.glossary ?? [] }
 
@@ -70,6 +71,20 @@ struct TranslationCheckPanel: View {
             PanelCloseButton()
         }
         .onAppear { if !hasRun { run() } }
+        // Same staleness fix as SpellCheckPanel: without this, editing a
+        // translation while this panel sat open left findings frozen at
+        // whatever they were when the panel last ran. Debounced for the same
+        // reason (glossaryIssues is O(entries × cues) — see run() below).
+        .onChange(of: document.doc.cues) { _, _ in scheduleRefresh() }
+    }
+
+    private func scheduleRefresh() {
+        refreshTask?.cancel()
+        refreshTask = Task {
+            try? await Task.sleep(for: .milliseconds(300))
+            guard !Task.isCancelled else { return }
+            run()
+        }
     }
 
     // ── findings ─────────────────────────────────────────────────────────────
