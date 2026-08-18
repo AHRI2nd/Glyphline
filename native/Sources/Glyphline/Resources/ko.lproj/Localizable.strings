@@ -175,6 +175,7 @@
 "rawEditParseFailed" = "이 텍스트에서 자막을 하나도 읽어내지 못했습니다. 포맷이 깨졌을 수 있으니 확인 후 다시 적용해주세요.";
 "apply" = "적용";
 "shiftPrompt" = "이동할 시간(초). 음수는 앞으로 당깁니다.";
+"shiftInvalidValue" = "유효한 숫자를 입력해주세요.";
 "shiftAll" = "전체";
 "shiftSelected" = "선택한 자막만";
 "uiScale" = "UI 배율";

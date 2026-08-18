@@ -175,6 +175,7 @@
 "rawEditParseFailed" = "このテキストから字幕を読み取れませんでした。形式が壊れている可能性があります。確認してからもう一度適用してください。";
 "apply" = "適用";
 "shiftPrompt" = "シフトする秒数。負の値で前にずらします。";
+"shiftInvalidValue" = "有効な数値を入力してください。";
 "shiftAll" = "全体";
 "shiftSelected" = "選択した字幕のみ";
 "uiScale" = "UI 倍率";

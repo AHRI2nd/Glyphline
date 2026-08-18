@@ -175,6 +175,7 @@
 "rawEditParseFailed" = "No cues could be parsed from this text. The format may be broken — check it and try applying again.";
 "apply" = "Apply";
 "shiftPrompt" = "Seconds to shift. Negative moves earlier.";
+"shiftInvalidValue" = "Enter a valid number.";
 "shiftAll" = "All";
 "shiftSelected" = "Selected only";
 "uiScale" = "UI scale";
