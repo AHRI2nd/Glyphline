@@ -359,6 +359,7 @@ struct GlyphlineApp: App {
             Button("Scenarist SCC (.scc)") { state.exportDocument(format: .scc) }
             Divider()
             Button("IMSC1 (.ttml)") { state.exportDocument(format: .imsc1) }
+            Button("DCP Subtitle (.xml)") { state.exportDocument(format: .dcp) }
         }
     }
 }

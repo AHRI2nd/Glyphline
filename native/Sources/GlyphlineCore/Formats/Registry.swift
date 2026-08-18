@@ -29,6 +29,10 @@ public let EXTERNAL_ADAPTERS: [FormatAdapter] = [
     // this one only ever gets used when "export as IMSC1" is picked
     // explicitly. Parsing reuses parseTtml since IMSC1 is a TTML subset.
     FormatAdapter(id: .imsc1, label: "IMSC1 (.ttml)", extensions: ["ttml"], parse: parseTtml, serialize: serializeImsc1),
+    // Export-only (see DCP.swift) — registered AFTER .ttml so opening a
+    // .xml file still resolves to the general TTML adapter, same reasoning
+    // as .imsc1 above.
+    FormatAdapter(id: .dcp, label: "DCP Subtitle (Interop XML)", extensions: ["xml"], parse: parseDcp, serialize: serializeDcp),
 ]
 
 /// Every extension we can open, including the native project file.

@@ -24,7 +24,7 @@ public enum InlineMarkup: Sendable, Equatable {
         switch format {
         case .srt, .vtt, .smi, .ttml, .imsc1: return .html
         case .ass: return .ass
-        case .sbv, .lrc, .txt, .stl, .scc: return .none
+        case .sbv, .lrc, .txt, .stl, .scc, .dcp: return .none
         }
     }
 
