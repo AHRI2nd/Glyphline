@@ -58,8 +58,13 @@ struct RecoveryPanel: View {
                 }
             }
         } footer: {
-            Spacer()
+            // Discard isolated on the far side, away from Restore — this is
+            // the one panel whose entire job is protecting against data
+            // loss, so the destructive option shouldn't sit flush against
+            // the safe default where a misclick can reach it (matches
+            // CloseConfirmPanel's Cancel/Save split).
             Button(t("recoveryDiscard")) { onDiscard() }
+            Spacer()
             Button(t("recoveryRestore")) { onRestore(chosen) }
                 .keyboardShortcut(.defaultAction)
                 .buttonStyle(.borderedProminent)
