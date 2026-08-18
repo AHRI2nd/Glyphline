@@ -22,7 +22,7 @@ public enum InlineMarkup: Sendable, Equatable {
 
     public static func forFormat(_ format: SubFormat) -> InlineMarkup {
         switch format {
-        case .srt, .vtt, .smi, .ttml: return .html
+        case .srt, .vtt, .smi, .ttml, .imsc1: return .html
         case .ass: return .ass
         case .sbv, .lrc, .txt, .stl, .scc: return .none
         }

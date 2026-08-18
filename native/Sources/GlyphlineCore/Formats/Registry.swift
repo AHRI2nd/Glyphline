@@ -24,6 +24,11 @@ public let EXTERNAL_ADAPTERS: [FormatAdapter] = [
     FormatAdapter(id: .ttml, label: "TTML/DFXP (.ttml)", extensions: ["ttml", "dfxp", "xml"], parse: parseTtml, serialize: serializeTtml),
     FormatAdapter(id: .stl, label: "EBU-STL (.stl)", extensions: ["stl"], parse: parseStl, serialize: serializeStl),
     FormatAdapter(id: .scc, label: "Scenarist SCC (.scc)", extensions: ["scc"], parse: parseScc, serialize: serializeScc),
+    // Registered AFTER .ttml so opening a .ttml/.xml file still resolves to
+    // the general TTML adapter (first match wins in adapterForExtension) —
+    // this one only ever gets used when "export as IMSC1" is picked
+    // explicitly. Parsing reuses parseTtml since IMSC1 is a TTML subset.
+    FormatAdapter(id: .imsc1, label: "IMSC1 (.ttml)", extensions: ["ttml"], parse: parseTtml, serialize: serializeImsc1),
 ]
 
 /// Every extension we can open, including the native project file.

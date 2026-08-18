@@ -357,6 +357,8 @@ struct GlyphlineApp: App {
             Divider()
             Button("EBU-STL (.stl)") { state.exportDocument(format: .stl) }
             Button("Scenarist SCC (.scc)") { state.exportDocument(format: .scc) }
+            Divider()
+            Button("IMSC1 (.ttml)") { state.exportDocument(format: .imsc1) }
         }
     }
 }
