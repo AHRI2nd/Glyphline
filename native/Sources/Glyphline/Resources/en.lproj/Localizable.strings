@@ -26,6 +26,9 @@
 "showTranslation" = "Show Translation Column";
 "addTranslationLanguage" = "Add Translation Language";
 "removeTranslationLanguage" = "Remove This Language";
+"removeTranslationLanguageConfirmTitle" = "Remove this translation language?";
+"removeTranslationLanguageConfirmMessage" = "Every cue's \"%@\" translation will be removed from the whole document.";
+"removeTranslationLanguageConfirmAction" = "Remove";
 "labelPrimaryLanguagePrompt" = "What language is the current translation in?";
 "addTranslationLanguagePrompt" = "Language code to add";
 "languageCode" = "Language code (e.g. ja)";

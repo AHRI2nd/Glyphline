@@ -26,6 +26,9 @@
 "showTranslation" = "翻訳列を表示";
 "addTranslationLanguage" = "翻訳言語を追加";
 "removeTranslationLanguage" = "この言語を削除";
+"removeTranslationLanguageConfirmTitle" = "この翻訳言語を削除しますか？";
+"removeTranslationLanguageConfirmMessage" = "「%@」の翻訳が文書全体のすべての字幕から削除されます。";
+"removeTranslationLanguageConfirmAction" = "削除";
 "labelPrimaryLanguagePrompt" = "今の翻訳は何語ですか?";
 "addTranslationLanguagePrompt" = "追加する言語コード";
 "languageCode" = "言語コード (例: ja)";

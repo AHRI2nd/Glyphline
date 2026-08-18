@@ -31,6 +31,11 @@ struct CueEditorBox: View {
     @State private var showingAddLanguage = false
     @State private var newPrimaryCode = ""
     @State private var newLanguageCode = ""
+    /// Set when the user taps a language chip's remove button while that
+    /// language actually has translated content somewhere in the document —
+    /// a single small "x" click otherwise wiped that language from every cue
+    /// with no confirmation at all.
+    @State private var languagePendingRemoval: (index: Int, code: String)?
 
     private enum Field { case text, translation }
 
@@ -73,6 +78,21 @@ struct CueEditorBox: View {
                 document.endInteractive()
                 editingCueId = nil
             }
+        }
+        .confirmationDialog(
+            t("removeTranslationLanguageConfirmTitle"),
+            isPresented: Binding(
+                get: { languagePendingRemoval != nil },
+                set: { if !$0 { languagePendingRemoval = nil } }
+            ),
+            presenting: languagePendingRemoval
+        ) { pending in
+            Button(t("removeTranslationLanguageConfirmAction"), role: .destructive) {
+                document.removeTranslationLanguage(at: pending.index)
+            }
+            Button(t("cancel"), role: .cancel) {}
+        } message: { pending in
+            Text(t("removeTranslationLanguageConfirmMessage", pending.code.uppercased()))
         }
     }
 
@@ -245,7 +265,7 @@ struct CueEditorBox: View {
         HStack(spacing: 2) {
             Text(code.uppercased()).font(GlyphFont.data(10, weight: index == activeIndex ? .bold : .regular))
             if index > 0 {
-                Button { document.removeTranslationLanguage(at: index) } label: {
+                Button { requestRemoveLanguage(at: index, code: code) } label: {
                     Image(systemName: "xmark").font(.system(size: 8))
                 }
                 .buttonStyle(.plain)
@@ -277,6 +297,20 @@ struct CueEditorBox: View {
         }
         .padding(10)
         .frame(width: 220)
+    }
+
+    /// Skips the confirmation for a language nobody's translated into yet —
+    /// only a real removal (content that would actually be lost) needs one.
+    private func requestRemoveLanguage(at index: Int, code: String) {
+        let hasContent = document.doc.cues.contains {
+            !($0.translationText(at: index, languages: languages) ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+        if hasContent {
+            languagePendingRemoval = (index, code)
+        } else {
+            document.removeTranslationLanguage(at: index)
+        }
     }
 
     private func addLanguage() {
