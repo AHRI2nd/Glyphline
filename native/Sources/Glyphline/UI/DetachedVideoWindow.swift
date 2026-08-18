@@ -27,6 +27,17 @@ struct DetachedVideoWindow: View {
                     .lineLimit(1)
                 Spacer()
                 Button(t("redockVideo")) {
+                    // The dock's own placeholder assumes .video is still in
+                    // dockLayout (it's rendering that pane's placeholder
+                    // right now, after all) — but this window's OWN button
+                    // has no such guarantee: View ▸ Panels ▸ Video can
+                    // remove .video from the dock entirely while this window
+                    // is open, and without this check, redocking would just
+                    // close the window with nowhere left for the video to
+                    // reappear.
+                    if !state.settings.visiblePanels.contains(.video) {
+                        state.settings.togglePanel(.video)
+                    }
                     state.videoDetached = false
                     dismissWindow(id: DETACHED_VIDEO_WINDOW_ID)
                 }
