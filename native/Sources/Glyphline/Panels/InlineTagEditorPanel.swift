@@ -28,6 +28,7 @@ struct InlineTagEditorPanel: View {
     /// mirrors CueEditorBox.editingCueId so a typing session collapses into
     /// one undo entry instead of one per keystroke.
     @State private var editingCueId: String?
+    @FocusState private var rawEditorFocused: Bool
 
     private var cue: Cue? {
         document.doc.cues.first { $0.id == document.activeCueId }
@@ -101,6 +102,16 @@ struct InlineTagEditorPanel: View {
         .onDisappear {
             if editingCueId != nil { document.endInteractive(); editingCueId = nil }
             media.positionPreview = nil
+        }
+        // Without these, an open bracket only closed on the next cue change —
+        // clicking away (focus loss) or flipping Structured/Raw mid-typing
+        // left it open, so the NEXT unrelated document edit got silently
+        // fused into the same undo step. Mirrors CueEditorBox's equivalent.
+        .onChange(of: rawEditorFocused) { _, focused in
+            if !focused, editingCueId != nil { document.endInteractive(); editingCueId = nil }
+        }
+        .onChange(of: rawMode) { _, _ in
+            if editingCueId != nil { document.endInteractive(); editingCueId = nil }
         }
     }
 
@@ -220,6 +231,7 @@ struct InlineTagEditorPanel: View {
                 .font(GlyphFont.data(11))
                 .frame(height: 100)
                 .overlay(RoundedRectangle(cornerRadius: 6).stroke(GlyphColor.borderStrong, lineWidth: 0.5))
+                .focused($rawEditorFocused)
         }
     }
 

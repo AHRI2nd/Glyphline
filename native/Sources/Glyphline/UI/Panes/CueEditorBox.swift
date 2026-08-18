@@ -63,6 +63,17 @@ struct CueEditorBox: View {
         .onChange(of: document.activeCueId) { _, _ in syncFromDocument() }
         .onChange(of: document.activeTranslationLanguageIndex) { _, _ in syncFromDocument() }
         .onAppear { syncFromDocument() }
+        // Without this, an interactive bracket left open by typing (below)
+        // only closed on the NEXT cue change — so clicking away to do
+        // something else entirely (Find & Replace's "Replace All", a
+        // batch-cleanup action, …) while this box still had focus-less
+        // pending keystrokes got silently fused into the same undo step.
+        .onChange(of: focus) { _, newValue in
+            if newValue == nil, editingCueId != nil {
+                document.endInteractive()
+                editingCueId = nil
+            }
+        }
     }
 
     @ViewBuilder
