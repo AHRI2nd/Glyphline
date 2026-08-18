@@ -9,9 +9,14 @@ import GlyphlineCore
 
 /// Which M5 panel sheet is currently presented (mutually exclusive — matches the
 /// Tauri app's one-modal-at-a-time UX). `nil` = none.
-enum ActivePanel: Identifiable {
+enum ActivePanel: Identifiable, Hashable {
     case batchCleanup, pointSync, changeSpeed, shiftTime
-    case styleManager, embeddedAssets, settings, rawEditor, help, closeConfirm
+    case styleManager, embeddedAssets, settings, rawEditor, help
+    /// nil = quitting the app; a tab id = closing just that one tab. Both
+    /// share the same sheet/options now (see CloseConfirmPanel) — a dirty
+    /// tab used to get a bare NSAlert with no save option, a different UI
+    /// for the identical underlying decision.
+    case closeConfirm(tabToClose: UUID?)
     case compareFiles, exportRange, autoSpot, batchConvert, customRules, resampleResolution, burnIn, deliveryPipeline
 
     var id: Self { self }

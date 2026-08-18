@@ -102,20 +102,23 @@ extension AppState {
     }
 
     /// Closes a tab. Refuses to close the last one (there's always exactly
-    /// one document open). If it's dirty, confirms with the user first — a
-    /// plain yes/no rather than the full save-flow sheet, since "discard or
-    /// keep the tab open" is the entire decision here.
+    /// one document open). If it's dirty, defers to CloseConfirmPanel — the
+    /// same sheet the quit flow uses, with a real Save option, instead of a
+    /// bare discard-or-cancel alert.
     func closeTab(_ id: UUID) {
         guard tabs.count > 1, let idx = tabs.firstIndex(where: { $0.id == id }) else { return }
         let isDirty = id == activeTabId ? document.isDirty : tabs[idx].isDirty
         if isDirty {
-            let alert = NSAlert()
-            alert.messageText = t("tabCloseDirtyTitle")
-            alert.informativeText = t("tabCloseDirtyBody", tabs[idx].fileName ?? t("untitled"))
-            alert.addButton(withTitle: t("tabCloseDiscard"))
-            alert.addButton(withTitle: t("cancel"))
-            guard alert.runModal() == .alertFirstButtonReturn else { return }
+            activePanel = .closeConfirm(tabToClose: id)
+            return
         }
+        forceCloseTab(id)
+    }
+
+    /// The actual removal, with no dirty check — called directly for a
+    /// clean tab, or once CloseConfirmPanel has resolved a dirty one.
+    func forceCloseTab(_ id: UUID) {
+        guard tabs.count > 1, let idx = tabs.firstIndex(where: { $0.id == id }) else { return }
         if id == activeTabId {
             let neighborIndex = idx > 0 ? idx - 1 : idx + 1
             switchToTab(tabs[neighborIndex].id)

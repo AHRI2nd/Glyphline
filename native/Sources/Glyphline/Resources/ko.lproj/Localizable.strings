@@ -495,9 +495,7 @@
 "closeTab" = "탭 닫기";
 "nextTab" = "다음 탭";
 "previousTab" = "이전 탭";
-"tabCloseDirtyTitle" = "저장하지 않은 변경사항이 있습니다";
-"tabCloseDirtyBody" = "\"%@\" 탭을 저장하지 않고 닫으시겠습니까?";
-"tabCloseDiscard" = "저장 안 함";
+"closeTabUnsavedMessage" = "\"%@\"에 저장하지 않은 변경 사항이 있습니다. 저장하지 않고 닫으면 변경 내용이 사라집니다.";
 
 "spectrogram" = "스펙트로그램";
 "spectrogramHint" = "진폭 파형 대신 주파수 스펙트로그램을 표시합니다. 배경음 아래 묻힌 발화 시작점을 찾기 쉽습니다.";

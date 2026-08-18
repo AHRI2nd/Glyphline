@@ -495,9 +495,7 @@
 "closeTab" = "タブを閉じる";
 "nextTab" = "次のタブ";
 "previousTab" = "前のタブ";
-"tabCloseDirtyTitle" = "未保存の変更があります";
-"tabCloseDirtyBody" = "「%@」を保存せずに閉じますか？";
-"tabCloseDiscard" = "保存しない";
+"closeTabUnsavedMessage" = "「%@」に保存されていない変更があります。保存せずに閉じると変更内容は失われます。";
 
 "spectrogram" = "スペクトログラム";
 "spectrogramHint" = "振幅波形の代わりに周波数スペクトログラムを表示します。背景音に埋もれた発話の始まりを見つけやすくなります。";

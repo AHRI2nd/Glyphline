@@ -28,7 +28,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // documents open, unsaved work in a background tab is just as real
         // as unsaved work in the front one.
         guard let state, state.anyTabDirty else { return .terminateNow }
-        state.activePanel = .closeConfirm
+        state.activePanel = .closeConfirm(tabToClose: nil)
         return .terminateLater
     }
 }

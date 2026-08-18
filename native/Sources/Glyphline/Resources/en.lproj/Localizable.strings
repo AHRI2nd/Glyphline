@@ -495,9 +495,7 @@
 "closeTab" = "Close Tab";
 "nextTab" = "Next Tab";
 "previousTab" = "Previous Tab";
-"tabCloseDirtyTitle" = "Unsaved Changes";
-"tabCloseDirtyBody" = "Close \"%@\" without saving?";
-"tabCloseDiscard" = "Don't Save";
+"closeTabUnsavedMessage" = "\"%@\" has unsaved changes. If you close it without saving, they will be lost.";
 
 "spectrogram" = "Spectrogram";
 "spectrogramHint" = "Shows a frequency spectrogram instead of the amplitude waveform — easier to spot a speech onset buried under background sound.";

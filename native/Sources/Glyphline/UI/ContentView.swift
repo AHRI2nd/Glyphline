@@ -189,7 +189,7 @@ struct ContentView: View {
         case .customRules: CustomRulesPanel(document: state.document, settings: state.settings)
         case .resampleResolution: ResampleResolutionPanel(document: state.document)
         case .burnIn: BurnInPanel(state: state)
-        case .closeConfirm: CloseConfirmPanel(state: state)
+        case .closeConfirm(let tabToClose): CloseConfirmPanel(state: state, tabToClose: tabToClose)
         case .styleManager: StyleManagerPanel(document: state.document)
         case .embeddedAssets: EmbeddedAssetsPanel(document: state.document)
         case .settings: SettingsPanel(settings: state.settings, media: state.media, document: state.document)
