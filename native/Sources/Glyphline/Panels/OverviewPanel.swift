@@ -14,7 +14,21 @@ struct OverviewPanel: View {
     let media: MediaModel
 
     private var overview: DocumentOverview {
-        buildOverview(document.doc, duration: media.duration > 0 ? media.duration : nil)
+        let idx = document.activeTranslationLanguageIndex
+        let languages = document.doc.translationLanguages ?? []
+        return buildOverview(document.doc, duration: media.duration > 0 ? media.duration : nil) {
+            $0.translationText(at: idx, languages: languages)
+        }
+    }
+
+    /// Only shown once a project has named languages — a single-translation
+    /// document's progress figure needs no qualifier (index 0 has no name).
+    private var activeLanguageLabel: String? {
+        let idx = document.activeTranslationLanguageIndex
+        guard idx > 0, let languages = document.doc.translationLanguages, languages.indices.contains(idx) else {
+            return nil
+        }
+        return languages[idx].uppercased()
     }
 
     var body: some View {
@@ -46,7 +60,8 @@ struct OverviewPanel: View {
             stat(t("statCueCount"), "\(data.totalCues)")
             stat(t("statSpan"), formatDisplayTime(data.span))
             if let progress = data.translationProgress {
-                stat(t("translation"), "\(Int(progress * 100))%")
+                let label = activeLanguageLabel.map { "\(t("translation")) (\($0))" } ?? t("translation")
+                stat(label, "\(Int(progress * 100))%")
             }
             Spacer()
         }

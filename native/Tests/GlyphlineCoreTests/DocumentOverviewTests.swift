@@ -77,6 +77,26 @@ struct DocumentOverviewTests {
         #expect(blank.translationProgress == nil)
     }
 
+    @Test("translationSelector lets progress follow a non-primary translation language")
+    func translationSelectorParameterized() {
+        var doc = doc([
+            cue("a", 0, 1, translation: "primary only"),
+            cue("b", 2, 3),
+        ])
+        doc.translationLanguages = ["ko", "ja"]
+        doc.cues[1].translations = ["ja": "二番目の言語"]
+
+        // Index 0 (the primary `translation` field, default selector): 1/2.
+        let primary = buildOverview(doc)
+        #expect(primary.translationProgress == 0.5)
+
+        // Index 1 ("ja"): only cue b has it, so progress swaps to the other cue.
+        let languages = doc.translationLanguages!
+        let secondary = buildOverview(doc) { $0.translationText(at: 1, languages: languages) }
+        #expect(secondary.translatedCues == 1)
+        #expect(secondary.translationProgress == 0.5)
+    }
+
     // ── actors ──────────────────────────────────────────────────────────────
 
     @Test("actors are counted and ordered by line count")

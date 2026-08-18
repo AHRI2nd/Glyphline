@@ -48,12 +48,13 @@ public func buildOverview(
     _ doc: SubtitleDocument,
     duration: Double? = nil,
     bucketCount: Int = 240,
-    minGap: Double = 30
+    minGap: Double = 30,
+    translationSelector: (Cue) -> String? = { $0.translation }
 ) -> DocumentOverview {
     var out = DocumentOverview()
     let cues = sortedCues(doc.cues)
     out.totalCues = cues.count
-    out.translatedCues = cues.filter { !($0.translation ?? "").trimmed().isEmpty }.count
+    out.translatedCues = cues.filter { !(translationSelector($0) ?? "").trimmed().isEmpty }.count
     guard let last = cues.last else { return out }
 
     let span = max(duration ?? 0, last.end)
@@ -66,7 +67,7 @@ public func buildOverview(
     var translated = [Double](repeating: 0, count: bucketCount)
 
     for cue in cues {
-        let hasTranslation = !(cue.translation ?? "").trimmed().isEmpty
+        let hasTranslation = !(translationSelector(cue) ?? "").trimmed().isEmpty
         let firstBucket = max(0, min(bucketCount - 1, Int(cue.start / width)))
         let lastBucket = max(0, min(bucketCount - 1, Int(cue.end / width)))
         for b in firstBucket...lastBucket {
