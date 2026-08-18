@@ -23,6 +23,42 @@ struct SpellCheckPanel: View {
 
     private var dictionary: SystemSpellDictionary { SystemSpellDictionary() }
 
+    /// For translation index 1+, the language was already named when it was
+    /// added (see CueEditorBox's language chip flow) — reuse that code as the
+    /// dictionary rather than asking again via a picker that only ever applied
+    /// to a single, unlabeled translation column. Index 0 (legacy single
+    /// translation, no language attached) still needs the manual picker below.
+    private var autoTranslationLangCode: String? {
+        let idx = document.activeTranslationLanguageIndex
+        guard idx > 0, let languages = document.doc.translationLanguages, languages.indices.contains(idx) else {
+            return nil
+        }
+        let code = languages[idx]
+        return SystemSpellDictionary.isSupported(code) ? code : nil
+    }
+
+    /// The raw language code for the active translation slot (1+), shown as a
+    /// read-only label — independent of whether macOS actually has a
+    /// dictionary for it, so an unsupported language (e.g. Japanese) still
+    /// shows which language is active instead of silently reverting to the
+    /// index-0 picker.
+    private var activeTranslationLangLabel: String? {
+        let idx = document.activeTranslationLanguageIndex
+        guard idx > 0, let languages = document.doc.translationLanguages, languages.indices.contains(idx) else {
+            return nil
+        }
+        return languages[idx]
+    }
+
+    /// index 0 (legacy, unlabeled translation) uses the manual picker;
+    /// index 1+ always follows the language it was added with, never the
+    /// picker's leftover value from a different slot.
+    private var effectiveTranslationDictLanguage: String? {
+        document.activeTranslationLanguageIndex > 0
+            ? autoTranslationLangCode
+            : (settings.spellTranslationLanguage.isEmpty ? nil : settings.spellTranslationLanguage)
+    }
+
     var body: some View {
         PanelShell(title: t("spellCheck"), width: 520) {
             VStack(alignment: .leading, spacing: 14) {
@@ -40,6 +76,7 @@ struct SpellCheckPanel: View {
             PanelCloseButton()
         }
         .onAppear { if !hasRun { run() } }
+        .onChange(of: document.activeTranslationLanguageIndex) { run() }
     }
 
     // ── controls ─────────────────────────────────────────────────────────────
@@ -57,10 +94,14 @@ struct SpellCheckPanel: View {
             HStack {
                 Text(t("spellTranslationLanguage")).font(GlyphFont.body(12))
                 Spacer()
-                languagePicker(Binding(
-                    get: { settings.spellTranslationLanguage },
-                    set: { settings.spellTranslationLanguage = $0; run() }
-                ))
+                if let label = activeTranslationLangLabel {
+                    Text(label.uppercased()).font(GlyphFont.data(12)).foregroundStyle(GlyphColor.quiet)
+                } else {
+                    languagePicker(Binding(
+                        get: { settings.spellTranslationLanguage },
+                        set: { settings.spellTranslationLanguage = $0; run() }
+                    ))
+                }
             }
             Text(t("spellDictHint"))
                 .font(GlyphFont.body(10)).foregroundStyle(GlyphColor.quiet)
@@ -137,7 +178,7 @@ struct SpellCheckPanel: View {
         // project list and the system dictionary are merged before checking.
         let options = SpellCheckOptions(
             textLanguage: settings.spellTextLanguage.isEmpty ? nil : settings.spellTextLanguage,
-            translationLanguage: settings.spellTranslationLanguage.isEmpty ? nil : settings.spellTranslationLanguage,
+            translationLanguage: effectiveTranslationDictLanguage,
             checkNotation: settings.spellCheckNotation,
             ignored: Set(document.doc.ignoredWords ?? [])
         )
