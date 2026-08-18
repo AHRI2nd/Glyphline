@@ -6,7 +6,11 @@ import SwiftUI
 import GlyphlineCore
 
 private enum MatchField { case text, translation }
-private struct Match { let cueId: String; let field: MatchField }
+/// `range` is the specific occurrence within that cue+field — without it,
+/// "Replace" (as opposed to "Replace All") had no way to know WHICH
+/// occurrence to touch when a field contained the query more than once, and
+/// silently replaced all of them, indistinguishable from "Replace All".
+private struct Match { let cueId: String; let field: MatchField; let range: NSRange }
 
 struct FindReplacePanel: View {
     let document: DocumentModel
@@ -31,15 +35,21 @@ struct FindReplacePanel: View {
     private var translationIndex: Int { document.activeTranslationLanguageIndex }
     private var translationLanguages: [String] { document.doc.translationLanguages ?? [] }
 
+    /// Every occurrence, not just one per cue+field — the counter and ←/→
+    /// navigation step through individual matches, so they need to actually
+    /// exist as individual entries.
     private func matches(_ re: NSRegularExpression) -> [Match] {
         var out: [Match] = []
         for cue in sortedCues(document.doc.cues) {
-            if re.firstMatch(in: cue.text, range: NSRange(cue.text.startIndex..., in: cue.text)) != nil {
-                out.append(Match(cueId: cue.id, field: .text))
+            let textNs = cue.text as NSString
+            for m in re.matches(in: cue.text, range: NSRange(location: 0, length: textNs.length)) {
+                out.append(Match(cueId: cue.id, field: .text, range: m.range))
             }
-            if let t = cue.translationText(at: translationIndex, languages: translationLanguages),
-               re.firstMatch(in: t, range: NSRange(t.startIndex..., in: t)) != nil {
-                out.append(Match(cueId: cue.id, field: .translation))
+            if let t = cue.translationText(at: translationIndex, languages: translationLanguages) {
+                let tNs = t as NSString
+                for m in re.matches(in: t, range: NSRange(location: 0, length: tNs.length)) {
+                    out.append(Match(cueId: cue.id, field: .translation, range: m.range))
+                }
             }
         }
         return out
@@ -136,12 +146,33 @@ struct FindReplacePanel: View {
         }
     }
 
+    /// Replaces ONLY the currently-selected occurrence — as opposed to
+    /// replaceIn(_:_:_:) below, which replaceAll() uses and which touches
+    /// every occurrence in the field at once.
     private func replaceCurrent(_ list: [Match]) {
         guard let re = regex, !list.isEmpty else { return }
         let m = list[min(cursor, list.count - 1)]
-        guard let cue = document.doc.cues.first(where: { $0.id == m.cueId }),
-              let edit = replaceIn(cue, m.field, re) else { return }
-        document.updateCue(cue.id, edit)
+        guard let cue = document.doc.cues.first(where: { $0.id == m.cueId }) else { return }
+        let source: String
+        switch m.field {
+        case .text: source = cue.text
+        case .translation: source = cue.translationText(at: translationIndex, languages: translationLanguages) ?? ""
+        }
+        // Re-matching restricted to the stored range recovers the
+        // NSTextCheckingResult needed for replacementString(for:) to expand
+        // $1-style backreferences correctly in regex mode.
+        guard let match = re.firstMatch(in: source, range: m.range) else { return }
+        let replacementText = re.replacementString(for: match, in: source, offset: 0, template: replacementTemplate)
+        let mutable = NSMutableString(string: source)
+        mutable.replaceCharacters(in: m.range, with: replacementText)
+        let next = mutable as String
+        switch m.field {
+        case .text:
+            document.updateCue(cue.id) { $0.text = next }
+        case .translation:
+            let idx = translationIndex; let langs = translationLanguages
+            document.updateCue(cue.id) { $0.setTranslationText(next, at: idx, languages: langs) }
+        }
     }
 
     private func replaceAll() {
