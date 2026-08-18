@@ -358,6 +358,18 @@ final class CueGridCoordinator: NSObject, NSTableViewDataSource, NSTableViewDele
 
     // ── Inline edit commit (NSTextFieldDelegate) ────────────────────────────────
 
+    /// The field's value when editing began, so Escape can restore it — AppKit
+    /// doesn't do this itself for a plain NSTextField (unlike, say, a Finder
+    /// rename field), so without this, Escape ended up committing whatever was
+    /// typed so far instead of discarding it, the opposite of what Escape
+    /// means everywhere else in the app.
+    private var editingOriginalValue: String?
+    /// Set true for the one controlTextDidEndEditing call that follows an
+    /// Escape-triggered cancelOperation, so that handler can skip the commit
+    /// instead of writing the (already-reverted) text back — cheap insurance
+    /// against relying on the reverted text alone happening to be a no-op.
+    private var editWasCancelled = false
+
     /// Spell checking lives on the field editor (an NSTextView shared per
     /// window), not on NSTextField, so it has to be configured per editing
     /// session rather than once at cell construction.
@@ -365,6 +377,8 @@ final class CueGridCoordinator: NSObject, NSTableViewDataSource, NSTableViewDele
         guard let field = obj.object as? NSTextField,
               let (column, _) = decodeFieldIdentifier(field),
               let editor = field.currentEditor() as? NSTextView else { return }
+        editingOriginalValue = field.stringValue
+        editWasCancelled = false
         // Only the prose columns. Timecodes, style names and actor names are
         // codes and identifiers — every value would be flagged.
         editor.isContinuousSpellCheckingEnabled = (column == .text || column == .translation)
@@ -379,9 +393,21 @@ final class CueGridCoordinator: NSObject, NSTableViewDataSource, NSTableViewDele
         NSSpellChecker.shared.automaticallyIdentifiesLanguages = true
     }
 
+    /// Escape while editing a cell restores its original value and ends
+    /// editing without committing — see editingOriginalValue's doc comment.
+    func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+        guard commandSelector == #selector(NSResponder.cancelOperation(_:)) else { return false }
+        if let editingOriginalValue { textView.string = editingOriginalValue }
+        editWasCancelled = true
+        control.window?.makeFirstResponder(nil)
+        return true
+    }
+
     func controlTextDidEndEditing(_ obj: Notification) {
         guard let field = obj.object as? NSTextField,
               let (column, cueId) = decodeFieldIdentifier(field) else { return }
+        defer { editingOriginalValue = nil }
+        if editWasCancelled { editWasCancelled = false; return }
         let value = field.stringValue
 
         switch column {
