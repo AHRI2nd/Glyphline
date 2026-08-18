@@ -68,6 +68,21 @@ struct CueEditorBox: View {
         .onChange(of: document.activeCueId) { _, _ in syncFromDocument() }
         .onChange(of: document.activeTranslationLanguageIndex) { _, _ in syncFromDocument() }
         .onAppear { syncFromDocument() }
+        // The grid edits the SAME active cue's text/translation directly
+        // (CueGridCoordinator), bypassing this box entirely — without this,
+        // typing a cell in the grid left this box showing the stale value
+        // until the user clicked away and back to force a resync. Guarded by
+        // `editingCueId == nil` so it never fires from our OWN keystrokes
+        // (commit() sets editingCueId before the document mutates), which
+        // would otherwise re-set the draft mid-word and disturb the caret.
+        .onChange(of: cue?.text) { _, newValue in
+            guard editingCueId == nil, let newValue, newValue != text else { return }
+            text = newValue
+        }
+        .onChange(of: cue?.translationText(at: activeIndex, languages: languages)) { _, newValue in
+            guard editingCueId == nil, let newValue, newValue != translation else { return }
+            translation = newValue
+        }
         // Without this, an interactive bracket left open by typing (below)
         // only closed on the NEXT cue change — so clicking away to do
         // something else entirely (Find & Replace's "Replace All", a
