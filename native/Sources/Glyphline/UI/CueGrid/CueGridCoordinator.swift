@@ -484,25 +484,32 @@ final class CueGridCoordinator: NSObject, NSTableViewDataSource, NSTableViewDele
         return rows.first { $0.id == document.activeCueId }
     }
 
+    /// What a batch-capable context-menu action should act on: the full
+    /// multi-selection when 2+ cues are selected (AppKit keeps a right-click
+    /// on an already-selected row within that selection, only collapsing to
+    /// a single row when you right-click OUTSIDE it — so this already tracks
+    /// "the rows the menu visually applies to"), else just the clicked row.
+    /// Delete/Merge already followed this; Insert After/Duplicate/Split used
+    /// to silently ignore the selection and act on contextRow alone.
+    private var contextTargetIds: [String] {
+        document.selectedIds.count > 1 ? Array(document.selectedIds) : (contextRow.map { [$0.id] } ?? [])
+    }
+
     @objc private func ctxPlayHere() {
         guard let cue = contextRow else { return }
         onPlayHere?(cue)
     }
     @objc private func ctxInsertAfter() {
-        guard let cue = contextRow else { return }
-        document.insertCueAfter(cue.id)
+        document.insertCueAfterEach(contextTargetIds)
     }
     @objc private func ctxDuplicate() {
-        guard let cue = contextRow else { return }
-        document.duplicateCue(cue.id)
+        document.duplicateCues(contextTargetIds)
     }
-    /// Splits at the playhead if it falls inside the cue, else at the midpoint
-    /// (mirrors CueList.tsx's ContextMenu splitCue handler).
+    /// Splits at the playhead if it falls inside the cue, else at the
+    /// midpoint — per cue, when acting on a multi-selection (mirrors
+    /// CueList.tsx's ContextMenu splitCue handler).
     @objc private func ctxSplit() {
-        guard let cue = contextRow else { return }
-        let tNow = playheadProvider?()
-        let at = (tNow.map { $0 > cue.start && $0 < cue.end } == true) ? tNow! : (cue.start + cue.end) / 2
-        document.splitCue(cue.id, atTime: at)
+        document.splitCues(contextTargetIds, playhead: playheadProvider?())
     }
     @objc private func ctxMerge() {
         let ids = document.selectedIds.isEmpty ? [] : Array(document.selectedIds)

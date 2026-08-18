@@ -303,6 +303,51 @@ struct DocumentModelStructureTests {
         #expect(m.doc.cues.count == 1)
     }
 
+    // ── batch variants (context menu acting on a multi-selection) ──────────────
+
+    @Test("duplicateCues duplicates every id as one undo step")
+    func duplicateBatch() {
+        let m = DocumentModel()
+        m.loadParsed(SubtitleDocument(cues: [cue("a", 0, 2, "one"), cue("b", 10, 12, "two")]))
+        m.duplicateCues(["a", "b"])
+        #expect(m.doc.cues.count == 4)
+        #expect(m.selectedIds.count == 2)
+        m.undo()
+        #expect(m.doc.cues.count == 2) // one undo step, not two
+    }
+
+    @Test("insertCueAfterEach inserts one blank cue after each id, as one undo step")
+    func insertAfterEachBatch() {
+        let m = DocumentModel()
+        m.loadParsed(SubtitleDocument(cues: [cue("a", 0, 2), cue("b", 10, 12)]))
+        m.insertCueAfterEach(["a", "b"])
+        #expect(m.doc.cues.count == 4)
+        m.undo()
+        #expect(m.doc.cues.count == 2)
+    }
+
+    @Test("splitCues splits each cue at the playhead if inside it, else its own midpoint")
+    func splitBatch() {
+        let m = DocumentModel()
+        m.loadParsed(SubtitleDocument(cues: [cue("a", 0, 10, "aaaa"), cue("b", 20, 30, "bbbb")]))
+        // Playhead falls inside "a" but not "b" — "b" should fall back to its own midpoint.
+        m.splitCues(["a", "b"], playhead: 3)
+        #expect(m.doc.cues.count == 4)
+        let sorted = m.doc.cues.sorted { $0.start < $1.start }
+        #expect(sorted[0].end == 3) // "a" split at the playhead
+        #expect(sorted[2].end == 25) // "b" split at its own midpoint (20...30)
+    }
+
+    @Test("splitCues is one undo step for the whole batch")
+    func splitBatchUndo() {
+        let m = DocumentModel()
+        m.loadParsed(SubtitleDocument(cues: [cue("a", 0, 10, "aaaa"), cue("b", 20, 30, "bbbb")]))
+        m.splitCues(["a", "b"], playhead: nil)
+        #expect(m.doc.cues.count == 4)
+        m.undo()
+        #expect(m.doc.cues.count == 2)
+    }
+
     @Test("mergeCues joins text and spans the full range")
     func merge() {
         let m = DocumentModel()

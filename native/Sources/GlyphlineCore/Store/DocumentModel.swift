@@ -688,6 +688,32 @@ public final class DocumentModel {
         activeCueId = cue.id
     }
 
+    /// Inserts a blank cue after each cue in `ids` — one undo entry for the
+    /// whole batch (a loop over insertCueAfter would leave one entry per
+    /// insertion instead), for the context menu's "Insert After" acting on a
+    /// multi-selection instead of only the row that was clicked.
+    public func insertCueAfterEach(_ ids: [String]) {
+        guard !ids.isEmpty else { return }
+        pushHistory()
+        var next = doc.cues
+        var lastInsertedId: String?
+        // Resolved from the ORIGINAL array so every insertion point reflects
+        // this batch's starting state, not cues this same batch already added.
+        let refs = doc.cues.filter { ids.contains($0.id) }
+        for ref in refs {
+            let start = ref.end + 0.001
+            let cue = Cue(id: newCueId(), start: start, end: start + 2, text: "")
+            if let idx = next.firstIndex(where: { $0.id == ref.id }) {
+                next.insert(cue, at: idx + 1)
+            } else {
+                next.append(cue)
+            }
+            lastInsertedId = cue.id
+        }
+        withCues(next)
+        if let lastInsertedId { activeCueId = lastInsertedId }
+    }
+
     /// Copy text/style/actor/spans; place right after, shifted by its duration
     /// (min 0.5s) so it doesn't sit exactly on top of the original.
     public func duplicateCue(_ id: String) {
@@ -707,6 +733,34 @@ public final class DocumentModel {
         withCues(next)
         activeCueId = copy.id
         selectedIds = [copy.id]
+    }
+
+    /// Duplicates every cue in `ids` — one undo entry for the whole batch,
+    /// for the context menu's "Duplicate" acting on a multi-selection
+    /// instead of only the row that was clicked. Selects all the copies
+    /// afterward, same spirit as duplicateCue selecting its one copy.
+    public func duplicateCues(_ ids: [String]) {
+        guard !ids.isEmpty else { return }
+        pushHistory()
+        var next = doc.cues
+        let refs = doc.cues.filter { ids.contains($0.id) }
+        var newIds: [String] = []
+        for ref in refs {
+            let dur = max(0.5, ref.end - ref.start)
+            var copy = ref
+            copy.id = newCueId()
+            copy.start = ref.end + 0.001
+            copy.end = ref.end + 0.001 + dur
+            newIds.append(copy.id)
+            if let idx = next.firstIndex(where: { $0.id == ref.id }) {
+                next.insert(copy, at: idx + 1)
+            } else {
+                next.append(copy)
+            }
+        }
+        withCues(next)
+        if let last = newIds.last { activeCueId = last }
+        selectedIds = Set(newIds)
     }
 
     /// Deletes `ids` and selects whichever cue slides into their place, falling
@@ -735,9 +789,11 @@ public final class DocumentModel {
 
     /// Split at `atTime`: multi-line text splits at the midpoint line break, else
     /// by half character length.
-    public func splitCue(_ id: String, atTime: Double) {
-        guard let cue = doc.cues.first(where: { $0.id == id }), atTime > cue.start, atTime < cue.end else { return }
-        pushHistory()
+    /// The pure half of a split: two cues from one, dividing the text at the
+    /// midpoint line break (multi-line) or midpoint character (single-line).
+    /// nil when `atTime` doesn't actually fall inside `cue`.
+    private func splitCueValue(_ cue: Cue, atTime: Double) -> (first: Cue, second: Cue)? {
+        guard atTime > cue.start, atTime < cue.end else { return nil }
         let lines = cue.text.components(separatedBy: "\n")
         var firstText = cue.text
         var secondText = ""
@@ -753,13 +809,41 @@ public final class DocumentModel {
         }
         var first = cue; first.end = atTime; first.text = firstText; first.tokens = nil
         var second = cue; second.id = newCueId(); second.start = atTime; second.text = secondText; second.tokens = nil
+        return (first, second)
+    }
 
+    public func splitCue(_ id: String, atTime: Double) {
+        guard let cue = doc.cues.first(where: { $0.id == id }),
+              let (first, second) = splitCueValue(cue, atTime: atTime) else { return }
+        pushHistory()
         var next = doc.cues
         if let idx = next.firstIndex(where: { $0.id == id }) {
             next.replaceSubrange(idx...idx, with: [first, second])
         }
         withCues(next)
         activeCueId = second.id
+    }
+
+    /// Splits every cue in `ids` at ITS OWN split point — the playhead if it
+    /// falls inside that particular cue, else that cue's own midpoint — as
+    /// one undo entry for the whole batch. A cue the split point doesn't
+    /// fall inside of (playhead elsewhere and somehow zero-length) is simply
+    /// left alone, mirroring splitCue's own guard.
+    public func splitCues(_ ids: [String], playhead: Double?) {
+        guard !ids.isEmpty else { return }
+        var next = doc.cues
+        var lastSecondId: String?
+        for cue in doc.cues where ids.contains(cue.id) {
+            let at = (playhead.map { $0 > cue.start && $0 < cue.end } == true) ? playhead! : (cue.start + cue.end) / 2
+            guard let (first, second) = splitCueValue(cue, atTime: at),
+                  let idx = next.firstIndex(where: { $0.id == cue.id }) else { continue }
+            next.replaceSubrange(idx...idx, with: [first, second])
+            lastSecondId = second.id
+        }
+        guard let lastSecondId else { return }
+        pushHistory()
+        withCues(next)
+        activeCueId = lastSecondId
     }
 
     public func mergeCues(_ ids: [String]) {
