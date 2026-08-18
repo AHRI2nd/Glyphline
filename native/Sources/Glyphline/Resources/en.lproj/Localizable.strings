@@ -169,6 +169,7 @@
 "chooseExportFormat" = "Choose a format to export";
 "rawEdit" = "Edit Raw Text";
 "rawEditHint" = "Serialized in the current format. Editing and applying re-parses it.";
+"rawEditParseFailed" = "No cues could be parsed from this text. The format may be broken — check it and try applying again.";
 "apply" = "Apply";
 "shiftPrompt" = "Seconds to shift. Negative moves earlier.";
 "shiftAll" = "All";

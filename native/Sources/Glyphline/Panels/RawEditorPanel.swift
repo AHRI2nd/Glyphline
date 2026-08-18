@@ -37,6 +37,16 @@ struct RawEditorPanel: View {
     }
 
     private func apply() {
+        // The format adapters are best-effort/non-throwing, so a broken
+        // paste doesn't fail loudly on its own — zero cues out of non-empty
+        // text is the one signal that's unambiguous enough to block on
+        // without also rejecting a deliberate "clear everything" edit.
+        let parsed = adapterForFormat(document.doc.format).parse(text)
+        guard !parsed.cues.isEmpty || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            error = t("rawEditParseFailed")
+            return
+        }
+        error = nil
         document.loadFromRaw(text, format: document.doc.format)
         dismiss()
     }
