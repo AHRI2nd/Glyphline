@@ -129,4 +129,25 @@ extension AppState {
     var anyTabDirty: Bool {
         tabs.contains { $0.id == activeTabId ? document.isDirty : $0.isDirty }
     }
+
+    /// Saves every dirty tab in place, switching through them one at a time
+    /// (only the active DocumentModel can actually be written) and returning
+    /// to whichever tab was active when this was called. Returns false if
+    /// any tab's save was cancelled (e.g. a Save As dialog dismissed without
+    /// choosing a location) — callers driving a quit/close flow should not
+    /// proceed past that, the same contract as `saveDocument()` for a single
+    /// tab.
+    @discardableResult
+    func saveAllTabs() -> Bool {
+        let originalTab = activeTabId
+        var allSucceeded = true
+        for tab in tabs {
+            let isDirty = tab.id == activeTabId ? document.isDirty : tab.isDirty
+            guard isDirty else { continue }
+            if tab.id != activeTabId { switchToTab(tab.id) }
+            if !saveDocument() { allSucceeded = false }
+        }
+        if activeTabId != originalTab { switchToTab(originalTab) }
+        return allSucceeded
+    }
 }

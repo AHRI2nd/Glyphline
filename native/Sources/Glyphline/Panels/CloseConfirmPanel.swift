@@ -27,11 +27,15 @@ struct CloseConfirmPanel: View {
                 resolve(true)
             }
             Button(t("saveAndClose")) {
-                if state.saveDocument() {
+                // Every dirty tab, not just the active one — quitting with an
+                // unsaved background tab used to lose that tab's changes
+                // with no warning, since only the foreground document ever
+                // got written.
+                if state.saveAllTabs() {
                     AutosaveService.clear()
                     resolve(true)
                 } else {
-                    resolve(false) // Save As was cancelled — don't quit
+                    resolve(false) // a Save As somewhere was cancelled — don't quit
                 }
             }
             .keyboardShortcut(.defaultAction)

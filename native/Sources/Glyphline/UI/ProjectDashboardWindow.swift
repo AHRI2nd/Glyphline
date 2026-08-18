@@ -33,7 +33,7 @@ struct ProjectDashboardWindow: View {
                 Text(t("dashboardTabCount", "\(state.tabs.count)"))
                     .font(GlyphFont.data(11)).foregroundStyle(GlyphColor.quiet)
                 Spacer()
-                Button(t("dashboardSaveAll")) { saveAll() }
+                Button(t("dashboardSaveAll")) { state.saveAllTabs() }
                     .controlSize(.small)
                     .disabled(!state.anyTabDirty)
             }
