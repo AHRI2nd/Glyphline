@@ -200,33 +200,79 @@ final class AppState {
         let panel = NSSavePanel()
         panel.allowedContentTypes = adapter.extensions.compactMap { UTType(filenameExtension: $0) }
         let base = (document.fileName ?? "untitled").replacingOccurrences(of: ".\(document.doc.format.rawValue)", with: "")
-        let suffix = source == .translation ? ".translated" : ""
-        panel.nameFieldStringValue = "\(base)\(suffix).\(adapter.extensions[0])"
+        panel.nameFieldStringValue = "\(base)\(exportSuffix(for: source)).\(adapter.extensions[0])"
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
+            // The active language, not always index 0 — otherwise switching to
+            // a second/third translation language and exporting would silently
+            // export the first one instead (translationIndex only matters when
+            // source == .translation; harmless to pass unconditionally).
             let content = document.exportContent(format: format, source: source,
+                                                 translationIndex: document.activeTranslationLanguageIndex,
                                                  scope: scope, rebaseToZero: rebaseToZero)
-            if format == .stl {
-                // Binary format — raw bytes via the Latin-1 bridge, no text
-                // encoding/CRLF/BOM options apply (see SubtitleFileIO.export).
-                try Data(latin1StringToBytes(content)).write(to: url, options: .atomic)
-            } else if format == .scc {
-                // Plain ASCII hex text, but a fixed literal header real
-                // decoders match byte-for-byte — the general encoding/BOM
-                // settings (UTF-16 would interleave null bytes and corrupt
-                // it outright; a BOM would break the header check) must not
-                // apply here, same reasoning as STL just without needing the
-                // Latin-1 bridge.
-                try content.write(to: url, atomically: true, encoding: .utf8)
-            } else {
-                // An explicit per-format choice (the CP949 SMI entry) wins over
-                // the general setting; otherwise the delivery preferences apply.
-                var options = settings.textOutputOptions
-                if let encodingLabel { options.encodingLabel = encodingLabel }
-                try SubtitleFileIO.writeText(content, to: url.path, options: options)
-            }
+            try writeExportedContent(content, format: format, to: url, encodingLabel: encodingLabel)
         } catch {
             lastError = t("errExportFailed", readableError(error))
+        }
+    }
+
+    /// One file per translation language, into a chosen folder — for a project
+    /// that ships several languages at once rather than one at a time (the
+    /// single-file flow above still exports whichever language is active).
+    /// No-ops for single-language projects (translationLanguages unset) since
+    /// there'd be nothing to batch.
+    func exportAllTranslations(format: SubFormat, encodingLabel: String? = nil) {
+        guard let languages = document.doc.translationLanguages, languages.count > 1 else { return }
+        let adapter = adapterForFormat(format)
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.prompt = t("exportAllChooseFolder")
+        guard panel.runModal() == .OK, let folder = panel.url else { return }
+        let base = (document.fileName ?? "untitled").replacingOccurrences(of: ".\(document.doc.format.rawValue)", with: "")
+        var failed: [String] = []
+        for (index, code) in languages.enumerated() {
+            let content = document.exportContent(format: format, source: .translation, translationIndex: index)
+            let url = folder.appendingPathComponent("\(base).\(code).\(adapter.extensions[0])")
+            do {
+                try writeExportedContent(content, format: format, to: url, encodingLabel: encodingLabel)
+            } catch {
+                failed.append(code)
+            }
+        }
+        if !failed.isEmpty {
+            lastError = t("errExportFailed", failed.joined(separator: ", "))
+        }
+    }
+
+    private func exportSuffix(for source: DocumentModel.ExportSource) -> String {
+        guard source == .translation else { return "" }
+        let idx = document.activeTranslationLanguageIndex
+        guard idx > 0, let languages = document.doc.translationLanguages, languages.indices.contains(idx) else {
+            return ".translated"
+        }
+        return ".\(languages[idx])"
+    }
+
+    private func writeExportedContent(_ content: String, format: SubFormat, to url: URL, encodingLabel: String?) throws {
+        if format == .stl {
+            // Binary format — raw bytes via the Latin-1 bridge, no text
+            // encoding/CRLF/BOM options apply (see SubtitleFileIO.export).
+            try Data(latin1StringToBytes(content)).write(to: url, options: .atomic)
+        } else if format == .scc {
+            // Plain ASCII hex text, but a fixed literal header real decoders
+            // match byte-for-byte — the general encoding/BOM settings
+            // (UTF-16 would interleave null bytes and corrupt it outright; a
+            // BOM would break the header check) must not apply here, same
+            // reasoning as STL just without needing the Latin-1 bridge.
+            try content.write(to: url, atomically: true, encoding: .utf8)
+        } else {
+            // An explicit per-format choice (the CP949 SMI entry) wins over
+            // the general setting; otherwise the delivery preferences apply.
+            var options = settings.textOutputOptions
+            if let encodingLabel { options.encodingLabel = encodingLabel }
+            try SubtitleFileIO.writeText(content, to: url.path, options: options)
         }
     }
 

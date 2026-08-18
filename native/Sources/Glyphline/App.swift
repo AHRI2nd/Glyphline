@@ -65,6 +65,10 @@ struct GlyphlineApp: App {
                 Button(t("menuExportTranslation")) {
                     state.exportDocument(format: state.document.doc.format, source: .translation)
                 }
+                Button(t("menuExportAllTranslations")) {
+                    state.exportAllTranslations(format: state.document.doc.format)
+                }
+                .disabled((state.document.doc.translationLanguages?.count ?? 0) < 2)
             }
             CommandGroup(replacing: .undoRedo) {
                 Button(t("undo")) { state.document.undo() }

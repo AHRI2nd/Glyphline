@@ -218,6 +218,8 @@
 "menuOpenSubtitle" = "자막 열기…";
 "menuSaveAs" = "다른 이름으로 저장…";
 "menuExportTranslation" = "번역 내보내기…";
+"menuExportAllTranslations" = "모든 언어로 내보내기…";
+"exportAllChooseFolder" = "저장할 폴더 선택";
 "errorTitle" = "오류";
 "ok" = "확인";
 "exportSmiCp949" = "SAMI · CP949 (.smi)";

@@ -218,6 +218,8 @@
 "menuOpenSubtitle" = "Open Subtitle…";
 "menuSaveAs" = "Save As…";
 "menuExportTranslation" = "Export Translation…";
+"menuExportAllTranslations" = "Export All Languages…";
+"exportAllChooseFolder" = "Choose a folder to save into";
 "errorTitle" = "Error";
 "ok" = "OK";
 "exportSmiCp949" = "SAMI · CP949 (.smi)";

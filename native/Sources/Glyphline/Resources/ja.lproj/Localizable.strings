@@ -218,6 +218,8 @@
 "menuOpenSubtitle" = "字幕を開く…";
 "menuSaveAs" = "名前を付けて保存…";
 "menuExportTranslation" = "翻訳をエクスポート…";
+"menuExportAllTranslations" = "すべての言語をエクスポート…";
+"exportAllChooseFolder" = "保存先フォルダを選択";
 "errorTitle" = "エラー";
 "ok" = "OK";
 "exportSmiCp949" = "SAMI · CP949 (.smi)";
