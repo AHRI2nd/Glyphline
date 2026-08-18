@@ -133,7 +133,15 @@ final class MediaModel {
     /// isPlaying=true → pause it (pass true); isPlaying=false → resume (pass false).
     func togglePlay() { engine?.setPause(isPlaying) }
 
+    /// A manual seek (grid click, waveform click, scrubber drag, Overview
+    /// jump — every one of them routes through here) cancels any active
+    /// loop, same as skip()/frameStep() already do below. Without this,
+    /// scrubbing away from a looping cue played normally right up until
+    /// crossing the loop's END time, then snapped backward with no warning —
+    /// the loop's own repeat rewind bypasses this method (calls engine?.seek
+    /// directly, see loopRegion's consumer), so it isn't affected by this.
     func seek(_ sec: Double) {
+        loopCueId = nil
         let clamped = max(0, min(sec, duration > 0 ? duration : sec))
         engine?.seek(clamped)
     }
