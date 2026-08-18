@@ -38,6 +38,11 @@ final class AppState {
     var recovery: AutosaveData?
     /// Snapshots older than `recovery`, offered as alternatives in the sheet.
     var olderRecoveries: [AutosaveData] = []
+    /// Other tabs' recovery groups (each newest-first), not yet offered — a
+    /// crash with several dirty tabs open leaves one recovery group per tab;
+    /// RecoveryPanel only ever shows one group at a time, so the rest wait
+    /// here until the current one resolves (see advanceToNextRecoveryGroup).
+    private var remainingRecoveryGroups: [[AutosaveData]] = []
     var lastError: String?
 
     /// Open files as tabs over the one shared `document` — see
@@ -77,10 +82,12 @@ final class AppState {
         self.document = DocumentModel()
         self.media = MediaModel()
         self.settings = AppSettings()
-        self.autosave = AutosaveService(document: document)
         let firstTab = DocumentTab(path: nil, fileName: nil, snapshot: .empty(.srt), isDirty: false)
         self.tabs = [firstTab]
         self.activeTabId = firstTab.id
+        // Needs tabs/activeTabId already set — it reads across every tab, not
+        // just the active document — so this comes after them.
+        self.autosave = AutosaveService(state: self)
     }
 
     /// Called once from the app's `.onAppear` — starts the autosave timer and
@@ -95,9 +102,16 @@ final class AppState {
         }
         autosave.start()
         let snapshots = AutosaveService.pendingSnapshots().filter { !$0.glyph.isEmpty }
-        if let newest = snapshots.first {
-            recovery = newest
-            olderRecoveries = Array(snapshots.dropFirst())
+        // Group by tab — a crash with several dirty tabs open leaves one
+        // recovery group per tab, each already newest-first from
+        // pendingSnapshots(); groups themselves are ordered by their newest
+        // snapshot so the most recently-edited tab is offered first.
+        let groups = Dictionary(grouping: snapshots, by: \.tabId).values
+            .sorted { ($0.first?.savedAt ?? .distantPast) > ($1.first?.savedAt ?? .distantPast) }
+        if let firstGroup = groups.first {
+            recovery = firstGroup.first
+            olderRecoveries = Array(firstGroup.dropFirst())
+            remainingRecoveryGroups = Array(groups.dropFirst())
         }
         // Update checking/notification is Sparkle's job now (see App.swift's
         // updaterController + settings.autoCheckUpdate binding) — no manual
@@ -167,7 +181,9 @@ final class AppState {
             try SubtitleFileIO.saveGlyph(document.doc, to: path)
             document.markSaved(path: path, name: (path as NSString).lastPathComponent)
             settings.addRecentFile(path)
-            AutosaveService.clear()
+            // Only THIS tab's recovery data — a successful save says nothing
+            // about whether some other still-dirty tab needs its own net.
+            AutosaveService.clearGroup(tabId: activeTabId)
             return true
         } catch {
             lastError = t("errSaveFailed", error.localizedDescription)
@@ -286,15 +302,29 @@ final class AppState {
         } catch {
             lastError = t("errRecoveryFailed", error.localizedDescription)
         }
-        AutosaveService.clear()
+        AutosaveService.clearGroup(tabId: recovery.tabId)
         self.recovery = nil
         olderRecoveries = []
+        advanceToNextRecoveryGroup()
     }
 
     func discardRecovery() {
-        AutosaveService.clear()
+        if let tabId = recovery?.tabId { AutosaveService.clearGroup(tabId: tabId) }
         recovery = nil
         olderRecoveries = []
+        advanceToNextRecoveryGroup()
+    }
+
+    /// If another tab also had pending recovery data, open a fresh tab for it
+    /// and show its group next — restoreRecovery/discardRecovery always act
+    /// on the CURRENT tab, so a second crashed document needs its own tab
+    /// before RecoveryPanel can offer it.
+    private func advanceToNextRecoveryGroup() {
+        guard !remainingRecoveryGroups.isEmpty else { return }
+        let next = remainingRecoveryGroups.removeFirst()
+        openNewTab()
+        recovery = next.first
+        olderRecoveries = Array(next.dropFirst())
     }
 
     // ── Media ────────────────────────────────────────────────────────────────────
