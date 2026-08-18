@@ -48,7 +48,7 @@ struct ChangeSpeedPanel: View {
             }
         } footer: {
             Spacer()
-            Button(t("close")) { dismiss() }.keyboardShortcut(.cancelAction)
+            Button(t("cancel")) { dismiss() }.keyboardShortcut(.cancelAction)
             // Moved out of the content row and into the footer so it follows
             // the panel-wide convention (primary action bottom-right,
             // Return-to-submit) — it used to be an orphaned button floating

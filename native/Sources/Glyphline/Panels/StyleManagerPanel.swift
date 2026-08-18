@@ -31,7 +31,7 @@ struct StyleManagerPanel: View {
             .frame(minHeight: 320)
         } footer: {
             Spacer()
-            Button(t("close")) { dismiss() }.keyboardShortcut(.cancelAction)
+            Button(t("cancel")) { dismiss() }.keyboardShortcut(.cancelAction)
             // Moved out of the form body and into the footer so it follows
             // the panel-wide convention (primary action bottom-right,
             // Return-to-submit) instead of sitting as the form's last field

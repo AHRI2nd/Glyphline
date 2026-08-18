@@ -48,7 +48,7 @@ struct CustomRulesPanel: View {
             }
         } footer: {
             Spacer()
-            Button(t("close")) { dismiss() }.keyboardShortcut(.cancelAction)
+            Button(t("cancel")) { dismiss() }.keyboardShortcut(.cancelAction)
             Button(t("customRulesApply")) {
                 lastAppliedCount = document.applyCustomRules(settings.customRules)
             }
