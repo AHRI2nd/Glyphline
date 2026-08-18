@@ -32,6 +32,15 @@ struct TornOffPanelWindow: View {
         .background(GlyphColor.bg)
         .preferredColorScheme(.dark)
         .frame(minWidth: 340, minHeight: 240)
+        // The WindowGroup itself only has ONE static title (it's declared
+        // once for all PanelKind values, since several panels can tear off
+        // into separate windows at once) — so every torn-off window showed
+        // the same generic OS titlebar text, indistinguishable in the Window
+        // menu, Mission Control, or ⌘` cycling. This sets the REAL per-
+        // instance title from the specific kind this window holds; the
+        // header Text above already showed the right name, just not the OS
+        // chrome around it.
+        .navigationTitle(t(kind.titleKey))
         .onDisappear {
             guard !didMergeOnDrag else { return }
             state.mergePanelBackDefault(kind)
