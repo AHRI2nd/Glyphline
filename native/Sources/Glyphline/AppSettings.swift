@@ -60,6 +60,14 @@ final class AppSettings {
         didSet { sparkleUpdater?.automaticallyChecksForUpdates = autoCheckUpdate }
     }
 
+    /// Whether the shared glossary window is currently open — see
+    /// AppState.activityWindowOpen for why this guard exists. Lives here
+    /// rather than on AppState since both call sites for opening this window
+    /// (the View menu and TranslationCheckPanel's "Open Shared Glossary"
+    /// button) already receive AppSettings, not AppState. Ephemeral — not
+    /// persisted.
+    var sharedGlossaryWindowOpen = false
+
     /// Spelling language per column. Empty string = don't dictionary-check
     /// that column, which is the only correct setting for Japanese (macOS has
     /// no Japanese spelling dictionary — the notation-variant check still runs).

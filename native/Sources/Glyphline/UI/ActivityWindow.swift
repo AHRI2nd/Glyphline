@@ -15,6 +15,11 @@ let ACTIVITY_WINDOW_ID = "activity"
 
 struct ActivityWindow: View {
     let state: AppState
+    /// This view doubles as docked panel content (ContentView's
+    /// dockPanelContent sets .panelPresentation to .pane there) — the
+    /// open-state tracking below must only fire for the standalone Window,
+    /// or simply having the panel docked would read as "the window is open."
+    @Environment(\.panelPresentation) private var presentation
 
     var body: some View {
         VStack(spacing: 0) {
@@ -45,6 +50,8 @@ struct ActivityWindow: View {
         .frame(minWidth: 380, minHeight: 260)
         .background(GlyphColor.bg)
         .preferredColorScheme(.dark)
+        .onAppear { if presentation != .pane { state.activityWindowOpen = true } }
+        .onDisappear { if presentation != .pane { state.activityWindowOpen = false } }
     }
 
     private var hasFinished: Bool {

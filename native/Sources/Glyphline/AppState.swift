@@ -64,6 +64,19 @@ final class AppState {
     /// permanently showing the "detached" placeholder with no way back.
     var videoDetached = false
 
+    /// Track whether each singleton auxiliary window is currently open, set
+    /// by the window's own onAppear/onDisappear. openWindow(id:) is
+    /// documented to just refocus an already-open Window scene, but that
+    /// isn't reliable in practice — a plain Button (unlike the checked
+    /// Toggle videoDetached above) has no memory of its own, so a second
+    /// click, or the same menu item's keyboard shortcut pressed twice,
+    /// could call openWindow(id:) again while the window was already open
+    /// and spawn a second copy of the same content instead of just
+    /// focusing the one that exists. Ephemeral — not persisted.
+    var activityWindowOpen = false
+    var miniPlayerWindowOpen = false
+    var dashboardWindowOpen = false
+
     /// Long-running background operations (burn-in encode, batch convert, …)
     /// that outlive the panel that started them — see BackgroundJobs.swift.
     /// Newest first; kept after completion until cleared so a job started

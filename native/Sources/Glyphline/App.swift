@@ -194,12 +194,19 @@ struct GlyphlineApp: App {
                         }
                     }
                 ))
-                Button(t("activityWindowTitle")) { openWindow(id: ACTIVITY_WINDOW_ID) }
+                // Guarded on the window's own open-state flag rather than
+                // calling openWindow(id:) unconditionally — see
+                // AppState.activityWindowOpen's comment: a plain Button (and
+                // its keyboard shortcut) has no memory of its own, so a
+                // second invocation while the window was already open could
+                // spawn a duplicate instead of just leaving the existing one
+                // in place.
+                Button(t("activityWindowTitle")) { if !state.activityWindowOpen { openWindow(id: ACTIVITY_WINDOW_ID) } }
                     .keyboardShortcut("0", modifiers: [.command, .shift])
-                Button(t("miniPlayerWindowTitle")) { openWindow(id: MINI_PLAYER_WINDOW_ID) }
+                Button(t("miniPlayerWindowTitle")) { if !state.miniPlayerWindowOpen { openWindow(id: MINI_PLAYER_WINDOW_ID) } }
                     .keyboardShortcut("m", modifiers: [.command, .option])
-                Button(t("dashboardWindowTitle")) { openWindow(id: PROJECT_DASHBOARD_WINDOW_ID) }
-                Button(t("sharedGlossaryWindowTitle")) { openWindow(id: SHARED_GLOSSARY_WINDOW_ID) }
+                Button(t("dashboardWindowTitle")) { if !state.dashboardWindowOpen { openWindow(id: PROJECT_DASHBOARD_WINDOW_ID) } }
+                Button(t("sharedGlossaryWindowTitle")) { if !state.settings.sharedGlossaryWindowOpen { openWindow(id: SHARED_GLOSSARY_WINDOW_ID) } }
                 Divider()
                 Toggle(t("showCueEditor"), isOn: Binding(
                     get: { state.settings.showCueEditor },

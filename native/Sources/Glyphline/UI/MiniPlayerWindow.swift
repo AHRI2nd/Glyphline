@@ -43,6 +43,8 @@ struct MiniPlayerWindow: View {
         .background(GlyphColor.bg)
         .background(floatingConfigurator)
         .preferredColorScheme(.dark)
+        .onAppear { if presentation != .pane { state.miniPlayerWindowOpen = true } }
+        .onDisappear { if presentation != .pane { state.miniPlayerWindowOpen = false } }
     }
 
     /// Only applied in the standalone Window scene — `view.window` in a

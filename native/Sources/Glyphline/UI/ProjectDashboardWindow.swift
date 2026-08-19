@@ -11,6 +11,10 @@ let PROJECT_DASHBOARD_WINDOW_ID = "projectDashboard"
 
 struct ProjectDashboardWindow: View {
     let state: AppState
+    /// This view doubles as docked panel content — see
+    /// ActivityWindow.swift's identical comment for why the open-state
+    /// tracking below is gated on presentation rather than unconditional.
+    @Environment(\.panelPresentation) private var presentation
 
     var body: some View {
         VStack(spacing: 0) {
@@ -43,6 +47,8 @@ struct ProjectDashboardWindow: View {
         .frame(minWidth: 420, minHeight: 260)
         .background(GlyphColor.bg)
         .preferredColorScheme(.dark)
+        .onAppear { if presentation != .pane { state.dashboardWindowOpen = true } }
+        .onDisappear { if presentation != .pane { state.dashboardWindowOpen = false } }
     }
 
     /// Saves every dirty tab in place, switching through them one at a time

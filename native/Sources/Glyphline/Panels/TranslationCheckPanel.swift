@@ -115,7 +115,7 @@ struct TranslationCheckPanel: View {
             HStack {
                 Text(t("tcGlossary")).font(GlyphFont.display(11)).foregroundStyle(GlyphColor.quiet)
                 Spacer()
-                Button(t("tcOpenSharedGlossary")) { openWindow(id: SHARED_GLOSSARY_WINDOW_ID) }
+                Button(t("tcOpenSharedGlossary")) { if !settings.sharedGlossaryWindowOpen { openWindow(id: SHARED_GLOSSARY_WINDOW_ID) } }
                     .controlSize(.small)
             }
             Text(t("tcGlossaryHint"))

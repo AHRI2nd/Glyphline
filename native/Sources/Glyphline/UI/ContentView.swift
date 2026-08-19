@@ -349,7 +349,7 @@ private struct TitleHeader: View {
     /// once everything's settled it stays as a plain marker so a finished
     /// (or failed) job someone isn't watching is still discoverable.
     private var activityIndicator: some View {
-        Button { openWindow(id: ACTIVITY_WINDOW_ID) } label: {
+        Button { if !state.activityWindowOpen { openWindow(id: ACTIVITY_WINDOW_ID) } } label: {
             HStack(spacing: 4) {
                 if state.runningBackgroundJobCount > 0 {
                     ProgressView().controlSize(.mini)

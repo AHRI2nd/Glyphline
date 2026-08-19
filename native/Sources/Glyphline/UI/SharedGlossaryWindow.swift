@@ -17,6 +17,10 @@ struct SharedGlossaryWindow: View {
     @State private var newTarget = ""
     @State private var newNote = ""
     @State private var newLanguage = ""
+    /// This view doubles as docked panel content — see
+    /// ActivityWindow.swift's identical comment for why the open-state
+    /// tracking below is gated on presentation rather than unconditional.
+    @Environment(\.panelPresentation) private var presentation
 
     var body: some View {
         VStack(spacing: 0) {
@@ -77,6 +81,8 @@ struct SharedGlossaryWindow: View {
         .frame(minWidth: 420, minHeight: 300)
         .background(GlyphColor.bg)
         .preferredColorScheme(.dark)
+        .onAppear { if presentation != .pane { settings.sharedGlossaryWindowOpen = true } }
+        .onDisappear { if presentation != .pane { settings.sharedGlossaryWindowOpen = false } }
     }
 
     private func addTerm() {
