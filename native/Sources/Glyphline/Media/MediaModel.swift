@@ -6,6 +6,7 @@
 
 import Observation
 import Foundation
+import GlyphlineCore
 
 let PLAYBACK_RATES: [Double] = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0]
 
@@ -198,6 +199,20 @@ final class MediaModel {
     }
 
     func clearLoop() { loopCueId = nil }
+
+    /// Toggle looping the currently active cue — shared by TransportBar's
+    /// loop button and the Playback menu's keyboard shortcut so the two
+    /// don't drift apart with separately-maintained copies of the same
+    /// guard. A no-op with nothing to loop and no loop already running (same
+    /// as the button's own disabled state, see TransportBar's loop button).
+    func toggleLoopActiveCue(document: DocumentModel) {
+        if loopRegion != nil {
+            clearLoop()
+            return
+        }
+        guard let id = document.activeCueId, let cue = document.doc.cues.first(where: { $0.id == id }) else { return }
+        playRegion(cueId: cue.id, start: cue.start, end: cue.end)
+    }
 
     func pushSubtitles(_ assText: String) { engine?.setSubtitles(assText) }
 

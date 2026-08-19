@@ -27,7 +27,9 @@ struct TransportBar: View {
                 // says so up front rather than leaving the click unexplained.
                 // Stays enabled while a loop IS running so it can still be
                 // turned off even if the active cue selection changed since.
-                IconButton(system: "repeat", label: t("loopActiveCue"), active: media.loopRegion != nil) { toggleLoopActiveCue() }
+                IconButton(system: "repeat", label: t("loopActiveCue"), active: media.loopRegion != nil) {
+                    media.toggleLoopActiveCue(document: document)
+                }
                     .disabled(document.activeCueId == nil && media.loopRegion == nil)
 
                 Text("\(formatDisplayTime(media.currentTime)) / \(formatDisplayTime(media.duration))")
@@ -74,16 +76,6 @@ struct TransportBar: View {
         .overlay(Rectangle().frame(height: 0.5).foregroundStyle(GlyphColor.border), alignment: .top)
         .disabled(media.mediaPath == nil)
         .opacity(media.mediaPath == nil ? 0.4 : 1)
-    }
-
-    /// Loop over the active cue (toggle) — ported from Transport.tsx's toggleLoopActive.
-    private func toggleLoopActiveCue() {
-        if media.loopRegion != nil {
-            media.clearLoop()
-            return
-        }
-        guard let id = document.activeCueId, let cue = document.doc.cues.first(where: { $0.id == id }) else { return }
-        media.playRegion(cueId: cue.id, start: cue.start, end: cue.end)
     }
 
     /// Delegates to the shared rule in CueCreation.swift so this button, ⌘Return

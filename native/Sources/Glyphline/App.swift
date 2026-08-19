@@ -158,6 +158,18 @@ struct GlyphlineApp: App {
                 Button(t("skipFwd5")) { state.media.skip(5) }
                     .keyboardShortcut(.rightArrow, modifiers: [.command, .shift])
                 Divider()
+                // Frame-step and loop were mouse-only (Transport's icon
+                // buttons) with no keyboard path at all. ⌘←/→ and ⌘⇧←/→ are
+                // already skip 1s/5s, and ⌘⌥←/→ is tab switching, so these
+                // use brackets instead of a fourth arrow-key combination.
+                Button(t("frameBack")) { state.media.frameStep(forward: false) }
+                    .keyboardShortcut("[", modifiers: .command)
+                Button(t("frameForward")) { state.media.frameStep(forward: true) }
+                    .keyboardShortcut("]", modifiers: .command)
+                Button(t("loopActiveCue")) { state.media.toggleLoopActiveCue(document: state.document) }
+                    .keyboardShortcut("l", modifiers: .command)
+                    .disabled(state.document.activeCueId == nil && state.media.loopRegion == nil)
+                Divider()
                 audioTrackMenu
             }
             CommandGroup(after: .appSettings) {
