@@ -211,8 +211,14 @@ struct GlyphlineApp: App {
                     // by accident. Paired with Activity's ⌘⇧0 instead — same
                     // family, no letter shared with an editing command.
                     .keyboardShortcut("1", modifiers: [.command, .shift])
+                // Completes the same ⌘⇧<digit> family as Activity (0) and
+                // Mini Player (1) above — these two had no accelerator at
+                // all before, the odd ones out among the four auxiliary
+                // windows for no reason tied to how often either gets used.
                 Button(t("dashboardWindowTitle")) { if !state.dashboardWindowOpen { openWindow(id: PROJECT_DASHBOARD_WINDOW_ID) } }
+                    .keyboardShortcut("2", modifiers: [.command, .shift])
                 Button(t("sharedGlossaryWindowTitle")) { if !state.settings.sharedGlossaryWindowOpen { openWindow(id: SHARED_GLOSSARY_WINDOW_ID) } }
+                    .keyboardShortcut("3", modifiers: [.command, .shift])
                 Divider()
                 Toggle(t("showCueEditor"), isOn: Binding(
                     get: { state.settings.showCueEditor },
