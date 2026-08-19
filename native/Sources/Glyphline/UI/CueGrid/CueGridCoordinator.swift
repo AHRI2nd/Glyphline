@@ -412,10 +412,10 @@ final class CueGridCoordinator: NSObject, NSTableViewDataSource, NSTableViewDele
 
         switch column {
         case .start:
-            guard let t = parseTime(value) else { reload(force: true); return }
+            guard let t = parseTime(value) else { rejectTimecode(); return }
             document.updateCue(cueId) { $0.start = t }
         case .end:
-            guard let t = parseTime(value) else { reload(force: true); return }
+            guard let t = parseTime(value) else { rejectTimecode(); return }
             document.updateCue(cueId) { $0.end = t }
         case .style:
             document.updateCue(cueId) { $0.style = value.isEmpty ? nil : value }
@@ -430,6 +430,17 @@ final class CueGridCoordinator: NSObject, NSTableViewDataSource, NSTableViewDele
         case .flag, .index, .duration:
             break
         }
+    }
+
+    /// An unparseable timecode used to just revert(force:) with no
+    /// indication anything had happened — the edit visibly vanished, which
+    /// reads as "did that even register?" rather than "that wasn't a valid
+    /// time." A system beep is the standard macOS signal for exactly this
+    /// (same convention as a rejected login password), needs no new UI, and
+    /// works the same regardless of app language.
+    private func rejectTimecode() {
+        NSSound.beep()
+        reload(force: true)
     }
 
     // ── I/O/P live timing (ported from CueList.tsx keydown handler) ────────────
