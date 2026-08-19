@@ -204,7 +204,13 @@ struct GlyphlineApp: App {
                 Button(t("activityWindowTitle")) { if !state.activityWindowOpen { openWindow(id: ACTIVITY_WINDOW_ID) } }
                     .keyboardShortcut("0", modifiers: [.command, .shift])
                 Button(t("miniPlayerWindowTitle")) { if !state.miniPlayerWindowOpen { openWindow(id: MINI_PLAYER_WINDOW_ID) } }
-                    .keyboardShortcut("m", modifiers: [.command, .option])
+                    // Was ⌘⌥M — one modifier key off Subtitle ▸ Merge Cues'
+                    // ⌘⇧M (Option and Shift sit right next to each other),
+                    // and a fat-fingered press of the wrong one meant either
+                    // "open a small floating window" or "merge cues" firing
+                    // by accident. Paired with Activity's ⌘⇧0 instead — same
+                    // family, no letter shared with an editing command.
+                    .keyboardShortcut("1", modifiers: [.command, .shift])
                 Button(t("dashboardWindowTitle")) { if !state.dashboardWindowOpen { openWindow(id: PROJECT_DASHBOARD_WINDOW_ID) } }
                 Button(t("sharedGlossaryWindowTitle")) { if !state.settings.sharedGlossaryWindowOpen { openWindow(id: SHARED_GLOSSARY_WINDOW_ID) } }
                 Divider()
