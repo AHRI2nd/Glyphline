@@ -73,6 +73,45 @@ fi
 # reason, falling back to Bundle.module only for unsigned dev builds.
 cp -R "$RESOURCE_BUNDLE" "$APP_DIR/Contents/Resources/Glyphline_Glyphline.bundle"
 
+# The built executable's only LC_RPATH entry is @loader_path (verified with
+# `otool -l`, not the conventional @executable_path/../Frameworks — swift
+# build doesn't add that for us) — meaning @rpath/Sparkle.framework/... only
+# resolves in the SAME directory as the Glyphline binary itself, i.e.
+# Contents/MacOS/, not Contents/Frameworks/. `swift run`/.build/debug work
+# by accident (Sparkle.framework already sits right next to the binary
+# there); this assembled .app never carried the framework at all, so it
+# launched fine unsigned/undistributed but crashed at launch (dyld: Library
+# not loaded) the moment it left .build/ — the crash a beta tester actually
+# hit. Copying it into Frameworks/ (the "proper" location) would NOT fix
+# this without also re-linking with a real rpath, so this matches the
+# rpath that already exists instead.
+SPARKLE_FRAMEWORK="$BUILD_DIR/Sparkle.framework"
+if [ ! -d "$SPARKLE_FRAMEWORK" ]; then
+    echo "error: Sparkle.framework not found at $SPARKLE_FRAMEWORK" >&2
+    exit 1
+fi
+cp -R "$SPARKLE_FRAMEWORK" "$APP_DIR/Contents/MacOS/Sparkle.framework"
+
+# swift build's Sparkle.framework ships ad-hoc signed (TeamIdentifier=not
+# set) — invalid for a notarized, distributed app. Every piece of nested
+# executable code inside it (the XPC services, the Autoupdate tool, the
+# nested Updater.app) must be signed with our real identity, and signed
+# INNERMOST FIRST: codesign reseals a bundle's Resources (including nested
+# bundles) when it signs, so signing the outer Sparkle.framework before its
+# XPC services/Autoupdate/Updater.app would seal in their now-stale ad-hoc
+# signatures. The final `codesign --deep` on the whole .app below then
+# leaves all of this alone (it only signs code that ISN'T already validly
+# signed), same as it does for any other pre-signed vendored framework.
+echo "==> Codesigning embedded Sparkle.framework (innermost first)"
+codesign --force --options runtime --sign "$SIGN_IDENTITY" \
+    "$APP_DIR/Contents/MacOS/Sparkle.framework/Versions/B/Autoupdate"
+find "$APP_DIR/Contents/MacOS/Sparkle.framework/Versions/B/XPCServices" -maxdepth 1 -name "*.xpc" -print0 \
+    | xargs -0 -I{} codesign --force --options runtime --sign "$SIGN_IDENTITY" {}
+codesign --force --options runtime --sign "$SIGN_IDENTITY" \
+    "$APP_DIR/Contents/MacOS/Sparkle.framework/Versions/B/Updater.app"
+codesign --force --options runtime --sign "$SIGN_IDENTITY" \
+    "$APP_DIR/Contents/MacOS/Sparkle.framework"
+
 echo "==> Codesigning (Hardened Runtime + entitlements)"
 codesign --force --deep --options runtime \
     --entitlements "$SCRIPT_DIR/entitlements.plist" \
