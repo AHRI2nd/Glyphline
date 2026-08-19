@@ -32,8 +32,7 @@ struct AutoSpotPanel: View {
         PanelShell(title: t("autoSpot"), width: 420) {
             VStack(alignment: .leading, spacing: 12) {
                 if media.waveformAudio == nil {
-                    Text(t("autoSpotNeedsWaveform"))
-                        .font(GlyphFont.body(12)).foregroundStyle(GlyphColor.amber)
+                    waveformStatusMessage
                 } else {
                     Text(t("autoSpotHint"))
                         .font(GlyphFont.body(11)).foregroundStyle(GlyphColor.quiet)
@@ -64,6 +63,35 @@ struct AutoSpotPanel: View {
             .buttonStyle(.borderedProminent)
             .tint(GlyphColor.accent)
             .disabled(preview.isEmpty)
+        }
+    }
+
+    /// Before this, every reason waveformAudio could be nil — no media open
+    /// at all, media open but extraction not yet kicked off, extraction
+    /// actively running, or extraction having outright failed — collapsed
+    /// into the same one generic "load the waveform first" line. That's
+    /// right for the idle case but actively misleading for the other three:
+    /// telling someone to "check the Waveform pane is showing" while
+    /// extraction is genuinely mid-run just reads as the app not noticing
+    /// its own state, and a real failure (mpv missing, decode error) gave no
+    /// indication anything had gone wrong at all.
+    @ViewBuilder
+    private var waveformStatusMessage: some View {
+        if media.mediaPath == nil {
+            Text(t("autoSpotNoMedia"))
+                .font(GlyphFont.body(12)).foregroundStyle(GlyphColor.quiet)
+        } else {
+            switch media.waveformStatus {
+            case .extracting:
+                HStack(spacing: 6) {
+                    ProgressView().controlSize(.small)
+                    Text(t("autoSpotExtracting")).font(GlyphFont.body(12)).foregroundStyle(GlyphColor.quiet)
+                }
+            case .failed(let message):
+                Text(t("autoSpotFailed", message)).font(GlyphFont.body(12)).foregroundStyle(GlyphColor.warn)
+            case .idle, .ready:
+                Text(t("autoSpotNeedsWaveform")).font(GlyphFont.body(12)).foregroundStyle(GlyphColor.amber)
+            }
         }
     }
 

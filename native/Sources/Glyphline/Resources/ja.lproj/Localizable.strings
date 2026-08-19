@@ -432,6 +432,9 @@
 
 "autoSpot" = "無音ベース自動スポッティング…";
 "autoSpotNeedsWaveform" = "先に波形を読み込んでください（波形パネルが表示されているか確認）。";
+"autoSpotNoMedia" = "先にメディアを開いてください。";
+"autoSpotExtracting" = "波形を抽出中…";
+"autoSpotFailed" = "波形の抽出に失敗しました: %@";
 "autoSpotHint" = "発話らしい区間ごとに空の字幕を作成します。すでに字幕がある区間はスキップされます。音声認識ではなく音量しきい値による判定です。";
 "autoSpotThreshold" = "しきい値";
 "autoSpotMinSilence" = "最小無音間隔";

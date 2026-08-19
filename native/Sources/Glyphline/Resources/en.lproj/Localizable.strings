@@ -432,6 +432,9 @@
 
 "autoSpot" = "Auto-Spot from Silence…";
 "autoSpotNeedsWaveform" = "The waveform needs to be loaded first (check that the Waveform pane is showing).";
+"autoSpotNoMedia" = "Open media first.";
+"autoSpotExtracting" = "Extracting waveform…";
+"autoSpotFailed" = "Waveform extraction failed: %@";
 "autoSpotHint" = "Creates a blank cue over every stretch that looks like speech, skipping spans that already have a cue. Volume threshold, not speech recognition.";
 "autoSpotThreshold" = "Threshold";
 "autoSpotMinSilence" = "Min. Silence Gap";

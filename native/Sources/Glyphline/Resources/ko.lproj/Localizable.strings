@@ -432,6 +432,9 @@
 
 "autoSpot" = "무음 기반 자동 스포팅…";
 "autoSpotNeedsWaveform" = "먼저 파형이 로드되어야 합니다 (파형 탭이 표시되어 있는지 확인하세요).";
+"autoSpotNoMedia" = "먼저 미디어를 열어주세요.";
+"autoSpotExtracting" = "파형을 추출하는 중…";
+"autoSpotFailed" = "파형 추출 실패: %@";
 "autoSpotHint" = "발화로 보이는 구간마다 빈 자막 줄을 만듭니다. 이미 자막이 있는 구간은 건너뜁니다. 음성 인식이 아닌 음량 임계값 기반입니다.";
 "autoSpotThreshold" = "임계값";
 "autoSpotMinSilence" = "최소 무음 간격";
