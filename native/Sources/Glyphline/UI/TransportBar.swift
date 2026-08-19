@@ -21,7 +21,14 @@ struct TransportBar: View {
                 IconButton(system: media.isPlaying ? "pause.fill" : "play.fill", label: t("playPause")) { media.togglePlay() }
                 IconButton(system: "chevron.right", label: t("frameForward")) { media.frameStep(forward: true) }
                 IconButton(system: "goforward.5", label: t("skipFwd5")) { media.skip(5) }
+                // toggleLoopActiveCue() silently did nothing when clicked
+                // with no active cue and no loop already running (the guard
+                // in that function just returned) — disabling here instead
+                // says so up front rather than leaving the click unexplained.
+                // Stays enabled while a loop IS running so it can still be
+                // turned off even if the active cue selection changed since.
                 IconButton(system: "repeat", label: t("loopActiveCue"), active: media.loopRegion != nil) { toggleLoopActiveCue() }
+                    .disabled(document.activeCueId == nil && media.loopRegion == nil)
 
                 Text("\(formatDisplayTime(media.currentTime)) / \(formatDisplayTime(media.duration))")
                     .font(GlyphFont.data(11))
