@@ -256,6 +256,12 @@ func updatingSelection(at path: [Int], to panel: PanelKind, in node: DockNode) -
 /// They must agree, or hit-test rectangles drift from what's on screen.
 let DOCK_DIVIDER_THICKNESS: CGFloat = 6
 
+/// Extra invisible hit-test margin on each side of a resize divider (see
+/// DockDivider in DockLayoutView.swift) — purely a mouse/trackpad grab-target
+/// widener, not part of the layout math above, so it's not read by
+/// dockHitTest (that's for tab-drag drop zones, a separate concern).
+let DOCK_DIVIDER_HIT_PAD: CGFloat = 4
+
 /// Which tabset is under `point` (its full tab list + selected panel — every
 /// panel appears exactly once in the tree, so either identifies it uniquely),
 /// and which drop zone of it. Mirrors SplitContainer's weight-proportional

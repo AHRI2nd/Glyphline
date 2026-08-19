@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # Builds a release .app bundle, codesigns it with Hardened Runtime, and
-# (optionally) notarizes + staples it. Run from anywhere; paths are resolved
+# (optionally) notarizes + staples it — plus a notarized+stapled .dmg, the
+# actual artifact to hand to a beta tester (see the --notarize block below
+# for why a zip isn't safe for that). Run from anywhere; paths are resolved
 # relative to this script.
 #
 # Usage:
 #   scripts/release.sh                       # build + sign only
-#   scripts/release.sh --notarize            # build + sign + notarize + staple
+#   scripts/release.sh --notarize            # build + sign + notarize + staple + .dmg
 #   scripts/release.sh --version=0.2.0       # also stamp CFBundleShortVersionString/
 #                                             # CFBundleVersion in the built .app
 #                                             # (Sparkle compares exactly these two
@@ -136,6 +138,47 @@ if [ "$DO_NOTARIZE" = true ]; then
 
     echo "==> Final Gatekeeper assessment"
     spctl --assess --type execute --verbose "$APP_DIR"
+
+    # A zip handed to a beta tester is fragile in a way nothing above warns
+    # about: `unzip` (as opposed to Finder/Archive Utility, or `ditto -x -k`)
+    # extracts macOS's AppleDouble resource-fork sidecar files (._Autoupdate,
+    # ._Downloader, …) as literal files INSIDE the embedded framework, which
+    # codesign then rejects as "unsealed contents present in the root
+    # directory of an embedded framework" — reproduced locally with plain
+    # `unzip` after a real tester hit exactly this ("손상되었기 때문에 열
+    # 수 없습니다"). A DMG sidesteps the whole class of bug: it's
+    # mounted as a real filesystem, so there's no lossy archive-format
+    # round-trip for resource forks/symlinks to survive in the first place.
+    DMG_PATH="$ROOT_DIR/.build/Glyphline-release.dmg"
+    echo "==> Building disk image"
+    rm -f "$DMG_PATH"
+    DMG_STAGING="$ROOT_DIR/.build/dmg-staging"
+    rm -rf "$DMG_STAGING"
+    mkdir -p "$DMG_STAGING"
+    cp -R "$APP_DIR" "$DMG_STAGING/Glyphline.app"
+    ln -s /Applications "$DMG_STAGING/Applications"
+    hdiutil create -volname "Glyphline" -srcfolder "$DMG_STAGING" -ov -format UDZO "$DMG_PATH"
+    rm -rf "$DMG_STAGING"
+
+    # hdiutil's own output is unsigned — notarization accepts that fine (it
+    # only cares that the .app inside is properly signed, already true), but
+    # an unsigned dmg fails spctl's OWN check of the container when Finder
+    # mounts it (`spctl -t open` looks for the dmg's own signature, separate
+    # from the stapled ticket) — codesign works directly on a dmg file same
+    # as any other Mach-O/bundle target.
+    echo "==> Codesigning disk image"
+    codesign --force --sign "$SIGN_IDENTITY" "$DMG_PATH"
+
+    echo "==> Submitting disk image to Apple notary service"
+    xcrun notarytool submit "$DMG_PATH" --keychain-profile "$NOTARY_PROFILE" --wait
+
+    echo "==> Stapling notarization ticket to disk image"
+    xcrun stapler staple "$DMG_PATH"
+
+    echo "==> Disk image Gatekeeper assessment"
+    spctl -a -t open --context context:primary-signature --verbose "$DMG_PATH"
+
+    echo "==> Disk image ready: $DMG_PATH"
 fi
 
 echo "==> Done: $APP_DIR"

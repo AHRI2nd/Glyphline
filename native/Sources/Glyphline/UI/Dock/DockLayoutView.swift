@@ -104,52 +104,74 @@ struct SplitContainer: View {
             .transition(.opacity.combined(with: .scale(scale: 0.94)))
 
             if i < children.count - 1 {
-                DividerHandle(axis: axis)
-                    .frame(
-                        width: axis == .horizontal ? DOCK_DIVIDER_THICKNESS : nil,
-                        height: axis == .vertical ? DOCK_DIVIDER_THICKNESS : nil
-                    )
-                    .gesture(
-                        // Translation MUST be measured in the stable dock space,
-                        // not .local: the divider itself moves as weights change,
-                        // so a .local translation loses exactly the distance the
-                        // divider traveled — settling at cursorΔ/2 (the divider
-                        // visibly lagging the cursor at half speed).
-                        DragGesture(minimumDistance: 0, coordinateSpace: .named(DOCK_COORDINATE_SPACE))
-                            .onChanged { value in
-                                if dragStartWeights == nil { dragStartWeights = weights }
-                                guard let start = dragStartWeights, i + 1 < start.count else { return }
-                                let delta = axis == .horizontal ? value.translation.width : value.translation.height
-                                let deltaFrac = Double(delta / available)
-                                var next = start
-                                let pairTotal = start[i] + start[i + 1]
-                                next[i] = min(max(0.08, start[i] + deltaFrac), pairTotal - 0.08)
-                                next[i + 1] = pairTotal - next[i]
-                                onWeightsChange(path, next)
-                            }
-                            .onEnded { _ in dragStartWeights = nil }
-                    )
+                let drag = DragGesture(minimumDistance: 0, coordinateSpace: .named(DOCK_COORDINATE_SPACE))
+                    // Translation MUST be measured in the stable dock space,
+                    // not .local: the divider itself moves as weights change,
+                    // so a .local translation loses exactly the distance the
+                    // divider traveled — settling at cursorΔ/2 (the divider
+                    // visibly lagging the cursor at half speed).
+                    .onChanged { value in
+                        if dragStartWeights == nil { dragStartWeights = weights }
+                        guard let start = dragStartWeights, i + 1 < start.count else { return }
+                        let delta = axis == .horizontal ? value.translation.width : value.translation.height
+                        let deltaFrac = Double(delta / available)
+                        var next = start
+                        let pairTotal = start[i] + start[i + 1]
+                        next[i] = min(max(0.08, start[i] + deltaFrac), pairTotal - 0.08)
+                        next[i + 1] = pairTotal - next[i]
+                        onWeightsChange(path, next)
+                    }
+                    .onEnded { _ in dragStartWeights = nil }
+
+                DockDivider(axis: axis, drag: drag)
             }
         }
     }
 }
 
-private struct DividerHandle: View {
+/// The visible/layout-contributing strip stays exactly DOCK_DIVIDER_THICKNESS
+/// (dockHitTest's tab-drag math depends on that staying in lockstep with what
+/// SplitContainer lays out) — but 6pt alone is a thin target to actually land
+/// a mouse/trackpad drag on, and a top-bottom split sits right up against
+/// whatever native AppKit view (the grid's NSTableView, the waveform's
+/// NSScrollView) is directly above/below it, which can end up owning the
+/// pointer if the drag doesn't start precisely on that strip. Hover, cursor,
+/// AND the drag gesture all live on one invisible overlay several points
+/// wider on each side than the visible line — same trick every pro app's
+/// splitters use (thin visual line, fatter grab area) — layered on top of,
+/// not split across, the visible Rectangle: driving them from two separate
+/// onHover handlers (one on the thin strip, one on the wider overlay) would
+/// double up NSCursor's push/pop stack the moment the pointer crosses from
+/// the wide area into the thin one.
+private struct DockDivider<DragGestureType: Gesture>: View {
     let axis: SplitAxis
+    let drag: DragGestureType
     @State private var hovering = false
 
     var body: some View {
         Rectangle()
             .fill(hovering ? GlyphColor.accent.opacity(0.6) : GlyphColor.border)
             .animation(.easeOut(duration: 0.12), value: hovering)
-            .contentShape(Rectangle())
-            .onHover { inside in
-                hovering = inside
-                if inside {
-                    (axis == .horizontal ? NSCursor.resizeLeftRight : NSCursor.resizeUpDown).push()
-                } else {
-                    NSCursor.pop()
-                }
-            }
+            .frame(
+                width: axis == .horizontal ? DOCK_DIVIDER_THICKNESS : nil,
+                height: axis == .vertical ? DOCK_DIVIDER_THICKNESS : nil
+            )
+            .overlay(
+                Color.clear
+                    .contentShape(Rectangle())
+                    .frame(
+                        width: axis == .horizontal ? DOCK_DIVIDER_THICKNESS + DOCK_DIVIDER_HIT_PAD * 2 : nil,
+                        height: axis == .vertical ? DOCK_DIVIDER_THICKNESS + DOCK_DIVIDER_HIT_PAD * 2 : nil
+                    )
+                    .onHover { inside in
+                        hovering = inside
+                        if inside {
+                            (axis == .horizontal ? NSCursor.resizeLeftRight : NSCursor.resizeUpDown).push()
+                        } else {
+                            NSCursor.pop()
+                        }
+                    }
+                    .gesture(drag)
+            )
     }
 }
