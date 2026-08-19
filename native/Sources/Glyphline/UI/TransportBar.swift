@@ -89,6 +89,14 @@ struct TransportBar: View {
 private struct Scrubber: View {
     let media: MediaModel
     @State private var dragFraction: Double?
+    /// Throttles the actual mpv seek, not the visible thumb — `dragFraction`
+    /// still updates on every DragGesture callback (SwiftUI can deliver far
+    /// more of those per second than mpv wants absolute-seek commands), so
+    /// the bar itself tracks the pointer 1:1 while the video only re-seeks a
+    /// bounded number of times per second instead of flooding mpv with a
+    /// decode-and-display per pixel of mouse movement.
+    @State private var lastSeekAt: Date?
+    private let seekInterval: TimeInterval = 0.05
 
     var body: some View {
         GeometryReader { geo in
@@ -105,9 +113,23 @@ private struct Scrubber: View {
                         guard media.duration > 0 else { return }
                         let f = max(0, min(1, value.location.x / geo.size.width))
                         dragFraction = f
+                        let now = Date()
+                        guard lastSeekAt == nil || now.timeIntervalSince(lastSeekAt!) >= seekInterval else { return }
+                        lastSeekAt = now
                         media.seek(f * media.duration)
                     }
-                    .onEnded { _ in dragFraction = nil }
+                    .onEnded { value in
+                        // The throttle above can skip the very last onChanged
+                        // before release, which would otherwise leave
+                        // playback short of wherever the pointer actually let
+                        // go — always land exactly there.
+                        if media.duration > 0 {
+                            let f = max(0, min(1, value.location.x / geo.size.width))
+                            media.seek(f * media.duration)
+                        }
+                        dragFraction = nil
+                        lastSeekAt = nil
+                    }
             )
         }
         .frame(height: 12)
