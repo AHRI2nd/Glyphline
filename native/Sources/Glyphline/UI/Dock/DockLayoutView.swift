@@ -63,12 +63,10 @@ struct SplitContainer: View {
             let total = axis == .horizontal ? geo.size.width : geo.size.height
             let available = max(1, total - DOCK_DIVIDER_THICKNESS * CGFloat(max(0, children.count - 1)))
 
-            Group {
-                if axis == .horizontal {
-                    HStack(spacing: 0) { row(available: available) }
-                } else {
-                    VStack(spacing: 0) { row(available: available) }
-                }
+            // A custom Layout, not HStack/VStack — see DockRowLayout's own
+            // comment for why plain Stacks aren't safe to use here.
+            DockRowLayout(axis: axis, sizes: rowItems.map { $0.size(available: available, weights: weights) }) {
+                row(available: available)
             }
         }
     }
@@ -88,22 +86,48 @@ struct SplitContainer: View {
         children.enumerated().map { IdentifiedChild(id: dockNodeID($1), index: $0, node: $1) }
     }
 
+    /// A flat, one-view-per-row list (panel, divider, panel, divider, panel…).
+    private enum RowItem: Identifiable {
+        case panel(IdentifiedChild)
+        case divider(afterIndex: Int)
+        var id: String {
+            switch self {
+            case .panel(let entry): return entry.id
+            case .divider(let i): return "divider-\(i)"
+            }
+        }
+        func size(available: CGFloat, weights: [Double]) -> CGFloat {
+            switch self {
+            case .panel(let entry): return available * CGFloat(weights[entry.index])
+            case .divider: return DOCK_DIVIDER_THICKNESS
+            }
+        }
+    }
+
+    private var rowItems: [RowItem] {
+        var items: [RowItem] = []
+        for entry in identifiedChildren {
+            items.append(.panel(entry))
+            if entry.index < children.count - 1 {
+                items.append(.divider(afterIndex: entry.index))
+            }
+        }
+        return items
+    }
+
     @ViewBuilder
     private func row(available: CGFloat) -> some View {
-        ForEach(identifiedChildren) { entry in
-            let i = entry.index
-            DockLayoutView(
-                node: entry.node, path: path + [i], dragState: dragState,
-                content: content, badge: badge, onSelect: onSelect, onWeightsChange: onWeightsChange,
-                onTabDragChanged: onTabDragChanged, onTabDragEnded: onTabDragEnded
-            )
-            .frame(
-                width: axis == .horizontal ? available * CGFloat(weights[i]) : nil,
-                height: axis == .vertical ? available * CGFloat(weights[i]) : nil
-            )
-            .transition(.opacity.combined(with: .scale(scale: 0.94)))
-
-            if i < children.count - 1 {
+        ForEach(rowItems) { item in
+            switch item {
+            case .panel(let entry):
+                let i = entry.index
+                DockLayoutView(
+                    node: entry.node, path: path + [i], dragState: dragState,
+                    content: content, badge: badge, onSelect: onSelect, onWeightsChange: onWeightsChange,
+                    onTabDragChanged: onTabDragChanged, onTabDragEnded: onTabDragEnded
+                )
+                .transition(.opacity.combined(with: .scale(scale: 0.94)))
+            case .divider(let i):
                 let drag = DragGesture(minimumDistance: 0, coordinateSpace: .named(DOCK_COORDINATE_SPACE))
                     // Translation MUST be measured in the stable dock space,
                     // not .local: the divider itself moves as weights change,
@@ -122,9 +146,54 @@ struct SplitContainer: View {
                         onWeightsChange(path, next)
                     }
                     .onEnded { _ in dragStartWeights = nil }
-
                 DockDivider(axis: axis, drag: drag)
             }
+        }
+    }
+}
+
+/// Places children edge-to-edge along `axis` at EXACT sizes (`sizes`, same
+/// order as the content builder's views) — no HStack/VStack involved.
+///
+/// Why: HStack/VStack turned out not to be safe here. Root-caused to a real
+/// SwiftUI bug (not our math) by reproducing a live bug report's exact
+/// nested dock layout (video/waveform one level inside a horizontal split)
+/// and pixel-sampling the actual rendered window at each step of isolating
+/// it: a `.frame(height:)`-pinned VStack child sometimes silently ignored
+/// its own pin and expanded to fill, hiding every sibling after it —
+/// reproducible only through a properly BUNDLED app (a real Info.plist,
+/// real Sparkle feed config; a bare `swift run`/unbundled debug binary
+/// never showed it, and resizing the window afterward did not self-correct
+/// it either, so it isn't a one-time launch race that settles out). Rather
+/// than depend on exactly which `Color`-vs-`Rectangle`, which position, or
+/// which bundle context avoids it — none of which SwiftUI documents or
+/// guarantees — this sidesteps the negotiation entirely: every child's
+/// placement proposal is the exact pixel size DockLayoutView already
+/// computed, the same way `dockHitTest` in DockModel.swift computes its
+/// mirror geometry. Layout protocol has been available since macOS 13;
+/// this app targets 26.
+private struct DockRowLayout: Layout {
+    let axis: SplitAxis
+    /// Parallel to the content builder's views, one exact main-axis size
+    /// per subview — the SAME weight-proportional/DOCK_DIVIDER_THICKNESS
+    /// math SplitContainer.body always used, just applied here instead of
+    /// via `.frame()`.
+    let sizes: [CGFloat]
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        CGSize(width: proposal.width ?? 0, height: proposal.height ?? 0)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var offset: CGFloat = axis == .horizontal ? bounds.minX : bounds.minY
+        for (i, subview) in subviews.enumerated() {
+            let size = i < sizes.count ? sizes[i] : 0
+            let point = axis == .horizontal ? CGPoint(x: offset, y: bounds.minY) : CGPoint(x: bounds.minX, y: offset)
+            let subProposal = axis == .horizontal
+                ? ProposedViewSize(width: size, height: bounds.height)
+                : ProposedViewSize(width: bounds.width, height: size)
+            subview.place(at: point, anchor: .topLeading, proposal: subProposal)
+            offset += size
         }
     }
 }
@@ -135,14 +204,10 @@ struct SplitContainer: View {
 /// a mouse/trackpad drag on, and a top-bottom split sits right up against
 /// whatever native AppKit view (the grid's NSTableView, the waveform's
 /// NSScrollView) is directly above/below it, which can end up owning the
-/// pointer if the drag doesn't start precisely on that strip. Hover, cursor,
-/// AND the drag gesture all live on one invisible overlay several points
-/// wider on each side than the visible line — same trick every pro app's
-/// splitters use (thin visual line, fatter grab area) — layered on top of,
-/// not split across, the visible Rectangle: driving them from two separate
-/// onHover handlers (one on the thin strip, one on the wider overlay) would
-/// double up NSCursor's push/pop stack the moment the pointer crosses from
-/// the wide area into the thin one.
+/// pointer if the drag doesn't start precisely on that strip. `inset(by:
+/// -pad)` on the divider's own contentShape widens the hit area without a
+/// second view carrying its own frame/proposal (see row()'s comment above
+/// for why that mattered here specifically).
 private struct DockDivider<DragGestureType: Gesture>: View {
     let axis: SplitAxis
     let drag: DragGestureType
@@ -156,22 +221,15 @@ private struct DockDivider<DragGestureType: Gesture>: View {
                 width: axis == .horizontal ? DOCK_DIVIDER_THICKNESS : nil,
                 height: axis == .vertical ? DOCK_DIVIDER_THICKNESS : nil
             )
-            .overlay(
-                Color.clear
-                    .contentShape(Rectangle())
-                    .frame(
-                        width: axis == .horizontal ? DOCK_DIVIDER_THICKNESS + DOCK_DIVIDER_HIT_PAD * 2 : nil,
-                        height: axis == .vertical ? DOCK_DIVIDER_THICKNESS + DOCK_DIVIDER_HIT_PAD * 2 : nil
-                    )
-                    .onHover { inside in
-                        hovering = inside
-                        if inside {
-                            (axis == .horizontal ? NSCursor.resizeLeftRight : NSCursor.resizeUpDown).push()
-                        } else {
-                            NSCursor.pop()
-                        }
-                    }
-                    .gesture(drag)
-            )
+            .contentShape(Rectangle().inset(by: -DOCK_DIVIDER_HIT_PAD))
+            .onHover { inside in
+                hovering = inside
+                if inside {
+                    (axis == .horizontal ? NSCursor.resizeLeftRight : NSCursor.resizeUpDown).push()
+                } else {
+                    NSCursor.pop()
+                }
+            }
+            .gesture(drag)
     }
 }
