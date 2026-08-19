@@ -45,6 +45,11 @@ struct TabsetView: View {
                 TabChip(panel: panel, isSelected: panel == selected, count: badge(panel))
                     .opacity(dragState.draggingPanel == panel ? 0.35 : 1)
                     .animation(.easeOut(duration: 0.1), value: dragState.draggingPanel == panel)
+                    // .video can't be torn off by dragging past the window
+                    // edge like every other tab (see DockTearOff.swift) — say
+                    // so up front on hover, before the user even starts a
+                    // drag that will just silently snap back.
+                    .help(panel == .video ? t("videoTabNoTearOff") : "")
                     .onTapGesture { onSelect(panel) }
                     .gesture(
                         DragGesture(minimumDistance: 4, coordinateSpace: .named(DOCK_COORDINATE_SPACE))

@@ -536,6 +536,7 @@
 
 "tornOffWindowTitle" = "パネル";
 "dragToMerge" = "メインウィンドウにドラッグすると再ドッキングされます";
+"videoTabNoTearOff" = "映像タブはドラッグで切り離せません — 表示 ▸ 映像ウィンドウを分離 を使ってください";
 
 "deliveryPipeline" = "納品パッケージ作成";
 "deliveryPipelineRun" = "実行";

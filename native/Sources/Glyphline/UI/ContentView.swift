@@ -56,6 +56,17 @@ struct ContentView: View {
                             } else {
                                 state.dockDragState.update(panel: panel, cursor: location, hit: resolved)
                             }
+                            // .video can't be torn off past the window edge
+                            // (see DockTearOff.swift) — every other tab shows
+                            // an inviting closedHand cursor there, but video
+                            // would just silently snap back on release with
+                            // no explanation. Swap to the standard macOS
+                            // "not allowed" cursor the instant it crosses the
+                            // edge, so the drag itself signals why.
+                            if panel == .video {
+                                let blocked = !state.isPointInsideMainWindow(NSEvent.mouseLocation)
+                                (blocked ? NSCursor.operationNotAllowed : NSCursor.closedHand).set()
+                            }
                         },
                         onTabDragEnded: { panel, location in
                             // Commit exactly what the last onChanged previewed. Do NOT

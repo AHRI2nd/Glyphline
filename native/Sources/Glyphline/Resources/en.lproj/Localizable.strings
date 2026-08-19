@@ -536,6 +536,7 @@
 
 "tornOffWindowTitle" = "Panel";
 "dragToMerge" = "Drag back onto the main window to re-dock";
+"videoTabNoTearOff" = "The video tab can't be torn off by dragging — use View ▸ Detach Video Window";
 
 "deliveryPipeline" = "Generate Delivery Package";
 "deliveryPipelineRun" = "Run";

@@ -536,6 +536,7 @@
 
 "tornOffWindowTitle" = "패널";
 "dragToMerge" = "메인 창으로 드래그하면 다시 도킹됩니다";
+"videoTabNoTearOff" = "영상 탭은 드래그로 뗄 수 없습니다 — 보기 ▸ 영상 창 분리를 사용하세요";
 
 "deliveryPipeline" = "납품 패키지 생성";
 "deliveryPipelineRun" = "실행";
