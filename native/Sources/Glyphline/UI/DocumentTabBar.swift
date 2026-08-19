@@ -10,10 +10,15 @@ struct DocumentTabBar: View {
     let state: AppState
 
     var body: some View {
-        // A single tab is the common case (most sessions open one file) —
-        // showing a one-item strip permanently would just be chrome nobody
-        // asked for, so it only appears once there's something to switch
-        // between.
+        // A single-item CHIP strip (nothing to switch between, a close
+        // button that would just close your only tab) really is chrome
+        // nobody asked for, so that part still only appears once there's
+        // something to switch between. But the "+" button is the one and
+        // only way to REACH a second tab in the first place — hiding it
+        // exactly when you have 1 tab (the moment you'd most want it) meant
+        // the only discoverable path to multi-tab was File ▸ New/Open, with
+        // this button invisible until you already had 2+ tabs some other
+        // way.
         if state.tabs.count > 1 {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 1) {
@@ -26,18 +31,30 @@ struct DocumentTabBar: View {
                             onClose: { state.closeTab(tab.id) }
                         )
                     }
-                    Button(action: { state.openNewTab() }) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(GlyphColor.quiet)
-                            .frame(width: 28, height: 24)
-                    }
-                    .buttonStyle(.plain)
+                    newTabButton
                 }
             }
             .background(GlyphColor.surface)
             .overlay(Rectangle().frame(height: 0.5).foregroundStyle(GlyphColor.border), alignment: .bottom)
+        } else {
+            HStack(spacing: 1) {
+                newTabButton
+                Spacer(minLength: 0)
+            }
+            .background(GlyphColor.surface)
+            .overlay(Rectangle().frame(height: 0.5).foregroundStyle(GlyphColor.border), alignment: .bottom)
         }
+    }
+
+    private var newTabButton: some View {
+        Button(action: { state.openNewTab() }) {
+            Image(systemName: "plus")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(GlyphColor.quiet)
+                .frame(width: 28, height: 24)
+        }
+        .buttonStyle(.plain)
+        .help(t("newTab"))
     }
 
     private func displayName(_ tab: DocumentTab) -> String {

@@ -500,6 +500,7 @@
 "fontCollectorNotFound" = "システムに見つかりません: %@";
 
 "closeTab" = "タブを閉じる";
+"newTab" = "新規タブ";
 "nextTab" = "次のタブ";
 "previousTab" = "前のタブ";
 "closeTabUnsavedMessage" = "「%@」に保存されていない変更があります。保存せずに閉じると変更内容は失われます。";

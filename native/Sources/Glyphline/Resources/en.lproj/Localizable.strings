@@ -500,6 +500,7 @@
 "fontCollectorNotFound" = "Not found on this system: %@";
 
 "closeTab" = "Close Tab";
+"newTab" = "New Tab";
 "nextTab" = "Next Tab";
 "previousTab" = "Previous Tab";
 "closeTabUnsavedMessage" = "\"%@\" has unsaved changes. If you close it without saving, they will be lost.";

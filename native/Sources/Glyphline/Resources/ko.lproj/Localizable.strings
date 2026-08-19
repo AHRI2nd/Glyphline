@@ -500,6 +500,7 @@
 "fontCollectorNotFound" = "시스템에서 찾지 못함: %@";
 
 "closeTab" = "탭 닫기";
+"newTab" = "새 탭";
 "nextTab" = "다음 탭";
 "previousTab" = "이전 탭";
 "closeTabUnsavedMessage" = "\"%@\"에 저장하지 않은 변경 사항이 있습니다. 저장하지 않고 닫으면 변경 내용이 사라집니다.";
