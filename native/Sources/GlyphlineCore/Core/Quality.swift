@@ -94,3 +94,18 @@ public func hasAnyIssue(_ q: CueQuality) -> Bool {
     q.negativeDuration || q.durationTooShort || q.durationTooLong
         || q.cpsTooHigh || q.overlapsPrev || q.lineTooLong || q.tooManyLines || q.crossesCut
 }
+
+/// How many cues have at least one flagged issue — the same per-cue pass
+/// QualityIssuesPanel's own issue list already does (see its `issues`
+/// computed property), factored out so a tab badge elsewhere in the app can
+/// show the same number without duplicating the sorted-pairwise-evaluate
+/// loop by hand.
+public func countQualityIssues(
+    _ cues: [Cue], thresholds: QualityThresholds = DEFAULT_THRESHOLDS, sceneCuts: [Double] = []
+) -> Int {
+    let sorted = sortedCues(cues)
+    return sorted.indices.reduce(0) { count, i in
+        let q = evaluateCue(sorted[i], prev: i > 0 ? sorted[i - 1] : nil, thresholds: thresholds, sceneCuts: sceneCuts)
+        return count + (hasAnyIssue(q) ? 1 : 0)
+    }
+}

@@ -32,7 +32,20 @@ struct ContentView: View {
                         node: state.settings.dockLayout,
                         dragState: state.dockDragState,
                         content: { dockPanelContent($0, state: state, dismissWindow: dismissWindow) },
-                        badge: { $0 == .subtitles ? state.document.doc.cues.count : nil },
+                        badge: { panel in
+                            switch panel {
+                            case .subtitles: return state.document.doc.cues.count
+                            // Every other tab with a count (this one) shows it
+                            // in its badge too — Quality Issues was the one
+                            // exception, silent about how many cues needed
+                            // attention until you actually clicked into it.
+                            case .qualityIssues:
+                                let count = countQualityIssues(
+                                    state.document.doc.cues, thresholds: state.settings.quality, sceneCuts: state.media.sceneCuts)
+                                return count > 0 ? count : nil
+                            default: return nil
+                            }
+                        },
                         onSelect: { panel, path in
                             withAnimation(.easeOut(duration: 0.15)) {
                                 state.settings.selectDockTab(panel, tabsetPath: path)
