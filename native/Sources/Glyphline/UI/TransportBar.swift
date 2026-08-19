@@ -14,12 +14,17 @@ struct TransportBar: View {
             Scrubber(media: media)
 
             HStack(spacing: 10) {
+                // ±1s had a Playback-menu shortcut (⌘←/→) but no toolbar
+                // button — every other transport action was one click away
+                // except this one, only reachable by memorizing a shortcut.
                 IconButton(system: "gobackward.5", label: t("skipBack5")) { media.skip(-5) }
+                IconButton(system: "gobackward", label: t("skipBack1")) { media.skip(-1) }
                 IconButton(system: "chevron.left", label: t("frameBack")) { media.frameStep(forward: false) }
                 // No Space accelerator here — it would block typing spaces in cue
                 // text (matches Transport.tsx; play/pause is menu-only, ⌘K).
                 IconButton(system: media.isPlaying ? "pause.fill" : "play.fill", label: t("playPause")) { media.togglePlay() }
                 IconButton(system: "chevron.right", label: t("frameForward")) { media.frameStep(forward: true) }
+                IconButton(system: "goforward", label: t("skipFwd1")) { media.skip(1) }
                 IconButton(system: "goforward.5", label: t("skipFwd5")) { media.skip(5) }
                 // toggleLoopActiveCue() silently did nothing when clicked
                 // with no active cue and no loop already running (the guard
