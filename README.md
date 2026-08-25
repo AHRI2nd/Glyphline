@@ -1,10 +1,12 @@
 # Glyphline
 
+> ⚠️ **Development is currently paused.** This project is not being actively worked on right now. The code here reflects its state as of the last commit.
+
 A professional, native macOS subtitle editor — built with Swift, SwiftUI, and libmpv.
 
 Glyphline pairs a frame-accurate video/waveform workspace with a full editing, quality-assurance, and delivery toolchain: multi-format import/export, ASS-level styling, timing tools, batch conversion, and a one-click pipeline for producing client-ready delivery packages. It targets macOS specifically rather than aiming for cross-platform reach — see [Why native, why macOS-only](#why-native-why-macos-only) below.
 
-> **Status:** actively developed, no stable release yet. The app is unsigned/unnotarized outside of a maintainer's own local build (see [Building](#building)).
+> **Status:** paused, no stable release yet. The app is unsigned/unnotarized outside of a maintainer's own local build (see [Building](#building)).
 
 ---
 
