@@ -18,6 +18,8 @@ struct HelpPanel: View {
             ("O", t("scTimingOut")),
             ("P", t("scTimingChain")),
             ("⌘K", t("playPause")),
+            ("⌘[", t("frameBack")), ("⌘]", t("frameForward")),
+            ("⌘L", t("loopActiveCue")),
             ("← →", t("scNudgeCue")),
             ("⌥← ⌥→", t("scNudgeStart")),
             ("⌥⇧← ⌥⇧→", t("scNudgeEnd")),
