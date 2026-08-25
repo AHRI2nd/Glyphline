@@ -142,7 +142,7 @@ final class MPVSurfaceView: NSOpenGLView, MediaEngineControlling {
 
     private func createRenderContext() {
         guard let handle = mpv, renderCtx == nil else { return }
-        var apiType = strdup("opengl")!
+        let apiType = strdup("opengl")!
         defer { free(apiType) }
         var glParams = mpv_opengl_init_params(get_proc_address: glGetProcAddress, get_proc_address_ctx: nil)
         withUnsafeMutablePointer(to: &glParams) { glp in
